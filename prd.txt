@@ -1,0 +1,84 @@
+we have to develop a shop management system (erp) which will cover the entire lifecycle of a tanzanian general retail shop (duka),
+modelled on the pharmacy management system and sharing its design.
+in mind we should take into consideration
+1. a firm with more than one branch whereas each branch is a standalone entity
+2. a firm with multiple branches with one branch acting as a main store/supplier to others after receiving enquiries and payments from others
+NB. in the first type, the branches can request for products from the chat/enquire option whereby the other branches can see the enquiry and the ones capable can choose to help or not
+payments: cash and mobile money/bank transfers (recorded with the transaction reference) are acceptable for now.
+NB. integrated bank and mobile money transfer is not going to be integrated for now but the architecture is to be built in such a way to accept the future enhancements
+as for notifications, for now whatsapp integration is not yet complete so the architecture is going to be built in such away it shall accept future intergration
+but since the sms and email can be done. they are going to be set up now.
+the information that is to be covered in the notification include:
+1. the day's sales
+2. the day's purchases
+the above details are to be made daily.
+
+what is different from the pharmacy system:
+- no generic drugs, prescriptions, controlled substances or insurance claims
+- products are grouped by category and carry a brand, a size and a barcode
+- only perishable products (food, drinks, cosmetics) track expiry; other goods have no expiry date and need no batch number
+- sales on credit to registered customers (madeni), with a credit limit per customer, repayments and a statement
+- barcode scanning at the till and when receiving
+- discounts per item and per sale, with a cashier limit above which a manager approves, and time-limited promotional prices
+
+the features of the system will include the following:
+A. if there is a main store, then it should.
+1. show nearly stocked out items
+2. show stocked out items
+3. show expired items (perishables)
+4. show nearly expired items (perishables)
+5. display a list of all items(stock), number available, number expired, number eligible, number of batches. enable view or add batches, view the item in other branches
+6. enable printing the items as specified
+7. receiving new items.
+-- on the receiving invoice, select the supplier from dropdown
+-- enter invoice number
+-- select the receiving date
+--entry of items will be by scanning the barcode or searching, just typing letters would display the related items and they select the specific item and
+---select its unit of measure from dropdown
+--enter the order quantity
+--enter the pack price
+-- enter the batch number (optional)
+-- enter the expiry date (perishables only)
+--enter the batch quantity
+8. be able to save an invoice as draft and be able to come back to it later and complete it only after saving would it be a received(completed invoice)
+9. be able to search invoices by supplier, dates of receival, as well as being able to print the invoices
+10. on receiving a request of items from the other branches, it should be able to issue items and reject the issue of items too as requested by other branches
+
+there would be a setting option that will be present to all branches if there is no main store but if all other branches are dependent to a single main store then the settings
+would only be available to the main store
+1. enable registration of product categories by name, short name and description e.g Beverages
+2. enable registration of products by name, category, brand, size, barcode and whether they expire e.g Sugar 1kg
+3. enable registration of unit of measure by name, description and unit value or count of items e.g Crate of 24
+4. have a ledger that would show operations (deduct or add) done by actions(ledger type) i.e Transfer In, Transfer Out, Stolen, Lost, Damaged, Expired, Spoiled, Wrong Entry, Sold, Discard, Consumption, Dispose
+5. enable creation of re-order level quantity for commodities: this will be applied to all branches regardless as each branch no matter its dependency to the main store should have its own re-order level for its items
+6. enable creation of supplier by their name, description, location and contacts (email and phone)
+7. creation of price for products, for a single item as well as bigger packs (crate, dozen) and combined
+8. creation of promotions: an offer price for a product for a period, for all branches or one branch
+9. the largest discount a cashier may give without a manager
+
+other branches would also have:
+1. show nearly stocked out items
+2. show stocked out items
+3. show expired items
+4. show nearly expired items
+5. display a list of all items(stock), number available, number expired, number eligible, number of batches. enable view or add batches, view the item in other branches
+6. enable printing the items as specified
+7. receiving new items (as for the main store)
+8. be able to save an invoice as draft and be able to come back to it later and complete it only after saving would it be a received(completed invoice)
+9. be able to search invoices by supplier, dates of receival, as well as being able to print the invoices
+10. on receiving a request of items from the other branches, it should be able to issue items and reject the issue of items too as requested by other branches
+11. be able to request items from other branches by selecting a branch from the list, select the item and enter the quantity to request
+12. be able to accept or reject items requested from the other branches
+
+point of sale (all branches):
+1. scan a barcode or search to add an item; sell in the stock unit or a bigger pack with its own price
+2. give a discount on the sale; above the cashier limit a manager approves with their own login
+3. choose a registered customer and put part or all of the sale on their account, within their credit limit
+4. keep selling when the connection drops; sales are sent when it returns
+5. open and close shifts with a cash count and an end-of-shift (Z) report that includes discounts and credit repayments
+
+customers & credit (all branches):
+1. register customers by name, phone, address; a manager sets each customer's credit limit
+2. see what every customer owes and who is over their limit
+3. take repayments (cash at the till counts in the drawer, or mobile money/bank with a reference)
+4. print a customer's statement with the running balance

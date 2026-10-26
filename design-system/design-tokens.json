@@ -1,0 +1,104 @@
+{
+  "name": "Shop ERP Design System",
+  "version": 1,
+  "color": {
+    "themes": [{"id": "light", "name": "Light"}],
+    "tokens": [
+      {"name": "blue-500", "value": "#1A74EE", "usage": "Lighter decorative circles on blue panels (sidebar, login). Never for text."},
+      {"name": "blue-600", "value": "#0B5ED7", "usage": "Brand blue. Sidebar and login panel fill, links, switch 'on' track, focus outline, icon strokes on white. White text on it passes 5.9:1."},
+      {"name": "blue-650", "value": "#0E64DC", "usage": "Mid-tone decorative circle on blue panels."},
+      {"name": "blue-700", "value": "#0A5BCC", "usage": "Full-bleed background behind the login card."},
+      {"name": "navy-800", "value": "#0B3D7A", "usage": "Primary buttons, avatar, KPI numbers, active-item text on white or tint. White text on it passes 11:1."},
+      {"name": "link-hover", "value": "#083F94", "usage": "Hover state for links."},
+      {"name": "tint-blue", "value": "#E7F0FD", "usage": "Selected sub-nav item, icon tiles, 'Per store' chip, empty-state icon disc. Text on it: navy-800."},
+      {"name": "on-blue-label", "value": "#DCE8FB", "usage": "Small uppercase section labels on blue-600 (4.7:1)."},
+      {"name": "surface-page", "value": "#F3F6FB", "usage": "App page background behind cards."},
+      {"name": "surface-card", "value": "#FFFFFF", "usage": "Cards, top bar, forms, tables, active sidebar pill."},
+      {"name": "surface-input", "value": "#EEF1F5", "usage": "Filled background for inputs, selects, date fields and the store picker. No border."},
+      {"name": "surface-thead", "value": "#F6F8FB", "usage": "Table header row."},
+      {"name": "surface-subtle", "value": "#FAFBFD", "usage": "Nested rows inside a card (e.g. per-store toggles)."},
+      {"name": "ink", "value": "#1B2333", "usage": "Headings and primary text."},
+      {"name": "ink-2", "value": "#3C4555", "usage": "Body text in tables, labels, sub-nav items."},
+      {"name": "muted", "value": "#5B6472", "usage": "Descriptions, helper text, KPI captions, table header labels."},
+      {"name": "placeholder", "value": "#636C7B", "usage": "Input placeholder text on surface-input (4.6:1)."},
+      {"name": "border", "value": "#E3E8EF", "usage": "Top bar bottom edge, table row dividers, card internal dividers."},
+      {"name": "divider", "value": "#D5DAE2", "usage": "'or' divider lines, chart baselines."},
+      {"name": "outline-strong", "value": "#4A5363", "usage": "Border of neutral secondary buttons (Cancel, Sign in with PIN)."},
+      {"name": "switch-off", "value": "#C3CBD6", "usage": "Switch track when off."},
+      {"name": "success-bg", "value": "#E6F6EE", "usage": "Online pill and success banners."},
+      {"name": "success-fg", "value": "#13693F", "usage": "Text on success-bg."},
+      {"name": "success-dot", "value": "#1E9E5A", "usage": "Status dot for online / healthy."},
+      {"name": "warning-bg", "value": "#FFF6E0", "usage": "Warning banner fill (expiry, low stock)."},
+      {"name": "warning-border", "value": "#F3D58C", "usage": "Warning banner border."},
+      {"name": "warning-ink", "value": "#3D2A00", "usage": "Warning banner title."},
+      {"name": "warning-ink-2", "value": "#5C4510", "usage": "Warning banner body text."},
+      {"name": "warning-icon", "value": "#E0660F", "usage": "Filled disc behind the warning '!' icon."},
+      {"name": "orange-tint", "value": "#FDECDD", "usage": "Icon tile for alert-type KPIs (low stock)."},
+      {"name": "orange-fg", "value": "#B4500B", "usage": "Icon stroke on orange-tint."},
+      {"name": "entity-tint", "value": "#FFF1DC", "usage": "'Entity' scope chip background, to tell it apart from 'Per store'."},
+      {"name": "entity-fg", "value": "#8A4B00", "usage": "Text on entity-tint."},
+      {"name": "danger", "value": "#C62828", "usage": "Required-field asterisk, destructive text and error messages."},
+      {"name": "chart-1", "value": "#0B5ED7", "usage": "Chart series 1 (blue-600). Single-series charts use only this."},
+      {"name": "chart-2", "value": "#F59E0B", "usage": "Chart series 2, amber. Pairs with chart-1 for two-series charts (blue/orange differ in lightness)."},
+      {"name": "chart-3", "value": "#6E5BD0", "usage": "Chart series 3, purple."},
+      {"name": "chart-4", "value": "#22A45D", "usage": "Chart series 4, green."},
+      {"name": "chart-5", "value": "#E5484D", "usage": "Chart series 5, coral red. Avoid placing next to chart-4 without a gap; never use it to mean 'good'."},
+      {"name": "chart-1-fill", "value": "rgba(11, 94, 215, 0.14)", "usage": "Area fill under a chart-1 line; radar fill."},
+      {"name": "chart-3-fill", "value": "rgba(110, 91, 208, 0.16)", "usage": "Radar / area fill for chart-3."},
+      {"name": "chart-grid", "value": "#EEF1F5", "usage": "Chart gridlines (horizontal only on bar/line charts)."},
+      {"name": "chart-axis", "value": "#D5DAE2", "usage": "Chart baseline / zero axis line."},
+      {"name": "chart-tooltip", "value": "#1B2333", "usage": "Tooltip background; text white."}
+    ]
+  },
+  "type": {
+    "families": {"sans": "Poppins, system-ui, -apple-system, \"Segoe UI\", sans-serif"},
+    "groups": [
+      {"name": "Display", "family": "sans", "styles": [
+        {"name": "display", "fontSize": "44px", "lineHeight": "46px", "fontWeight": 800, "letterSpacing": "1px", "usage": "Login welcome headline only, uppercase.", "sample": "WELCOME"},
+        {"name": "kpi", "fontSize": "32px", "lineHeight": "38px", "fontWeight": 700, "usage": "Big numbers in stat cards, colored navy-800.", "sample": "TZS 184.2M"}
+      ]},
+      {"name": "Headings", "family": "sans", "styles": [
+        {"name": "page-title", "fontSize": "28px", "lineHeight": "36px", "fontWeight": 700, "usage": "One per screen (Dashboard, Reports).", "sample": "Dashboard"},
+        {"name": "section-title", "fontSize": "20px", "lineHeight": "28px", "fontWeight": 600, "usage": "Section inside a page (Suppliers, Module registry).", "sample": "Module registry"},
+        {"name": "card-title", "fontSize": "16px", "lineHeight": "24px", "fontWeight": 600, "usage": "Card, chart and report row titles.", "sample": "Daily sales summary"}
+      ]},
+      {"name": "Text", "family": "sans", "styles": [
+        {"name": "body", "fontSize": "14px", "lineHeight": "22px", "fontWeight": 400, "usage": "Default UI text, inputs, nav items.", "sample": "Overview across all stores in your entity."},
+        {"name": "small", "fontSize": "13px", "lineHeight": "20px", "fontWeight": 400, "usage": "Descriptions, table cells, captions.", "sample": "Batches nearing or past expiry, grouped by product."},
+        {"name": "label", "fontSize": "12px", "lineHeight": "16px", "fontWeight": 500, "usage": "Form field labels above inputs.", "sample": "Username or staff ID"},
+        {"name": "overline", "fontSize": "11px", "lineHeight": "16px", "fontWeight": 600, "letterSpacing": "1.2px", "usage": "Uppercase sidebar section labels and table headers.", "sample": "ADMINISTRATION"},
+        {"name": "button", "fontSize": "14px", "lineHeight": "20px", "fontWeight": 600, "usage": "Button labels.", "sample": "Save supplier"}
+      ]}
+    ]
+  },
+  "spacing": {"tokens": [
+    {"name": "space-1", "value": "4px", "usage": "Title to subtitle gap."},
+    {"name": "space-2", "value": "8px", "usage": "Icon to label inside buttons and pills."},
+    {"name": "space-3", "value": "12px", "usage": "Icon to label in nav items; small inline gaps."},
+    {"name": "space-4", "value": "16px", "usage": "Gap between form fields; minimum side gutter on phones."},
+    {"name": "space-5", "value": "20px", "usage": "Gap between cards in a grid."},
+    {"name": "space-6", "value": "24px", "usage": "Gap between page sections; card padding is 22px (rounded to this step in new work)."},
+    {"name": "space-8", "value": "32px", "usage": "Main content padding and top bar side padding."},
+    {"name": "space-14", "value": "56px", "usage": "Login card inner padding."}
+  ]},
+  "radius": {"tokens": [
+    {"name": "radius-sm", "value": "8px", "usage": "Inputs, selects, buttons."},
+    {"name": "radius-md", "value": "10px", "usage": "Nav items, sub-nav items, icon tiles."},
+    {"name": "radius-lg", "value": "16px", "usage": "Cards, tables, forms."},
+    {"name": "radius-xl", "value": "20px", "usage": "Login card."},
+    {"name": "radius-pill", "value": "999px", "usage": "Chips, status pills, switches, avatar."}
+  ]},
+  "shadow": {"tokens": [
+    {"name": "shadow-card", "value": "0 10px 30px rgba(11, 61, 122, 0.08)", "usage": "Every white card on surface-page."},
+    {"name": "shadow-button", "value": "0 8px 18px rgba(11, 61, 122, 0.25)", "usage": "Primary navy buttons only."},
+    {"name": "shadow-nav-active", "value": "0 6px 16px rgba(4, 30, 80, 0.18)", "usage": "Active white pill in the blue sidebar."},
+    {"name": "shadow-login", "value": "0 30px 60px rgba(4, 30, 80, 0.35)", "usage": "Login card floating on blue-700."}
+  ]},
+  "size": {"tokens": [
+    {"name": "control-height", "value": "48px", "usage": "Inputs and selects."},
+    {"name": "button-height", "value": "46px", "usage": "Standard buttons (50px on the login form)."},
+    {"name": "touch-min", "value": "44px", "usage": "Minimum size of any clickable target: nav items, icon buttons, switches."},
+    {"name": "topbar-height", "value": "72px", "usage": "White top bar."},
+    {"name": "sidebar-width", "value": "240px", "usage": "Blue sidebar basis; it stacks above content on phones."}
+  ]}
+}

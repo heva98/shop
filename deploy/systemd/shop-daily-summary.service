@@ -1,0 +1,11 @@
+[Unit]
+Description=Shop ERP — end-of-day summary by SMS/email
+After=network.target
+
+[Service]
+Type=oneshot
+User=shop
+Group=shop
+WorkingDirectory=/opt/shop/backend
+# Skips anyone who already got today's summary, so a re-run is safe.
+ExecStart=/opt/shop/backend/.venv/bin/python manage.py send_daily_summaries

@@ -1,0 +1,263 @@
+Tanzanian Shop ERP — Architecture Reference
+(Derived from the pharmacy ERP: same kernel, modules, sync and analytics design, with the catalog and selling adapted to general retail.)
+1. Confirmed scope & decisions
+Area	Decision
+Firm topology	Configurable per entity, not fixed. Entity.main_store_id nullable — null = peer mode, set = hub mode. Starts null (each store independent); can be switched to hub mode once the entity has multiple stores.
+Peer-mode fulfillment	Broadcast enquiry, any capable store opts in. Transfer, mode = peer — no payment, no fiscal receipt.
+Hub-mode fulfillment	Targeted enquiry to main store. Transfer, mode = hub — branch pays main store, both sides ledger it, but no EFD/fiscal receipt required — it's an internal movement between stores of the same entity, not a sale to an external purchaser.
+Customer credit (madeni)	In scope. Part or all of a sale can go on a registered customer's account, within a credit limit set by a manager; repayments are taken at the till or in the back office. The balance is always computed (credit sales − payments), never stored.
+Discounts & promotions	In scope. Line and whole-sale discounts, capped by an entity-wide cashier limit (%) above which a manager approves; time-limited promotional prices per product, firm-wide or per store.
+Barcodes	First-class: products carry a barcode; the till and receiving both accept a scanner (scan + Enter).
+Expiry	Per product (tracks_expiry). Perishables get FEFO and expiry views; other goods have batches without expiry or batch numbers.
+Payments	Cash only, functional now. Mobile money and bank transfer behind a PaymentMethod interface, not implemented yet.
+Fiscal receipting	EFD device driver now, behind a FiscalDevice interface. VFD API is a future second implementation of the same interface.
+Notifications	SMS + Email active now. Daily sales + daily purchases summary. WhatsApp behind a NotificationChannel interface, not implemented yet. Notifications are cloud-side only, fired once a store's day's data has synced — never computed from local/offline state.
+Connectivity	No store expected to be offline for a full day — gaps are intra-day. Each store's till is a single local-first node (single till per store, no in-store LAN sync needed). Sync is store ↔ cloud only.
+Configurability	Plug-and-play modules. Enabling/disabling a feature should require no or minimal new code — a config toggle, not a code change.
+2. Module architecture
+Design principle
+A small, stable kernel that every deployment always has, and everything else built as modules that attach to the kernel through fixed interfaces. Adding a capability (a new payment method, a new notification channel, a new fiscal device standard) means adding a new module that implements an existing interface — not modifying existing code.
+
+Kernel (always present, never toggled)
+Entity / Store / User / Role
+Product shell — id, category, barcode, core identity fields
+Stock Ledger — append-only movement log, every other module writes to it, nothing mutates stock counts directly
+Sync Engine — outbox pattern, store ↔ cloud (see §4)
+Module Registry — table of installed modules + per-entity / per-store enable flags; drives both backend request handling and frontend menu/dashboard rendering
+Module manifest shape
+Each module declares:
+
+requires: which kernel interfaces/tables it reads or writes
+scope: entity (one flag for the whole firm) or store (toggle per store)
+provides: what it exposes — UI menu entries, dashboard widgets, POS actions, API endpoints
+implements (optional): which pluggable interface it fulfills, if any (FiscalDevice, PaymentMethod, NotificationChannel, FulfillmentStrategy)
+Confirmed module list
+Module	Scope	Notes
+Product Categories	entity	Category → Product grouping (Beverages, Toiletries, ...)
+Unit of Measure	entity	Name, description, unit value/count for conversions
+Combined/Bundle Pricing	entity	Optional — some deployments may not need it
+Promotions	entity	Time-limited offer prices; a store's own promotion wins over a firm-wide one
+Per-store Reorder Levels	store	Independent even under hub mode
+Batch/Expiry Tracking	kernel-adjacent	FEFO logic, near-expiry / expired views — only for products that track expiry
+Receiving Invoice	store	Draft → Received state machine (see §3)
+Enquiry — Broadcast	entity	Active only when main_store_id is null
+Enquiry — Hub	entity	Active only when main_store_id is set
+Transfer	entity	Single object for all inter-store movement — peer (unpaid) and hub (paid, no EFD) both resolved via mode, stamped from entity topology at creation
+POS Sale	store	Walk-in sale to external customers only, with discounts
+Customer Credit	store	Credit sales and repayments; toggle off for a branch that sells for cash only
+EFD Driver	store	Implements FiscalDevice
+VFD Driver	store	Future second FiscalDevice implementation
+Cash Payment	entity	Implements PaymentMethod, active now
+Mobile Money Payment	entity	Future PaymentMethod implementation
+Bank Transfer Payment	entity	Future PaymentMethod implementation
+SMS Notifier	entity	Implements NotificationChannel, cloud-side
+Email Notifier	entity	Implements NotificationChannel, cloud-side
+WhatsApp Notifier	entity	Future NotificationChannel implementation
+Analytics & Dashboards	entity	Fact table + dimension engine; both dev-authored fixed reports and ad-hoc user analysis run on the same engine (see §6)
+Settings visibility rule
+main_store_id is null → settings module editable at every store. main_store_id set → settings module editable only where store.id == entity.main_store_id. This is a single conditional in the Module Registry's permission check, not a separate settings system per mode.
+
+3. Core data model
+Entity
+ ├── id
+ ├── name, TIN
+ └── main_store_id (nullable FK → Store)   -- topology switch
+
+Store
+ ├── id (client-generated UUID)
+ ├── entity_id
+ ├── name, TIN, address
+ ├── efd_device_id
+ └── is_main  (derived: id == entity.main_store_id)
+
+Category
+ ├── id, name, short_name, description
+
+Product   -- entity-wide master
+ ├── id (UUID)
+ ├── category_id (nullable)
+ ├── name, short_name, description, brand, size
+ ├── barcode (unique per entity when set)
+ ├── tracks_expiry (bool)   -- perishable: expiry required, FEFO applies
+ ├── vat_class (exempt | zero_rated | standard)
+ └── uom_id
+
+UnitOfMeasure
+ ├── id, name, description, unit_value
+
+StoreProduct   -- per-store restriction/config
+ ├── store_id, product_id
+ ├── enabled (bool)         -- e.g. a warehouse that doesn't stock an item
+ └── reorder_level
+
+StockBatch
+ ├── id (UUID)
+ ├── store_id, product_id
+ ├── batch_no (optional), expiry_date (null = does not expire)
+ ├── qty_on_hand
+ └── unit_cost
+
+StockLedger   -- append-only, kernel table
+ ├── id (UUID)
+ ├── store_id, batch_id
+ ├── qty_delta
+ ├── ledger_type (transfer_in | transfer_out | stolen | lost | damaged |
+ │                expired | cold_chain_failure | wrong_entry | sold |
+ │                discard | consumption | dispose)
+ ├── ref_type, ref_id        -- polymorphic link to Sale / Transfer / Invoice / etc.
+ └── created_at
+
+Supplier
+ ├── id, name, description, location, email, phone
+
+ReceivingInvoice
+ ├── id (UUID)
+ ├── store_id, supplier_id
+ ├── invoice_number, received_date
+ ├── status (draft | received)
+ └── lines: [ { product_id, uom_id, order_qty, pack_price,
+                batch_no, expiry_date, batch_qty } ]
+
+Enquiry
+ ├── id (UUID)
+ ├── requesting_store_id
+ ├── mode (broadcast | hub)          -- set from entity.main_store_id at creation
+ ├── target_store_id (nullable, hub mode only)
+ ├── status (open | fulfilled | rejected | cancelled)
+ └── lines: [ { product_id, qty_requested } ]
+
+Transfer          -- all inter-store movement, peer AND hub
+ ├── id (UUID)
+ ├── enquiry_id
+ ├── from_store_id, to_store_id
+ ├── mode (peer | hub)               -- stamped from entity.main_store_id at creation
+ ├── status (dispatched | received | discrepancy)
+ ├── payment_method_id (nullable — populated only when mode = hub)
+ ├── amount (nullable — hub only)
+ └── lines: [ { batch_id, qty } ]
+     -- no efd_receipt_no: hub-mode transfers are internal movement between
+     -- stores of the same entity and do not require fiscal receipting
+
+Sale              -- POS walk-in, external customers only
+ ├── id (UUID)
+ ├── store_id
+ ├── payment_method_id
+ ├── customer_id (nullable — required for a credit sale)
+ ├── credit_amount              -- the part put on the customer's account
+ ├── discount_approved_by (nullable — a manager, when over the cashier limit)
+ ├── efd_receipt_no (nullable until fiscalized)
+ └── lines: [ { batch_id, qty, unit_price, discount, amount (after discount), vat_class } ]
+
+Customer          -- entity-wide: buys at one branch, pays at another
+ ├── id (UUID)
+ ├── name, phone (unique per entity when set), address, note
+ ├── credit_limit (null = no limit, 0 = no credit)
+ └── is_active
+
+CustomerPayment   -- a repayment; voided, never edited
+ ├── id (UUID)
+ ├── customer_id, store_id, shift_id (cash counts in that drawer)
+ ├── amount, payment_method_id, reference
+ └── voided_at, void_reason
+
+Promotion
+ ├── id (UUID)
+ ├── product_id, uom_id (nullable), store_id (nullable = every store)
+ ├── promo_price
+ ├── starts_on, ends_on (inclusive)
+ └── is_active
+Key design choices reflected above:
+
+Product is entity-wide; StoreProduct and StockBatch are store-scoped — one catalog, independently tracked stock.
+StockLedger is the single source of truth for every quantity change; Sale, Transfer, and ReceivingInvoice all produce ledger rows rather than writing stock counts directly.
+Sale covers walk-in POS to external customers only. All inter-store movement — paid (hub) or unpaid (peer) — goes through a single Transfer object distinguished by mode, since hub-mode transfers don't require fiscal receipting the way an external sale does.
+Enquiry.mode and Transfer.mode are both stamped at creation time from the entity's current topology setting, so a change to main_store_id doesn't retroactively alter enquiries or transfers already in flight.
+4. Sync model
+Pattern: outbox-based, store ↔ cloud only (no in-store sync needed — single till per store).
+
+Every local write (Sale, ReceivingInvoice, StockLedger row, Enquiry) also inserts a row into a local SyncOutbox table.
+All primary keys are client-generated UUIDs — two stores (or a store and the cloud) never collide on ID when merging.
+A background sync process pushes outbox rows to the cloud whenever connectivity is available, and pulls down anything relevant from the entity level (other stores' broadcast enquiries, catalog updates, hub responses).
+Local-authoritative, works fully offline: POS Sale, EFD receipt, Receiving Invoice, Stock Ledger, per-store reorder/expiry views.
+Needs connectivity by nature (queues via outbox, doesn't block local operation): Broadcast Enquiry, Hub Enquiry + fulfillment Sale, consolidated cross-store reporting.
+Online-only, admin/main-store operation: catalog edits (Category, Product, UoM, pricing, promotions) — infrequent enough that gating them online avoids a genuinely hard offline-merge problem without costing real functionality.
+Notifications: computed entirely from the cloud's view, triggered once a store's day's data has synced. Never computed locally, never blocked on local state — this keeps the Notification module fully decoupled from offline/online logic on the till.
+Given gaps are intra-day, not multi-day, the cloud view lags by at most hours in practice — consolidated dashboards and notifications are eventually-consistent by design, but the delay is small enough not to be an operational problem.
+
+5. Django app scaffolding
+Maps the kernel/module split in §2 onto real Django apps, so the boundary is enforced by project structure, not just documentation.
+
+Kernel apps (always installed, never toggled):
+
+core — Entity, Store, User, Role, Module Registry
+catalog — Product, Category, UnitOfMeasure (online-only edits enforced here)
+inventory — StoreProduct, StockBatch, StockLedger
+sync — SyncOutbox, sync engine
+Pluggable apps (each with its own models, migrations, and a manifest.py declaring scope / requires / provides, read by the Module Registry):
+
+receiving — ReceivingInvoice (draft/received state machine)
+enquiry — Enquiry, Transfer (unified peer + hub, per §3)
+pos — Sale (external only), POS UI hooks
+fiscal — abstract FiscalDevice interface + efd_driver submodule; vfd_driver added later as a sibling submodule, same interface
+payments — abstract PaymentMethod interface + cash submodule; mobile_money, bank_transfer added later the same way
+notifications — abstract NotificationChannel interface + sms, email submodules; whatsapp added later
+credit — Customer, CustomerPayment; credit sales live on pos.Sale
+pricing — prices, combined/bundle pricing, promotions
+analytics — metric/dimension registry, query engine, Data Visualizer, saved visualizations and dashboard pins (see §6) — supersedes a standalone reporting app
+6. Analytics & Dashboards
+Design principle
+Modeled on DHIS2's Data Visualizer: every figure is data × period × org unit, broken down by any other dimension, laid out as columns / rows / filters and drawn as a pivot table or chart. One engine serves every question; a "report" is a saved layout, not separately coded screens. (Ported from the school ERP's analytics module, shule-sms, and adapted to a shop.)
+
+Where the numbers come from
+Queries run directly on the transactional tables (SaleLine, Sale, ReceivingInvoiceLine, SupplierPayment, StockLedger, CustomerPayment, Shift), aggregated in SQL at fact grain. There is no separate fact table and no nightly rebuild: figures are always current, and every column of the source can be a dimension (cashier, payment method, supplier, hour of day...), which a pre-aggregated store × product × day table could not offer.
+Stock on hand is never a snapshot: StockLedger is append-only and complete, so the closing balance of any past period is the sum of ledger entries before its end (one scan, grouped into period buckets, then a running total).
+Cloud-side only, same as other cross-store modules — never computed on the till.
+
+Registry (backend/analytics/registry.py)
+Fact source	One table at a fixed grain, the column that dates it, and its path to the store. "cumulative" sources are balances.
+Metric	A source, the facts (queryset), a numerator and optional denominator. Numerator and denominator are summed over the whole cell and divided once, so averages, margins and rates are weighted correctly at every level, totals included — never an average of averages.
+Dimension	dx (data), pe (period), ou (stores) plus dynamic ones (product, category, brand, VAT class, expiry, payment method, paid/credit, cashier, customer, hour, weekday, supplier, stock movement), each mapped onto every source it applies to.
+Metric groups	Sales, Profit, Purchases, Stock, Customer credit, Tills & cash. A group exists only while the features it needs are on (core/features.py: pos_sale, receiving_invoice, customer_credit).
+
+Dimensions
+DHIS2 concept	Equivalent here
+Data element	A registry metric — net sales, gross profit, margin, average sale value, purchases, closing stock on hand and value, wastage, credit given/repaid, cash over/short, ...
+Org unit	Firm → Store. Facts are always confined to the caller's firm and the stores they hold a role at; "FIRM" means all of those.
+Period	Day / ISO week / Month / Quarter / Year, as ids (20261026, 2026W43, 202610, 2026Q4, 2026), plus relative periods (LAST_30_DAYS, THIS_MONTH, LAST_12_MONTHS, MONTHS_THIS_YEAR, ...) resolved against today in the shop's time zone.
+
+API (/api/analytics/)
+dimensions/	The registry as the caller may see it (features and stores applied).
+query/	DHIS2 /api/analytics shape: dimension=dx:…, dimension=pe:…, filter=…, total=<dims>. A total is its own query over the collapsed dimensions, never a sum of cells.
+items/	Search for dimensions too long to list (products, customers).
+visualizations/	Saved visualizations; <id>/pin/ pins one to the caller's dashboard.
+Access: store managers and entity admins, with the analytics_dashboards feature on.
+
+Saved visualizations and dashboards
+SavedVisualization
+ ├── entity, created_by
+ ├── name, description
+ ├── type (pivot table | column | stacked column | bar | line | pie | single value)
+ ├── config            -- the Data Visualizer's whole state: layout, selected items, options
+ ├── shared            -- colleagues in the same firm may open, pin or "save as"; only the creator edits
+ └── pinned_by: [User] -- drawn as widgets on each user's own Dashboard
+It stores no numbers: opening one re-runs the query as the viewer, so their own stores and the firm's features apply. A config that names data the firm can no longer query (a feature switched off) says why instead of failing.
+Breaking a number down: clicking any cell re-queries that cell, with its items as filters, by one more dimension (its products, its stores, the days of its month), and can open the result as a new table.
+Export: pivot tables → Excel / CSV; charts → PNG — built in the browser from what is on screen.
+
+Performance (measured on PostgreSQL 18, 2026-10)
+Data: 3 stores, 1,500 products, 2 years at 300 sales a day per store — 657,000 sales, 1.97M sale lines, 1.97M ledger entries. Untuned server (128 MB shared_buffers, 4 MB work_mem).
+Recent or narrow questions (a store's last 7 days, this month by product, 30 days by day, hour of day over 3 months): 0.1–1 s.
+Year-long or two-year questions across all stores (12 months by month, store × month with totals, closing stock by month): 4–8 s. These read most of the table, so no index changes the plan; the cost is the scan and the sale-line join. More work_mem did not help.
+Indexes: only those that changed a plan were added — Sale (store, completed_at) where completed (a store's recent sales, 170 → 105 ms); StockLedger already had (store, created_at).
+When a firm's long-range questions become too slow for comfort, add a daily rollup of sale lines (store × product × day: qty, amount, discount, cost) as a second, additive fact source for the sales and profit metrics; keep the line-level source for the dimensions a rollup can't carry (cashier, hour, payment method, customer). Measure first: a typical shop is a small fraction of the benchmark volume.
+
+7. Future integration considerations
+DHIS2 — pattern borrowed, not the platform
+The analytics module keeps the DHIS2-style dimensional pattern (data element × org unit × period, see §6). There is no DHIS2 or clinical-system integration for a shop.
+
+Likely future modules, all additive (no kernel changes):
+Mobile money / bank aggregators (Selcom, AzamPay, ...) — a PaymentProcessor implementation that confirms the payment instead of the cashier typing a reference.
+TRA VFD — a second FiscalDevice implementation.
+Customer credit reminders — a scheduled SMS through the existing NotificationChannel to customers who owe.
+Accounting export — sales, purchases and credit balances pushed to an accounting package, read through the analytics registry's metrics so the figures match the Analytics screen.
+Richer promotions — buy-X-get-Y, percentage-off and mix-and-match deals as new Promotion kinds, priced through the same effective_price lookup the till already uses.

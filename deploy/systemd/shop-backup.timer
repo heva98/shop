@@ -1,0 +1,10 @@
+[Unit]
+Description=Shop ERP — run the database backup every night
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+# If the server was off at 02:00, run as soon as it's back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

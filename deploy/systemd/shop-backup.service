@@ -1,0 +1,16 @@
+[Unit]
+Description=Shop ERP — nightly database backup
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=shop
+Group=shop
+WorkingDirectory=/opt/shop/backend
+# Writes to BACKUP_DIR (set in backend/.env), checks the backup can be read
+# back, and keeps the newest BACKUP_KEEP. A failure exits non-zero (see
+# `systemctl status shop-backup`) and emails ADMINS.
+ExecStart=/opt/shop/backend/.venv/bin/python manage.py backup
+# Off-site copy: uncomment after setting up rclone for the shop user
+# (deploy/README.md, "Backups"). Backups only on this server are lost with it.
+#ExecStartPost=/usr/bin/rclone copy /var/backups/shop offsite:shop-backups --max-age 48h

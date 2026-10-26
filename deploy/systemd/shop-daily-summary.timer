@@ -1,0 +1,11 @@
+[Unit]
+Description=Shop ERP — send the end-of-day summary after closing
+
+[Timer]
+# Times are the server's clock; set it to Africa/Dar_es_Salaam
+# (sudo timedatectl set-timezone Africa/Dar_es_Salaam) or adjust this.
+OnCalendar=*-*-* 21:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

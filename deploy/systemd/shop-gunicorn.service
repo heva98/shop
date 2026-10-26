@@ -1,0 +1,26 @@
+[Unit]
+Description=Shop ERP — gunicorn
+After=network.target
+
+[Service]
+# Adjust these three if the app isn't deployed at /opt/shop or isn't
+# run as its own dedicated user.
+User=shop
+Group=shop
+WorkingDirectory=/opt/shop/backend
+
+# django-environ reads backend/.env itself (see settings.py), so no
+# EnvironmentFile is needed here — just make sure that .env exists and is
+# not world-readable (chmod 600), since it holds SECRET_KEY/DATABASE_URL.
+ExecStart=/opt/shop/backend/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8000 \
+    --access-logfile - \
+    --error-logfile - \
+    config.wsgi:application
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
