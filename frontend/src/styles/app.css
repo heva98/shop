@@ -177,6 +177,16 @@ th.sortable{cursor:default}
   .ds-stat-value .unit{font-size:13px}
   .ds-stat-tile{flex-basis:34px;width:34px;height:34px}
 
+  /* Receiving: invoice lines stack as cards instead of a wide table. !important beats the cells' inline styles. */
+  .rcv-lines,.rcv-lines tbody{display:block}
+  .rcv-lines thead{display:none}
+  .rcv-lines tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:14px 0;border-bottom:1px solid var(--grey-300)}
+  .rcv-lines td{display:block;min-width:0;padding:0!important;border:0!important;text-align:left!important}
+  .rcv-lines td:first-child{grid-column:1/-1;font-weight:600}
+  .rcv-lines td::before{content:attr(data-label);display:block;margin-bottom:4px;font-size:11px;font-weight:600;line-height:16px;letter-spacing:1.2px;text-transform:uppercase;color:var(--fg-subtle)}
+  .rcv-lines input,.rcv-lines select{width:100%!important;height:40px!important;font-size:16px;box-sizing:border-box}
+  .rcv-lines td>div[style*="absolute"]{top:64px!important;right:0}
+
   /* Sign in: blue welcome panel over a white sheet (mockup 1a). */
   .login-page{display:block;padding:0;background:var(--blue-700)}
   .login-page-circle{display:none}

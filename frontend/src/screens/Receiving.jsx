@@ -217,7 +217,7 @@ export default function Receiving({ storeId, role }) {
             </Field>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+          <table className="rcv-lines" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
             <thead>
               <tr>
                 <th style={th('left')}>Product</th>
@@ -231,17 +231,17 @@ export default function Receiving({ storeId, role }) {
             <tbody>
               {savedLines.map((l) => (
                 <tr key={l.id}>
-                  <td style={td()}>{l.product_name ?? l.product}</td>
-                  <td style={{ ...td(), color: 'var(--grey-700)' }}>{l.uom_name ?? ''}</td>
-                  <td style={{ ...td('right') }}>{l.order_qty}</td>
-                  <td style={{ ...td('right') }}>{l.pack_price}</td>
-                  <td style={td()}>{l.batch_no}</td>
-                  <td style={td()}>{l.expiry_date || '—'}</td>
+                  <td data-label="Product" style={td()}>{l.product_name ?? l.product}</td>
+                  <td data-label="UoM" style={{ ...td(), color: 'var(--grey-700)' }}>{l.uom_name ?? ''}</td>
+                  <td data-label="Order qty" style={{ ...td('right') }}>{l.order_qty}</td>
+                  <td data-label="Pack price" style={{ ...td('right') }}>{l.pack_price}</td>
+                  <td data-label="Batch no." style={td()}>{l.batch_no}</td>
+                  <td data-label="Expiry" style={td()}>{l.expiry_date || '—'}</td>
                 </tr>
               ))}
               {!isReadOnly && pendingLines.map((l) => (
                 <tr key={l.tempId}>
-                  <td style={{ ...td(), position: 'relative' }}>
+                  <td data-label="Product" style={{ ...td(), position: 'relative' }}>
                     {l.productId ? l.productName : (
                       <>
                         <input
@@ -260,20 +260,20 @@ export default function Receiving({ storeId, role }) {
                       </>
                     )}
                   </td>
-                  <td style={td()}>
+                  <td data-label="UoM" style={td()}>
                     <Select value={l.uomId} onChange={(e) => updatePendingLine(l.tempId, { uomId: e.target.value })} options={[{ label: '—', value: '' }, ...uomOptions]} style={{ width: 130 }} />
                   </td>
-                  <td style={{ ...td('right') }}>
+                  <td data-label="Order qty" style={{ ...td('right') }}>
                     <input value={l.orderQty} onChange={(e) => updatePendingLine(l.tempId, { orderQty: e.target.value })} style={{ ...rawInputStyle, width: 64, textAlign: 'right' }} />
                     {stockQtyHint(l, uoms) && <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2, whiteSpace: 'nowrap' }}>{stockQtyHint(l, uoms)}</div>}
                   </td>
-                  <td style={{ ...td('right') }}>
+                  <td data-label="Pack price" style={{ ...td('right') }}>
                     <input value={l.packPrice} onChange={(e) => updatePendingLine(l.tempId, { packPrice: e.target.value })} style={{ ...rawInputStyle, width: 80, textAlign: 'right' }} />
                   </td>
-                  <td style={td()}>
+                  <td data-label="Batch no." style={td()}>
                     <input value={l.batchNo} onChange={(e) => updatePendingLine(l.tempId, { batchNo: e.target.value })} placeholder="Optional" style={{ ...rawInputStyle, width: 100 }} />
                   </td>
-                  <td style={td()}>
+                  <td data-label="Expiry" style={td()}>
                     {!l.productId || l.tracksExpiry
                       ? <input type="date" value={l.expiry} onChange={(e) => updatePendingLine(l.tempId, { expiry: e.target.value })} style={{ ...rawInputStyle, width: 130 }} />
                       : <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>Does not expire</span>}
