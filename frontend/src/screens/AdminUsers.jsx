@@ -7,7 +7,9 @@ import {
 } from '../api/core.js'
 import { GENDER_OPTIONS, QUALIFICATION_LABEL, QUALIFICATION_OPTIONS, ROLE_LABEL } from '../appData.js'
 
-const ROLES = ['cashier', 'storekeeper', 'store_manager', 'entity_admin']
+// Owners (entity_admin) are appointed by the platform administrator, not here.
+const ROLES = ['cashier', 'storekeeper', 'store_manager']
+const isOwner = (row) => row.roles.some((r) => r.role === 'entity_admin')
 
 const EMPTY_DRAFT = {
   username: '', password: '', confirmPassword: '', first_name: '', middle_name: '', last_name: '',
@@ -59,7 +61,7 @@ export default function AdminUsers() {
   const singleStoreId = isSingle ? (stores ?? []).find((s) => s.is_active)?.id ?? null : null
   // Role/store can be changed from this form only while the user holds at
   // most one StoreRole — multi-store staff would lose their other roles.
-  const canEditRole = !editing || editing.roles.length <= 1
+  const canEditRole = !editing || (editing.roles.length <= 1 && !isOwner(editing))
 
   const rows = useMemo(() => {
     const storeName = Object.fromEntries((stores ?? []).map((s) => [s.id, s.name]))
@@ -227,7 +229,9 @@ export default function AdminUsers() {
               </>
             ) : (
               <p style={{ fontSize: 13, color: 'var(--fg-subtle)', margin: '0 0 16px' }}>
-                This user holds roles at several stores, so roles can’t be changed from this form.
+                {isOwner(editing)
+                  ? 'Owners are appointed by the system administrator, so this role can’t be changed here.'
+                  : 'This user holds roles at several stores, so roles can’t be changed from this form.'}
               </p>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -258,6 +262,8 @@ export default function AdminUsers() {
               {loadError && <tr><td style={td('var(--red-600)')} colSpan={6}>Could not load users: {loadError.message}</td></tr>}
               {rows.map((u) => {
                 const isSelf = u.id === auth.profile?.id
+                // Another owner's account is the system administrator's to change.
+                const locked = !isSelf && isOwner(u)
                 return (
                   <tr key={u.id}>
                     <td style={td('var(--grey-900)')}>{u.fullName}</td>
@@ -271,6 +277,7 @@ export default function AdminUsers() {
                       {u.is_active ? <Tag variant="positive">Active</Tag> : <Tag variant="negative">Disabled</Tag>}
                     </td>
                     <td style={td()}>
+                      {locked ? <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>Managed by the system administrator</span> : (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <Button size="small" onClick={() => openEdit(u)}>Edit</Button>
                         {!isSelf && (
@@ -284,6 +291,7 @@ export default function AdminUsers() {
                           </Button>
                         )}
                       </div>
+                      )}
                     </td>
                   </tr>
                 )

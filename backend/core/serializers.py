@@ -47,6 +47,16 @@ def validate_owned_store(store, request):
     return store
 
 
+def validate_owned(obj, request, message='Must belong to your own shop.'):
+    """Same idea for any other FK to entity-owned data (a Product, a
+    UnitOfMeasure, ...): `obj.entity_id` must be the requesting user's own
+    entity (superusers exempt)."""
+    if obj is not None and request is not None and not request.user.is_superuser:
+        if obj.entity_id != request.user.entity_id:
+            raise serializers.ValidationError(message)
+    return obj
+
+
 def validate_accessible_store(store, request):
     """Stricter than validate_owned_store: for a field naming the store an
     object *belongs to* or the store the user is *acting from* (a Sale's
@@ -86,7 +96,13 @@ _MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB — plenty for a header/print logo
 class EntitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Entity
-        fields = ['id', 'name', 'tin', 'logo', 'main_store', 'price_mode', 'store_mode', 'cashier_discount_limit', 'created_at']
+        fields = ['id', 'name', 'tin', 'business_type', 'phone', 'email', 'region', 'district', 'address',
+                  'is_active', 'logo', 'main_store', 'price_mode', 'store_mode', 'cashier_discount_limit', 'created_at']
+        # Suspending a shop is the platform administrator's (core.platform).
+        read_only_fields = ['is_active']
+
+    def validate_phone(self, value):
+        return normalize_phone(value)
 
     def validate_store_mode(self, mode):
         entity = self.instance
@@ -145,7 +161,11 @@ class UserSerializer(serializers.ModelSerializer):
     _REQUIRED_ON_CREATE = ('password', 'first_name', 'last_name', 'gender', 'date_of_birth', 'highest_qualification')
 
     def validate_entity(self, entity):
-        return validate_owned_entity(entity, self.context.get('request'))
+        request = self.context.get('request')
+        if entity is None and request is not None and not request.user.is_superuser:
+            # Unlinking staff from the shop would leave them in no shop at all.
+            raise serializers.ValidationError('Must be your own entity.')
+        return validate_owned_entity(entity, request)
 
     def validate_phone(self, value):
         return normalize_phone(value)
@@ -246,6 +266,9 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         return user
 
 
+_OWNER_ROLE_MESSAGE = 'Only the platform administrator can make someone a shop owner.'
+
+
 class StoreRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreRole
@@ -260,6 +283,8 @@ class StoreRoleSerializer(serializers.ModelSerializer):
         if request and not request.user.is_superuser:
             if target_user is not None and target_user.entity_id != request.user.entity_id:
                 raise serializers.ValidationError({'user': 'Must be a user in your own entity.'})
+            if Role.ENTITY_ADMIN in (attrs.get('role'), getattr(self.instance, 'role', None)):
+                raise serializers.ValidationError({'role': _OWNER_ROLE_MESSAGE})
         # A single-store firm's staff all work at its one store, so the
         # client needn't (and in the UI can't) pick it.
         role = attrs.get('role', getattr(self.instance, 'role', None))

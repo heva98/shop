@@ -16,11 +16,15 @@ import Settings from './screens/Settings.jsx'
 import Admin from './screens/Admin.jsx'
 import MyProfile from './screens/MyProfile.jsx'
 import ChangePassword from './screens/ChangePassword.jsx'
+import PlatformShops from './screens/PlatformShops.jsx'
 
 const ADMIN_NAV = [
   { key: 'profile', label: 'Shop profile' }, { key: 'stores', label: 'Stores' }, { key: 'users', label: 'Users & roles' },
   { key: 'activity', label: 'Activity log' },
 ]
+// A superuser with no shop of their own runs the server for every shop:
+// they get the Shops console (core/platform.py), not a shop's screens.
+const PLATFORM_NAV = [{ id: 'shops', label: 'Shops', icon: 'admin', section: 'System' }]
 // Phone bottom tabs: the first three of these the role can see, then "More".
 const MOBILE_TABS = ['dashboard', 'pos', 'analytics', 'reports', 'stock']
 
@@ -56,15 +60,18 @@ export default function App() {
   // Role comes from the signed-in user's active StoreRole.
   const role = auth.activeStoreRole?.role ?? 'entity_admin'
   const features = auth.activeStoreRole?.features ?? {}
-  const navItems = NAV_DEFS.filter((n) => n.roles.includes(role) && (!n.feature || features[n.feature] !== false)).map((n) => ({ id: n.id, label: n.label, icon: n.icon, section: n.section }))
+  const isPlatform = Boolean(auth.profile?.is_superuser && !auth.entity)
+  const navItems = isPlatform
+    ? PLATFORM_NAV
+    : NAV_DEFS.filter((n) => n.roles.includes(role) && (!n.feature || features[n.feature] !== false)).map((n) => ({ id: n.id, label: n.label, icon: n.icon, section: n.section }))
   // `params`: what to open on arrival, e.g. { viz } for Analytics.
   const goTo = (screen, params = null) => { if (navItems.some((n) => n.id === screen)) setState({ screen, screenParams: params }) }
   // A screen hidden by switching store (or a feature) falls back to the dashboard.
-  const screen = state.screen === 'profile' || navItems.some((n) => n.id === state.screen) ? state.screen : 'dashboard'
+  const screen = state.screen === 'profile' || navItems.some((n) => n.id === state.screen) ? state.screen : navItems[0].id
   const storeId = auth.activeStoreRole?.store ?? null
   const storeName = auth.activeStoreRole?.store_name ?? null
   const roleLabel = auth.activeStoreRole ? (ROLE_LABEL[auth.activeStoreRole.role] || auth.activeStoreRole.role) : null
-  const storeLabel = auth.activeStoreRole
+  const storeLabel = isPlatform ? 'System administration' : auth.activeStoreRole
     ? (auth.activeStoreRole.store_name ?? `All stores — ${auth.entity?.name ?? ''}`)
     : (auth.entity?.name ?? '')
   const profile = auth.profile
@@ -146,6 +153,7 @@ export default function App() {
             {screen === 'reports' && <Reports role={role} storeId={storeId} storeName={storeName} entity={auth.entity} features={features} />}
             {screen === 'settings' && <Settings entity={auth.entity} />}
             {screen === 'admin' && <Admin nav={adminNav} tab={state.adminTab} />}
+            {screen === 'shops' && <PlatformShops />}
             {screen === 'profile' && <MyProfile onDone={closeProfile} />}
           </div>
         </main>

@@ -447,7 +447,7 @@ class Sale(models.Model):
         now = timezone.now()
         completed_at = now if completed_at is None or completed_at > now else completed_at
 
-        if not payment_method.is_active:
+        if not payment_method.is_active_for(locked.store.entity_id):
             raise SaleError(f'{payment_method.name} is not enabled.')
         if discount:
             locked._apply_sale_discount(discount)

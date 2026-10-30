@@ -10,7 +10,7 @@ from audit.services import Action, record
 
 from .features import FEATURES, FEATURES_BY_KEY, feature_values, is_enabled, set_feature, unavailable_reason
 from .models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
-from .permissions import roles, write_roles
+from .permissions import SuperuserForWrite, roles, write_roles
 from .queryset_scoping import TenantScopedQuerySetMixin
 from .serializers import (
     EntitySerializer,
@@ -114,11 +114,21 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     entity_field = 'entity_id'
     permission_classes = [write_roles(*_ADMIN_WRITE_ROLES)]
 
+    def _refuse_other_owner(self, target):
+        """A shop owner manages their staff, not their fellow owners: only
+        the platform administrator edits, resets or removes an owner's
+        account (an owner edits their own through users/me/)."""
+        user = self.request.user
+        if (not user.is_superuser and target.pk != user.pk
+                and target.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
+            raise PermissionDenied("Only the platform administrator can change another shop owner's account.")
+
     def perform_create(self, serializer):
         user = serializer.save()
         record(Action.USER_CREATED, f'User {user.username} created', request=self.request, data={'user': user.username})
 
     def perform_update(self, serializer):
+        self._refuse_other_owner(serializer.instance)
         was_active = serializer.instance.is_active
         resetting = bool(serializer.validated_data.get('password'))
         # The admin form sends every field; log only the ones that changed.
@@ -135,6 +145,10 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         if changed:
             record(Action.USER_UPDATED, f'User {user.username} changed: {", ".join(changed)}',
                    request=self.request, data=target)
+
+    def perform_destroy(self, instance):
+        self._refuse_other_owner(instance)
+        instance.delete()
 
     @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -239,6 +253,8 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         record(Action.ROLE_GRANTED, self._describe(role), request=self.request, store=role.store)
 
     def perform_destroy(self, instance):
+        if instance.role == Role.ENTITY_ADMIN and not self.request.user.is_superuser:
+            raise PermissionDenied('Only the platform administrator can remove a shop owner.')
         summary, store = self._describe(instance), instance.store
         instance.delete()
         record(Action.ROLE_REMOVED, summary, request=self.request, store=store)
@@ -246,10 +262,12 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
 class ModuleRegistryViewSet(viewsets.ModelViewSet):
     """Global catalog of installable module definitions (not tenant data —
-    same rows for every entity), so it is intentionally left unscoped."""
-    queryset = ModuleRegistry.objects.all()
+    same rows for every entity), so it is intentionally left unscoped —
+    and for the same reason only a superuser may change it: deleting a
+    row would wipe every firm's switches for that module."""
+    queryset = ModuleRegistry.objects.order_by('name')
     serializer_class = ModuleRegistrySerializer
-    permission_classes = [write_roles(*_ADMIN_WRITE_ROLES)]
+    permission_classes = [SuperuserForWrite]
 
 
 class ModuleEnablementViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):

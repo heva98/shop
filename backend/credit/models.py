@@ -115,7 +115,7 @@ class CustomerPayment(models.Model):
             raise CreditError('That customer is not one of this shop\'s customers.')
         if amount <= 0:
             raise CreditError('The amount paid must be more than 0.')
-        if not payment_method.is_active:
+        if not payment_method.is_active_for(store.entity_id):
             raise CreditError(f'{payment_method.name} is not enabled.')
         reference = (reference or '').strip()
         if payment_method.requires_reference and not reference:

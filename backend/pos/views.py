@@ -276,7 +276,8 @@ class TillSnapshotView(APIView):
                        for (product, uom), row in prices.items()],
             'stock': [{'product': str(b.product_id), 'qty_on_hand': b.qty_on_hand, 'expiry_date': b.expiry_date}
                       for b in batches],
-            'payment_methods': PaymentMethodSerializer(PaymentMethod.objects.filter(is_active=True), many=True).data,
+            'payment_methods': PaymentMethodSerializer(PaymentMethod.active_for(entity), many=True,
+                                                       context={'entity': entity}).data,
             'customers': [{'id': str(c.pk), 'name': c.name, 'phone': c.phone, 'owing': c.owing,
                            'credit_limit': c.credit_limit} for c in customers],
             'shift': shift_data,

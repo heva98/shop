@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Card, Field, Input, NoticeBox, Radio } from '../components/ds/index.js'
+import { Button, Card, Field, Input, NoticeBox, Radio, Select } from '../components/ds/index.js'
+import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { updateEntity, updateEntityLogo } from '../api/core.js'
 
@@ -13,6 +14,10 @@ function errorLines(err) {
   })
 }
 
+// Type, contact and location: set at registration, kept up to date by the owner.
+const DETAIL_FIELDS = ['business_type', 'phone', 'email', 'region', 'district', 'address']
+const detailsOf = (entity) => Object.fromEntries(DETAIL_FIELDS.map((f) => [f, entity?.[f] ?? '']))
+
 const STORE_MODE_OPTIONS = [
   { value: 'single', label: 'Single shop', hint: 'One premises. Staff are assigned to it automatically and stores stay out of the way.' },
   { value: 'multi', label: 'Shop with multiple branches', hint: 'Add branches under Stores and choose which store each staff member works at.' },
@@ -22,6 +27,8 @@ export default function AdminShopProfile() {
   const auth = useAuth()
   const entity = auth.entity
   const [name, setName] = useState(entity?.name || '')
+  const [details, setDetails] = useState(detailsOf(entity))
+  const setDetail = (field) => (e) => setDetails((d) => ({ ...d, [field]: e.target.value }))
   const [storeMode, setStoreMode] = useState(entity?.store_mode || 'multi')
   const [discountLimit, setDiscountLimit] = useState(String(Number(entity?.cashier_discount_limit ?? 10)))
   const [logoFile, setLogoFile] = useState(null)
@@ -35,6 +42,7 @@ export default function AdminShopProfile() {
   // Re-sync local drafts if the entity reloads with different data (e.g.
   // after refreshProfile() following a save).
   useEffect(() => { setName(entity?.name || '') }, [entity?.id, entity?.name])
+  useEffect(() => { setDetails(detailsOf(entity)) }, [entity])
   useEffect(() => { setStoreMode(entity?.store_mode || 'multi') }, [entity?.id, entity?.store_mode])
   useEffect(() => { setDiscountLimit(String(Number(entity?.cashier_discount_limit ?? 10))) }, [entity?.id, entity?.cashier_discount_limit])
 
@@ -78,6 +86,7 @@ export default function AdminShopProfile() {
     try {
       const changes = {}
       if (name.trim() !== entity.name) changes.name = name.trim()
+      for (const f of DETAIL_FIELDS) if (details[f].trim() !== (entity[f] ?? '')) changes[f] = details[f].trim()
       if (storeMode !== entity.store_mode) changes.store_mode = storeMode
       if (limit !== Number(entity.cashier_discount_limit)) changes.cashier_discount_limit = String(limit)
       if (Object.keys(changes).length) await updateEntity(entity.id, changes)
@@ -95,11 +104,12 @@ export default function AdminShopProfile() {
   }
 
   if (!entity) {
-    return <NoticeBox variant="info" title="No shop to edit">Sign in as an entity admin to edit the shop's profile.</NoticeBox>
+    return <NoticeBox variant="info" title="No shop to edit">Sign in as the shop's owner to edit its profile.</NoticeBox>
   }
 
   const logoToShow = previewUrl || (removeLogo ? null : entity.logo)
-  const unchanged = name.trim() === entity.name && storeMode === entity.store_mode && !logoFile && !removeLogo
+  const unchanged = name.trim() === entity.name && DETAIL_FIELDS.every((f) => details[f].trim() === (entity[f] ?? ''))
+    && storeMode === entity.store_mode && !logoFile && !removeLogo
     && Number(discountLimit) === Number(entity.cashier_discount_limit)
 
   return (
@@ -120,6 +130,17 @@ export default function AdminShopProfile() {
           <Field label="Shop name" required>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kariakoo General Stores" />
           </Field>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, marginBottom: 16 }}>
+          <Field label="Type of shop">
+            <Select value={details.business_type} onChange={setDetail('business_type')} options={BUSINESS_TYPE_OPTIONS} />
+          </Field>
+          <Field label="Phone"><Input value={details.phone} onChange={setDetail('phone')} placeholder="e.g. 0712 345 678" /></Field>
+          <Field label="Email"><Input type="email" value={details.email} onChange={setDetail('email')} /></Field>
+          <Field label="Region"><Input value={details.region} onChange={setDetail('region')} placeholder="e.g. Dar es Salaam" /></Field>
+          <Field label="District"><Input value={details.district} onChange={setDetail('district')} placeholder="e.g. Kinondoni" /></Field>
+          <Field label="Street / area"><Input value={details.address} onChange={setDetail('address')} placeholder="e.g. Sinza, near the market" /></Field>
         </div>
 
         <div style={{ marginBottom: 16 }}>

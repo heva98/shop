@@ -46,6 +46,9 @@ class AuditEvent(models.Model):
         CREDIT_PAYMENT_VOIDED = 'credit_payment_voided', 'Customer credit payment voided'
         DISCOUNT_GIVEN = 'discount_given', 'Discount over the cashier limit'
         PROMOTION_CHANGED = 'promotion_changed', 'Promotion added or changed'
+        SHOP_REGISTERED = 'shop_registered', 'Shop registered'
+        SHOP_SUSPENDED = 'shop_suspended', 'Shop suspended'
+        SHOP_REACTIVATED = 'shop_reactivated', 'Shop reactivated'
 
     id = models.BigAutoField(primary_key=True)
     entity = models.ForeignKey(Entity, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')

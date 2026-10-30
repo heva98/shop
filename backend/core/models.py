@@ -21,9 +21,33 @@ class Entity(models.Model):
         SINGLE = 'single', 'Single shop'
         MULTI = 'multi', 'Shop with multiple branches'
 
+    class BusinessType(models.TextChoices):
+        GENERAL = 'general', 'General shop (duka)'
+        SUPERMARKET = 'supermarket', 'Supermarket / minimarket'
+        WHOLESALE = 'wholesale', 'Wholesale'
+        HARDWARE = 'hardware', 'Hardware'
+        PHARMACY = 'pharmacy', 'Pharmacy / chemist'
+        ELECTRONICS = 'electronics', 'Electronics & phones'
+        CLOTHING = 'clothing', 'Clothing & textiles'
+        COSMETICS = 'cosmetics', 'Cosmetics & beauty'
+        STATIONERY = 'stationery', 'Stationery & books'
+        OTHER = 'other', 'Other'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     tin = models.CharField('TIN', max_length=32, blank=True)
+    business_type = models.CharField(max_length=20, choices=BusinessType.choices, default=BusinessType.GENERAL)
+    phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    region = models.CharField(max_length=64, blank=True)
+    district = models.CharField(max_length=64, blank=True)
+    address = models.CharField(
+        max_length=255, blank=True, help_text='Street, area or landmark where the shop is.',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Set by the platform administrator. A suspended shop\'s staff cannot sign in.',
+    )
     logo = models.ImageField(
         upload_to='entity_logos/', null=True, blank=True,
         help_text='Shown in the app header and on printed documents for this firm.',

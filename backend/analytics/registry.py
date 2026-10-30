@@ -39,6 +39,7 @@ from django.db.models import (
 )
 from django.db.models.functions import ExtractHour, ExtractIsoWeekDay
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from catalog.models import Category, Product
 from core.features import FEATURES_BY_KEY, feature_values
@@ -89,6 +90,9 @@ class Context:
     @classmethod
     def for_user(cls, user):
         entity = getattr(user, 'entity', None)
+        if entity is None and not user.is_superuser:
+            # entity None means "every firm" below, which only a superuser may see.
+            raise PermissionDenied('You are not assigned to a shop.')
         ids = accessible_store_ids(user)
         return cls(user, entity, feature_values(entity), None if ids is None else [str(i) for i in ids])
 

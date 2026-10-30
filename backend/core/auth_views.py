@@ -16,6 +16,8 @@ from rest_framework.response import Response
 from audit.models import AuditEvent
 from audit.services import Action, record
 
+from .authentication import SHOP_SUSPENDED_MESSAGE, shop_suspended
+
 
 def _recent_failures(username):
     window_start = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
@@ -53,6 +55,9 @@ def obtain_token(request):
         record(Action.LOGIN_FAILED, f'Wrong password for "{username}"', request=request,
                username=username, entity=getattr(known, 'entity', None))
         raise exceptions.ValidationError({'non_field_errors': ['Unable to log in with provided credentials.']})
+
+    if shop_suspended(user):
+        raise exceptions.PermissionDenied(SHOP_SUSPENDED_MESSAGE)
 
     Token.objects.filter(user=user).delete()
     token = Token.objects.create(user=user)

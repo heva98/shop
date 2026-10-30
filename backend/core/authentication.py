@@ -15,12 +15,24 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 
 
+SHOP_SUSPENDED_MESSAGE = 'This shop has been suspended. Contact the system administrator.'
+
+
+def shop_suspended(user):
+    """True when `user` belongs to a shop the platform administrator has
+    suspended (core.Entity.is_active); its staff are signed out and kept out."""
+    return user.entity_id is not None and not user.entity.is_active
+
+
 class ExpiringTokenAuthentication(TokenAuthentication):
     def authenticate_credentials(self, key):
         user, token = super().authenticate_credentials(key)
         if token.created < timezone.now() - timedelta(hours=settings.TOKEN_TTL_HOURS):
             token.delete()
             raise exceptions.AuthenticationFailed('Your session has expired. Sign in again.')
+        if shop_suspended(user):
+            token.delete()
+            raise exceptions.AuthenticationFailed(SHOP_SUSPENDED_MESSAGE)
         return user, token
 
 

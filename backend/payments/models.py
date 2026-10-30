@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.db.models import Exists, OuterRef, Q
 
 
 class PaymentMethod(models.Model):
@@ -24,9 +25,35 @@ class PaymentMethod(models.Model):
     class Meta:
         ordering = ['name']
 
+    @classmethod
+    def active_for(cls, entity):
+        """The methods `entity`'s tills offer: its own switch where it set
+        one, else the platform default (is_active)."""
+        own = EntityPaymentMethod.objects.filter(method=OuterRef('pk'), entity=entity)
+        return cls.objects.filter(Exists(own.filter(is_active=True)) | (Q(is_active=True) & ~Exists(own)))
+
+    def is_active_for(self, entity):
+        own = EntityPaymentMethod.objects.filter(method=self, entity=entity).first()
+        return own.is_active if own is not None else self.is_active
+
     @property
     def requires_reference(self):
         return self.implementation != self.Implementation.CASH
 
     def __str__(self):
         return self.name
+
+
+class EntityPaymentMethod(models.Model):
+    """One firm's own on/off switch for a PaymentMethod. PaymentMethod rows
+    are shared by every firm on the server, so a firm's Settings toggle
+    writes here instead; with no row the method's own is_active applies."""
+    entity = models.ForeignKey('core.Entity', on_delete=models.CASCADE, related_name='payment_methods')
+    method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE, related_name='entity_settings')
+    is_active = models.BooleanField()
+
+    class Meta:
+        unique_together = [('entity', 'method')]
+
+    def __str__(self):
+        return f'{self.method} @ {self.entity} = {self.is_active}'

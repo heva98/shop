@@ -67,3 +67,15 @@ def is_store_manager(user, store):
         | Q(store__isnull=True, role=Role.ENTITY_ADMIN, user__entity_id=store.entity_id),
         user=user,
     ).exists()
+
+
+class SuperuserForWrite(BasePermission):
+    """Reads need only a signed-in user; writes need a superuser. For
+    platform-wide rows every firm shares (core.ModuleRegistry), which no
+    single firm's admin may change for the others."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return request.method in SAFE_METHODS or user.is_superuser

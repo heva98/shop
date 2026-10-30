@@ -18,7 +18,21 @@ export const NAV_DEFS = [
 // NAV_DEFS `feature`: hidden when that feature is switched off for the
 // active store (Settings > Features; core/features.py on the backend).
 
-export const ROLE_LABEL = { cashier: 'Cashier', storekeeper: 'Storekeeper', store_manager: 'Store manager', entity_admin: 'Entity admin' }
+export const ROLE_LABEL = { cashier: 'Cashier', storekeeper: 'Storekeeper', store_manager: 'Store manager', entity_admin: 'Owner' }
+
+// Mirror core.Entity.BusinessType on the backend.
+export const BUSINESS_TYPE_OPTIONS = [
+  { value: 'general', label: 'General shop (duka)' },
+  { value: 'supermarket', label: 'Supermarket / minimarket' },
+  { value: 'wholesale', label: 'Wholesale' },
+  { value: 'hardware', label: 'Hardware' },
+  { value: 'pharmacy', label: 'Pharmacy / chemist' },
+  { value: 'electronics', label: 'Electronics & phones' },
+  { value: 'clothing', label: 'Clothing & textiles' },
+  { value: 'cosmetics', label: 'Cosmetics & beauty' },
+  { value: 'stationery', label: 'Stationery & books' },
+  { value: 'other', label: 'Other' },
+]
 
 // Mirror core.User.Gender / core.User.Qualification on the backend.
 export const GENDER_OPTIONS = [{ value: '', label: 'Select…' }, { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]

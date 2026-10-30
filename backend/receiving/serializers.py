@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned_entity
+from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned, validate_owned_entity
 
 from .models import ReceivingInvoice, ReceivingInvoiceLine, Supplier, SupplierPayment
 
@@ -33,6 +33,12 @@ class ReceivingInvoiceLineSerializer(ClientGeneratedIdMixin, serializers.ModelSe
         passes `invoice` in the payload, so this is skipped there."""
         validate_accessible_store(invoice.store, self.context.get('request'))
         return invoice
+
+    def validate_product(self, product):
+        return validate_owned(product, self.context.get('request'), 'Unknown product.')
+
+    def validate_uom(self, uom):
+        return validate_owned(uom, self.context.get('request'), 'Unknown unit of measure.')
 
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):

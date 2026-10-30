@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/auth-token/', obtain_token),
     path('api/health/', health),
     path('api/core/', include('core.urls')),
+    path('api/platform/', include('core.platform_urls')),
     path('api/catalog/', include('catalog.urls')),
     path('api/inventory/', include('inventory.urls')),
     path('api/receiving/', include('receiving.urls')),
