@@ -1,10 +1,10 @@
 import {
-  AlertCircle, ArrowDown, ArrowLeftRight, ArrowUp, BarChart3, Building2, Calendar, CalendarClock, Check, CheckCircle2,
+  AlertCircle, ArrowDown, ArrowRight, ArrowLeftRight, ArrowUp, BarChart3, Building2, Calendar, CalendarClock, Check, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Download, ExternalLink, FileText, Filter, Folder, Globe,
   GripVertical, Info, LayoutDashboard, LayoutGrid, Lock, LogOut, Mail, MapPin, Maximize2, Menu as MenuIcon, MessageSquare, MoreHorizontal,
   BadgePercent, BookUser, Package, PackageCheck, PackageX, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Printer, RefreshCw,
   Database, Layers, Pin, PinOff, SlidersHorizontal, Table2, Wand2,
-  Save, ScanBarcode, Search, Settings, Share2, ShoppingBag, ShoppingCart, Star, Store, Trash2, TrendingUp, TriangleAlert, Upload, UserRound, Users, Wallet, X,
+  Save, ScanBarcode, ShieldCheck, Search, Settings, Share2, ShoppingBag, ShoppingCart, Star, Store, Trash2, TrendingUp, TriangleAlert, Upload, UserRound, Users, Wallet, X,
 } from 'lucide-react'
 import icons from './icons.generated.js'
 
@@ -25,7 +25,7 @@ const LUCIDE = {
   filter: Filter, lock: Lock, star: Star, save: Save, world: Globe, fullscreen: Maximize2, messages: MessageSquare,
   apps: LayoutGrid, 'drag-handle': GripVertical, launch: ExternalLink, menu: MenuIcon, promotion: BadgePercent,
   barcode: ScanBarcode, database: Database, layers: Layers, pin: Pin, 'pin-off': PinOff, sliders: SlidersHorizontal,
-  'pivot-table': Table2, wand: Wand2,
+  'pivot-table': Table2, wand: Wand2, 'arrow-right': ArrowRight, shield: ShieldCheck,
 }
 
 export default function Icon({ name, size = 18, style, className, strokeWidth = 2 }) {

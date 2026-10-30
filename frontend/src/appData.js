@@ -1,6 +1,6 @@
 // Shared constants: navigation/role matrix, labels, and money formatting.
 
-export const BRAND_NAME = 'Duka ERP'
+export const BRAND_NAME = 'Shoppy'
 
 export const NAV_DEFS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', section: 'General', roles: ['cashier', 'storekeeper', 'store_manager', 'entity_admin'] },
