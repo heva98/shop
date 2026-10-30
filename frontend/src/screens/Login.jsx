@@ -13,8 +13,17 @@ const FEATURES = [
 
 const SEGMENTS = ['For Supermarkets', 'Malls', 'Hardware Stores', 'And More']
 
+// Phone layout only: icon row under the brand.
+const CATEGORIES = [
+  { icon: 'pos', label: 'Supermarkets' },
+  { icon: 'store', label: 'Malls' },
+  { icon: 'tools', label: 'Hardware Stores' },
+  { icon: 'store', label: 'And More' },
+]
+
 /** Sign-in page (shoppy.co.tz mockup): marketing panel on the blue page,
- * white form card on the right. */
+ * white form card on the right. Phones get the compact mobile mockup:
+ * brand, category icons and a cart photo above the form card. */
 export default function Login() {
   const { login, notice } = useAuth()
   const [username, setUsername] = useState('')
@@ -52,6 +61,15 @@ export default function Login() {
             <span className="signin-brand-tag">Multi-store ERP system</span>
           </span>
         </div>
+        <ul className="signin-cats">
+          {CATEGORIES.map((c) => (
+            <li key={c.label}>
+              <span className="signin-cat-icon"><Icon name={c.icon} size={30} /></span>
+              {c.label}
+            </li>
+          ))}
+        </ul>
+        <span className="signin-cart" style={{ backgroundImage: `url(${storesImg})` }} aria-hidden="true" />
         <h2 className="signin-headline">
           Manage Your Business,<br />
           <span>All in One Place</span>
