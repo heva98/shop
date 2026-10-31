@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import Icon from './Icon.jsx'
 
-/** Centred dialog over a dimmed page. Escape or the backdrop closes it.
+/** Centred dialog over a dimmed page. Escape or a left click on the backdrop closes it.
  * `footer` renders in a bar under the body (buttons, right-aligned);
  * `size`: 'sm' | 'md' | 'lg' | 'xl'. */
 export default function Modal({ title, onClose, size = 'md', footer, children }) {
@@ -21,8 +21,18 @@ export default function Modal({ title, onClose, size = 'md', footer, children })
     }
   }, [onClose])
 
+  // Close only on a left click that both starts and ends on the backdrop, so a
+  // right-click (context menu / inspect) or a text selection dragged out of the
+  // dialog doesn't throw away what was typed.
+  const pressedBackdrop = useRef(false)
+  const onBackdropDown = (e) => { pressedBackdrop.current = e.button === 0 && e.target === e.currentTarget }
+  const onBackdropClick = (e) => {
+    if (pressedBackdrop.current && e.button === 0 && e.target === e.currentTarget) onClose()
+    pressedBackdrop.current = false
+  }
+
   return (
-    <div className="ds-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="ds-modal-backdrop" onMouseDown={onBackdropDown} onClick={onBackdropClick}>
       <div ref={ref} className={`ds-modal ${size}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <header className="ds-modal-head">
           <h2 id={titleId} className="ds-modal-title">{title}</h2>
