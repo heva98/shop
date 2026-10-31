@@ -23,10 +23,31 @@ function saveProfile(data) {
   } catch { /* storage full or blocked: offline sign-in just won't be available */ }
 }
 
+// The places a user can work from, picked in the header: one per store
+// they hold a role at, plus "All stores" (store null) for an owner's
+// entity-wide row. `roles` is every role held there — a user may be, say,
+// cashier and storekeeper at once — and an owner's applies at every store.
+function workplacesOf(storeRoles) {
+  const owner = storeRoles.some((sr) => sr.role === 'entity_admin')
+  const byKey = new Map()
+  for (const sr of storeRoles) {
+    const key = sr.store ?? 'entity'
+    if (!byKey.has(key)) {
+      byKey.set(key, { key, store: sr.store, store_name: sr.store_name, features: sr.features, roles: [] })
+    }
+    byKey.get(key).roles.push(sr.role)
+  }
+  const workplaces = [...byKey.values()].sort((a, b) => (a.store === null ? -1 : b.store === null ? 1 : 0))
+  if (owner) {
+    for (const w of workplaces) if (!w.roles.includes('entity_admin')) w.roles.push('entity_admin')
+  }
+  return workplaces
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(getToken())
   const [profile, setProfile] = useState(null)
-  const [activeStoreRoleId, setActiveStoreRoleId] = useState(null)
+  const [activeWorkplaceKey, setActiveWorkplaceKey] = useState(null)
   const [status, setStatus] = useState(token ? 'loading' : 'signed-out')
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState('')
@@ -35,9 +56,10 @@ export function AuthProvider({ children }) {
     setStatus('loading')
     const applyProfile = (data) => {
       setProfile(data)
-      setActiveStoreRoleId((prev) => {
-        if (prev && data.store_roles.some((sr) => sr.id === prev)) return prev
-        return data.store_roles[0]?.id ?? null
+      setActiveWorkplaceKey((prev) => {
+        const workplaces = workplacesOf(data.store_roles)
+        if (prev && workplaces.some((w) => w.key === prev)) return prev
+        return workplaces[0]?.key ?? null
       })
       setStatus('signed-in')
     }
@@ -103,22 +125,23 @@ export function AuthProvider({ children }) {
     return updated
   }, [])
 
-  const activeStoreRole = useMemo(
-    () => profile?.store_roles.find((sr) => sr.id === activeStoreRoleId) ?? null,
-    [profile, activeStoreRoleId],
+  const workplaces = useMemo(() => workplacesOf(profile?.store_roles ?? []), [profile])
+  const activeWorkplace = useMemo(
+    () => workplaces.find((w) => w.key === activeWorkplaceKey) ?? null,
+    [workplaces, activeWorkplaceKey],
   )
 
   const value = useMemo(() => ({
     status, error, notice, profile, token,
     entity: profile?.entity ?? null,
-    storeRoles: profile?.store_roles ?? [],
-    activeStoreRole,
-    setActiveStoreRoleId,
+    workplaces,
+    activeWorkplace,
+    setActiveWorkplaceKey,
     login, logout, updateProfile,
     // Re-pulls /me — call after an admin action that changes something
     // this context caches but doesn't own, e.g. the entity's own name/logo.
     refreshProfile: loadProfile,
-  }), [status, error, notice, profile, token, activeStoreRole, login, logout, updateProfile, loadProfile])
+  }), [status, error, notice, profile, token, workplaces, activeWorkplace, login, logout, updateProfile, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

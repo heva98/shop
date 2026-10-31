@@ -27,7 +27,7 @@ function newId() {
 
 const offlineNo = (sale) => sale.id.slice(0, 8).toUpperCase()
 
-export default function Pos({ storeId, userId, role, entity, features }) {
+export default function Pos({ storeId, userId, roles, entity, features }) {
   const till = useTill(userId, storeId)
   const outbox = useOutbox()
   const [zReport, setZReport] = useState(null)
@@ -50,7 +50,7 @@ export default function Pos({ storeId, userId, role, entity, features }) {
   return (
     <Till
       key={snapshot.shift.id} snapshot={snapshot} outbox={outbox} offline={till.offline} refresh={till.refresh}
-      userId={userId} storeId={storeId} store={store} entity={entity} role={role} features={features}
+      userId={userId} storeId={storeId} store={store} entity={entity} roles={roles} features={features}
       onShiftClosed={(closed) => { setZReport(closed); till.refresh() }}
     />
   )
@@ -101,9 +101,9 @@ function repriceCart(lines, snapshot, unsynced) {
   })
 }
 
-function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, entity, role, features, onShiftClosed }) {
+function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, entity, roles, features, onShiftClosed }) {
   const shift = snapshot.shift
-  const isManager = MANAGER_ROLES.includes(role)
+  const isManager = MANAGER_ROLES.some((r) => roles.includes(r))
   const takesCredit = features?.customer_credit !== false
   const [query, setQuery] = useState('')
   const [cart, setCart] = useState([])

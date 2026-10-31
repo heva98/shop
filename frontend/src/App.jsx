@@ -27,6 +27,8 @@ const ADMIN_NAV = [
 const PLATFORM_NAV = [{ id: 'shops', label: 'Shops', icon: 'admin', section: 'System' }]
 // Phone bottom tabs: the first three of these the role can see, then "More".
 const MOBILE_TABS = ['dashboard', 'pos', 'analytics', 'reports', 'stock']
+// "Owner · Cashier": every role held, most senior first.
+const rolesLabel = (roles) => Object.keys(ROLE_LABEL).reverse().filter((r) => roles.includes(r)).map((r) => ROLE_LABEL[r]).join(' · ')
 
 export default function App() {
   const auth = useAuth()
@@ -57,23 +59,27 @@ export default function App() {
     })
   }
 
-  // Role comes from the signed-in user's active StoreRole.
-  const role = auth.activeStoreRole?.role ?? 'entity_admin'
-  const features = auth.activeStoreRole?.features ?? {}
+  // Roles: every one the signed-in user holds at the active workplace.
+  const workplace = auth.activeWorkplace
+  const roles = workplace?.roles ?? ['entity_admin']
+  const features = workplace?.features ?? {}
   const isPlatform = Boolean(auth.profile?.is_superuser && !auth.entity)
   const navItems = isPlatform
     ? PLATFORM_NAV
-    : NAV_DEFS.filter((n) => n.roles.includes(role) && (!n.feature || features[n.feature] !== false)).map((n) => ({ id: n.id, label: n.label, icon: n.icon, section: n.section }))
+    : NAV_DEFS.filter((n) => n.roles.some((r) => roles.includes(r)) && (!n.feature || features[n.feature] !== false)).map((n) => ({ id: n.id, label: n.label, icon: n.icon, section: n.section }))
   // `params`: what to open on arrival, e.g. { viz } for Analytics.
   const goTo = (screen, params = null) => { if (navItems.some((n) => n.id === screen)) setState({ screen, screenParams: params }) }
   // A screen hidden by switching store (or a feature) falls back to the dashboard.
   const screen = state.screen === 'profile' || navItems.some((n) => n.id === state.screen) ? state.screen : navItems[0].id
-  const storeId = auth.activeStoreRole?.store ?? null
-  const storeName = auth.activeStoreRole?.store_name ?? null
-  const roleLabel = auth.activeStoreRole ? (ROLE_LABEL[auth.activeStoreRole.role] || auth.activeStoreRole.role) : null
-  const storeLabel = isPlatform ? 'System administration' : auth.activeStoreRole
-    ? (auth.activeStoreRole.store_name ?? `All stores — ${auth.entity?.name ?? ''}`)
+  const storeId = workplace?.store ?? null
+  const storeName = workplace?.store_name ?? null
+  const roleLabel = workplace ? rolesLabel(workplace.roles) : null
+  const storeLabel = isPlatform ? 'System administration' : workplace
+    ? (workplace.store_name ?? `All stores — ${auth.entity?.name ?? ''}`)
     : (auth.entity?.name ?? '')
+  const workplaceOptions = auth.workplaces.map((w) => ({
+    label: `${w.store_name ?? 'All stores'} — ${rolesLabel(w.roles)}`, value: w.key, entity: !w.store,
+  }))
   const profile = auth.profile
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   const avatarInitials = fullName
@@ -122,9 +128,9 @@ export default function App() {
         <HeaderBar
           storeLabel={storeLabel}
           roleLabel={roleLabel}
-          stores={auth.storeRoles.map((sr) => ({ label: `${sr.store_name ?? 'All stores'} — ${ROLE_LABEL[sr.role] || sr.role}`, value: sr.id }))}
-          activeStore={auth.activeStoreRole?.id}
-          onStoreChange={(id) => auth.setActiveStoreRoleId(Number(id))}
+          stores={workplaceOptions}
+          activeStore={workplace?.key}
+          onStoreChange={auth.setActiveWorkplaceKey}
           isOnline={isOnline}
           unsyncedSales={unsyncedSales}
           avatarInitials={avatarInitials}
@@ -144,13 +150,13 @@ export default function App() {
         <main className="app-main">
           <div className="app-main-inner">
             {screen === 'dashboard' && <Dashboard storeId={storeId} storeName={storeName} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
-            {screen === 'pos' && <Pos storeId={storeId} userId={profile?.id} role={role} entity={auth.entity} features={features} />}
-            {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} role={role} />}
-            {screen === 'receiving' && <Receiving storeId={storeId} role={role} />}
-            {screen === 'enquiries' && <Enquiries storeId={storeId} entity={auth.entity} role={role} />}
-            {screen === 'customers' && <Customers storeId={storeId} storeName={storeName} role={role} features={features} />}
+            {screen === 'pos' && <Pos storeId={storeId} userId={profile?.id} roles={roles} entity={auth.entity} features={features} />}
+            {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} roles={roles} />}
+            {screen === 'receiving' && <Receiving storeId={storeId} roles={roles} />}
+            {screen === 'enquiries' && <Enquiries storeId={storeId} entity={auth.entity} roles={roles} />}
+            {screen === 'customers' && <Customers storeId={storeId} storeName={storeName} roles={roles} features={features} />}
             {screen === 'analytics' && <Analytics storeId={storeId} storeName={storeName} openVizId={state.screenParams?.viz ?? null} />}
-            {screen === 'reports' && <Reports role={role} storeId={storeId} storeName={storeName} entity={auth.entity} features={features} />}
+            {screen === 'reports' && <Reports roles={roles} storeId={storeId} storeName={storeName} entity={auth.entity} features={features} />}
             {screen === 'settings' && <Settings entity={auth.entity} />}
             {screen === 'admin' && <Admin nav={adminNav} tab={state.adminTab} />}
             {screen === 'shops' && <PlatformShops />}
@@ -166,9 +172,9 @@ export default function App() {
           avatarInitials={avatarInitials}
           userName={fullName || profile?.username}
           userRole={roleLabel}
-          stores={auth.storeRoles.map((sr) => ({ label: `${sr.store_name ?? 'All stores'} — ${ROLE_LABEL[sr.role] || sr.role}`, value: sr.id, entity: !sr.store }))}
-          activeStore={auth.activeStoreRole?.id}
-          onStoreChange={(id) => auth.setActiveStoreRoleId(Number(id))}
+          stores={workplaceOptions}
+          activeStore={workplace?.key}
+          onStoreChange={auth.setActiveWorkplaceKey}
           items={navItems}
           active={screen}
           onSelect={goTo}

@@ -25,7 +25,8 @@ const STOCK_TAB_DEFS = [
 ]
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
 
-export default function Stock({ storeId, storeName, role }) {
+export default function Stock({ storeId, storeName, roles }) {
+  const isManager = MANAGER_ROLES.some((r) => roles.includes(r))
   const [tab, setTab] = useState('list')
   const [expanded, setExpanded] = useState({})
   const [ledgerGroup, setLedgerGroup] = useState('all')
@@ -126,7 +127,7 @@ export default function Stock({ storeId, storeName, role }) {
       }
     })
 
-  const stockTabs = STOCK_TAB_DEFS.filter((t) => !t.roles || t.roles.includes(role)).map((t) => ({ label: t.label, active: tab === t.key, select: () => setTab(t.key) }))
+  const stockTabs = STOCK_TAB_DEFS.filter((t) => !t.roles || t.roles.some((r) => roles.includes(r))).map((t) => ({ label: t.label, active: tab === t.key, select: () => setTab(t.key) }))
   const ledgerGroupChips = ['all', 'Transfers', 'Sales', 'Losses', 'Consumption'].map((g) => ({
     label: g === 'all' ? 'All' : g, active: ledgerGroup === g, select: () => setLedgerGroup(g),
   }))
@@ -140,8 +141,8 @@ export default function Stock({ storeId, storeName, role }) {
         {stockTabs.map((t) => <Chip key={t.label} selected={t.active} onClick={t.select}>{t.label}</Chip>)}
       </div>
 
-      {tab === 'count' && <StockTake storeId={storeId} storeName={storeName} isManager={MANAGER_ROLES.includes(role)} />}
-      {tab === 'write-offs' && <WriteOffs storeId={storeId} isManager={MANAGER_ROLES.includes(role)} />}
+      {tab === 'count' && <StockTake storeId={storeId} storeName={storeName} isManager={isManager} />}
+      {tab === 'write-offs' && <WriteOffs storeId={storeId} isManager={isManager} />}
 
       {batchesError && <NoticeBox variant="error">Could not load stock data.</NoticeBox>}
       {batchesLoading && <NoticeBox variant="info">Loading…</NoticeBox>}

@@ -108,27 +108,29 @@ class StoreViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             )})
 
 
+def refuse_other_owner(request, target):
+    """A shop owner manages their staff, not their fellow owners: only
+    the platform administrator edits, resets or removes an owner's
+    account or roles. An owner's own account is theirs to edit (users/me/),
+    and they may take on staff roles themselves, e.g. to work the till."""
+    user = request.user
+    if (not user.is_superuser and target.pk != user.pk
+            and target.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
+        raise PermissionDenied("Only the platform administrator can change another shop owner's account.")
+
+
 class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     entity_field = 'entity_id'
     permission_classes = [write_roles(*_ADMIN_WRITE_ROLES)]
 
-    def _refuse_other_owner(self, target):
-        """A shop owner manages their staff, not their fellow owners: only
-        the platform administrator edits, resets or removes an owner's
-        account (an owner edits their own through users/me/)."""
-        user = self.request.user
-        if (not user.is_superuser and target.pk != user.pk
-                and target.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
-            raise PermissionDenied("Only the platform administrator can change another shop owner's account.")
-
     def perform_create(self, serializer):
         user = serializer.save()
         record(Action.USER_CREATED, f'User {user.username} created', request=self.request, data={'user': user.username})
 
     def perform_update(self, serializer):
-        self._refuse_other_owner(serializer.instance)
+        refuse_other_owner(self.request, serializer.instance)
         was_active = serializer.instance.is_active
         resetting = bool(serializer.validated_data.get('password'))
         # The admin form sends every field; log only the ones that changed.
@@ -147,7 +149,7 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
                    request=self.request, data=target)
 
     def perform_destroy(self, instance):
-        self._refuse_other_owner(instance)
+        refuse_other_owner(self.request, instance)
         instance.delete()
 
     @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthenticated])
@@ -166,7 +168,7 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             user = serializer.save()
             if serializer.validated_data.get('new_password'):
                 record(Action.PASSWORD_CHANGED, f'{user.username} changed their password', request=request)
-        store_roles = StoreRole.objects.filter(user=user).select_related('store')
+        store_roles = StoreRole.objects.filter(user=user).select_related('store').order_by('id')
         entity = user.entity if user.entity_id else None
         return Response({
             'id': user.id,
@@ -248,12 +250,14 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         return f'{role.get_role_display()} at {role.store.name if role.store_id else "all stores"} for {role.user.username}'
 
     def perform_create(self, serializer):
+        refuse_other_owner(self.request, serializer.validated_data['user'])
         role = serializer.save()
         record(Action.ROLE_GRANTED, self._describe(role), request=self.request, store=role.store)
 
     def perform_destroy(self, instance):
         if instance.role == Role.ENTITY_ADMIN and not self.request.user.is_superuser:
             raise PermissionDenied('Only the platform administrator can remove a shop owner.')
+        refuse_other_owner(self.request, instance.user)
         summary, store = self._describe(instance), instance.store
         instance.delete()
         record(Action.ROLE_REMOVED, summary, request=self.request, store=store)

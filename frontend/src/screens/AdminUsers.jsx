@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Card, Field, Icon, Input, NoticeBox, Radio, Select, Tag } from '../components/ds/index.js'
+import { Button, Card, Checkbox, Field, Icon, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import {
@@ -7,13 +7,20 @@ import {
 } from '../api/core.js'
 import { GENDER_OPTIONS, ROLE_LABEL } from '../appData.js'
 
-// Owners (entity_admin) are appointed by the platform administrator, not here.
+// Owners (entity_admin) are appointed by the platform administrator, not
+// here. Anyone, an owner included, may hold any number of these, at one
+// store or several.
 const ROLES = ['cashier', 'storekeeper', 'store_manager']
 const isOwner = (row) => row.roles.some((r) => r.role === 'entity_admin')
+// A staff role assignment as one string, so a draft can hold a Set of them.
+const assignmentKey = (store, role) => `${store}:${role}`
+const staffAssignments = (row) => new Set(
+  row.roles.filter((r) => r.role !== 'entity_admin').map((r) => assignmentKey(r.store, r.role)),
+)
 
 const EMPTY_DRAFT = {
   username: '', password: '', confirmPassword: '', first_name: '', middle_name: '', last_name: '',
-  gender: '', date_of_birth: '', email: '', phone: '', role: 'cashier', store: '',
+  gender: '', date_of_birth: '', email: '', phone: '', assignments: new Set(),
 }
 const PROFILE_FIELDS = ['username', 'first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'email', 'phone']
 const REQUIRED = {
@@ -54,14 +61,22 @@ export default function AdminUsers() {
   const [busyUserId, setBusyUserId] = useState(null)
 
   const set = (field) => (e) => setDraft((d) => ({ ...d, [field]: e.target.value }))
-  const needsStore = draft.role !== 'entity_admin'
-  // Single shop: every staff role goes to its one store, so there's
-  // nothing to pick (the server assigns it too if store is left out).
+  const toggleAssignment = (key) => setDraft((d) => {
+    const assignments = new Set(d.assignments)
+    if (!assignments.delete(key)) assignments.add(key)
+    return { ...d, assignments }
+  })
+  // Single shop: every staff role goes to its one store, so the form shows
+  // just the roles, with no store to pick.
   const isSingle = auth.entity?.store_mode === 'single'
-  const singleStoreId = isSingle ? (stores ?? []).find((s) => s.is_active)?.id ?? null : null
-  // Role/store can be changed from this form only while the user holds at
-  // most one StoreRole — multi-store staff would lose their other roles.
-  const canEditRole = !editing || (editing.roles.length <= 1 && !isOwner(editing))
+  const editingOwner = Boolean(editing && isOwner(editing))
+  // The stores roles can be ticked at: the active ones, plus any inactive
+  // store the user still holds a role at, so it can be taken away.
+  const roleStores = useMemo(() => {
+    const held = new Set((editing?.roles ?? []).map((r) => r.store))
+    const list = (stores ?? []).filter((s) => s.is_active || held.has(s.id))
+    return isSingle ? list.filter((s) => s.is_active).slice(0, 1) : list
+  }, [stores, editing, isSingle])
 
   const rows = useMemo(() => {
     const storeName = Object.fromEntries((stores ?? []).map((s) => [s.id, s.name]))
@@ -96,13 +111,11 @@ export default function AdminUsers() {
   }
 
   function openEdit(row) {
-    const current = row.roles[0]
     setEditing(row)
     setDraft({
       ...EMPTY_DRAFT,
       ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, row[f] ?? ''])),
-      role: current?.role ?? 'cashier',
-      store: current?.store ?? '',
+      assignments: staffAssignments(row),
     })
     setErrors([])
     setNotice(null)
@@ -127,38 +140,45 @@ export default function AdminUsers() {
     }
   }
 
-  async function syncRole(userId, existingRoles) {
-    const current = existingRoles[0]
-    const store = needsStore ? (isSingle ? singleStoreId : draft.store) : null
-    if (current && current.role === draft.role && (current.store ?? null) === store) return
-    // Create the new role first so a failure never leaves the user role-less.
-    await createStoreRole({ user: userId, store, role: draft.role })
-    for (const r of existingRoles) await deleteStoreRole(r.id)
+  async function syncRoles(userId, existingRoles) {
+    const staffRoles = existingRoles.filter((r) => r.role !== 'entity_admin')
+    const existing = new Set(staffRoles.map((r) => assignmentKey(r.store, r.role)))
+    // Grant the new roles first so a failure never leaves the user role-less.
+    for (const key of draft.assignments) {
+      if (existing.has(key)) continue
+      const [store, role] = key.split(':')
+      await createStoreRole({ user: userId, store, role })
+    }
+    for (const r of staffRoles) {
+      if (!draft.assignments.has(assignmentKey(r.store, r.role))) await deleteStoreRole(r.id)
+    }
   }
 
   async function submit() {
     const required = editing ? Object.entries(REQUIRED).filter(([f]) => f !== 'password') : Object.entries(REQUIRED)
     const problems = required.filter(([f]) => !String(draft[f] ?? '').trim()).map(([, label]) => `${label} is required.`)
     if (draft.password && draft.password !== draft.confirmPassword) problems.push('Passwords do not match.')
-    if (canEditRole && needsStore && !isSingle && !draft.store) problems.push('Store is required for this role.')
+    if (!editingOwner && draft.assignments.size === 0) problems.push('Give the user at least one role.')
     setErrors(problems)
     setNotice(null)
     if (problems.length) return
 
     setSaving(true)
     try {
-      const { confirmPassword, role, store, password, ...profile } = draft
+      const { confirmPassword, assignments, password, ...profile } = draft
       const payload = password ? { ...profile, password } : profile
       const user = editing ? await updateUser(editing.id, payload) : await createUser(payload)
       try {
-        if (canEditRole) await syncRole(user.id, editing ? editing.roles : [])
+        await syncRoles(user.id, editing ? editing.roles : [])
       } catch (err) {
-        setErrors([`User "${user.username}" was saved, but updating the role failed:`, ...errorLines(err)])
+        setErrors([`User "${user.username}" was saved, but updating their roles failed:`, ...errorLines(err)])
       }
       setNotice(editing ? `User "${user.username}" updated.` : `User "${user.username}" created.`)
       closeForm()
       refetchUsers()
       refetchRoles()
+      // Your own roles decide your menus and store picker.
+      if (user.id === auth.profile?.id) auth.refreshProfile()
     } catch (err) {
       setErrors(errorLines(err))
     } finally {
@@ -207,30 +227,41 @@ export default function AdminUsers() {
               A password you set here is temporary: the user must choose their own the next time they sign in
               {editing ? ', and setting it signs them out of every device now' : ''}.
             </p>
-            {canEditRole ? (
-              <>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-                  {ROLES.map((r) => (
-                    <Radio key={r} checked={draft.role === r} onChange={() => setDraft((d) => ({ ...d, role: r }))} label={ROLE_LABEL[r]} />
-                  ))}
-                </div>
-                {needsStore && !isSingle && (
-                  <Field label="Store" required style={{ maxWidth: 320, marginBottom: 16 }}>
-                    <Select
-                      value={draft.store}
-                      onChange={set('store')}
-                      options={[{ value: '', label: 'Select store…' }, ...(stores ?? []).map((s) => ({ value: s.id, label: s.name }))]}
-                    />
-                  </Field>
+            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Roles</p>
+            <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '0 0 12px' }}>
+              {editingOwner
+                ? 'Owner of the shop, at every store (appointed by the system administrator). You can also take on the roles below, e.g. to work the till.'
+                : `Tick every role this user works in${isSingle ? '' : ', at each store'}.`}
+            </p>
+            <div className="ds-table-card" style={{ marginBottom: 16, maxWidth: 640 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                {!isSingle && (
+                  <thead>
+                    <tr>
+                      <th style={th()}>Store</th>
+                      {ROLES.map((r) => <th key={r} style={th()}>{ROLE_LABEL[r]}</th>)}
+                    </tr>
+                  </thead>
                 )}
-              </>
-            ) : (
-              <p style={{ fontSize: 13, color: 'var(--fg-subtle)', margin: '0 0 16px' }}>
-                {isOwner(editing)
-                  ? 'Owners are appointed by the system administrator, so this role can’t be changed here.'
-                  : 'This user holds roles at several stores, so roles can’t be changed from this form.'}
-              </p>
-            )}
+                <tbody>
+                  {roleStores.length === 0 && <tr><td style={td()} colSpan={ROLES.length + 1}>No stores yet. Add one under Stores first.</td></tr>}
+                  {roleStores.map((st) => (
+                    <tr key={st.id}>
+                      {!isSingle && <td style={td('var(--grey-900)')}>{st.name}{!st.is_active && ' (inactive)'}</td>}
+                      {ROLES.map((r) => (
+                        <td key={r} style={td()}>
+                          <Checkbox
+                            checked={draft.assignments.has(assignmentKey(st.id, r))}
+                            onChange={() => toggleAssignment(assignmentKey(st.id, r))}
+                            label={isSingle ? ROLE_LABEL[r] : undefined}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button variant="primary" onClick={submit} disabled={saving}>
                 {saving ? 'Saving…' : editing ? 'Save changes' : 'Create user'}

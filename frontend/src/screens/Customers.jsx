@@ -18,10 +18,10 @@ const EMPTY_CUSTOMER = { name: '', phone: '', address: '', note: '', credit_limi
 
 /** Customers who buy on credit (madeni): what each owes, taking their
  * repayments, and their statement. Credit itself is given at the till. */
-export default function Customers({ storeId, storeName, role, features }) {
+export default function Customers({ storeId, storeName, roles, features }) {
   const auth = useAuth()
   const entity = auth.entity
-  const isManager = MANAGERS.includes(role)
+  const isManager = MANAGERS.some((r) => roles.includes(r))
   const { data: summary, refetch: refetchSummary } = useApi(() => getCreditSummary(), [])
   const { data: methodPage } = useApi(() => listPaymentMethods(), [])
   const methods = (methodPage?.results ?? methodPage ?? []).filter((m) => m.is_active)

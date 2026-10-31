@@ -25,8 +25,8 @@ function emptyLine() {
   return { tempId: 'l' + Date.now() + Math.random(), productId: '', productName: '', tracksExpiry: false, uomId: '', orderQty: '', packPrice: '', batchNo: '', expiry: '' }
 }
 
-export default function Receiving({ storeId, role }) {
-  const isManager = ['store_manager', 'entity_admin'].includes(role)
+export default function Receiving({ storeId, roles }) {
+  const isManager = ['store_manager', 'entity_admin'].some((r) => roles.includes(r))
   const [openedInvoice, setOpenedInvoice] = useState(null)
   const [tab, setTab] = useState('new')
   const [invoiceId, setInvoiceId] = useState(null)

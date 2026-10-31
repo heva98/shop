@@ -462,3 +462,52 @@ class SingleStoreModeTests(APITestCase):
         response = self.client.post('/api/core/stores/', {'name': 'Branch'})
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class MultipleRolesTests(APITestCase):
+    """A user may hold several roles — at one store or across stores — and
+    an owner may take on staff roles themselves (e.g. to work the till)."""
+
+    def setUp(self):
+        self.entity = Entity.objects.create(name='Firm')
+        self.store = Store.objects.create(entity=self.entity, name='Main')
+        self.owner = User.objects.create_user(username='owner', password='x', entity=self.entity)
+        StoreRole.objects.create(user=self.owner, store=None, role=Role.ENTITY_ADMIN)
+        self.staff = User.objects.create_user(username='staff', password='x', entity=self.entity)
+        StoreRole.objects.create(user=self.staff, store=self.store, role=Role.CASHIER)
+        self.client.force_authenticate(self.owner)
+
+    def grant(self, user, role, store=None):
+        return self.client.post('/api/core/store-roles/', {
+            'user': user.id, 'store': str((store or self.store).id), 'role': role,
+        })
+
+    def test_staff_can_hold_several_roles_at_one_store(self):
+        response = self.grant(self.staff, Role.STOREKEEPER)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(set(self.staff.store_roles.values_list('role', flat=True)), {'cashier', 'storekeeper'})
+
+    def test_same_role_at_the_same_store_twice_is_refused(self):
+        response = self.grant(self.staff, Role.CASHIER)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_me_lists_every_role(self):
+        self.grant(self.staff, Role.STOREKEEPER)
+        self.client.force_authenticate(self.staff)
+        roles = [sr['role'] for sr in self.client.get('/api/core/users/me/').data['store_roles']]
+        self.assertEqual(roles, ['cashier', 'storekeeper'])
+
+    def test_owner_can_give_themselves_and_remove_a_staff_role(self):
+        response = self.grant(self.owner, Role.CASHIER)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.client.delete(f'/api/core/store-roles/{response.data["id"]}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertTrue(StoreRole.objects.filter(user=self.owner, role=Role.ENTITY_ADMIN).exists())
+
+    def test_owner_cannot_change_a_fellow_owners_roles(self):
+        other = User.objects.create_user(username='other_owner', password='x', entity=self.entity)
+        StoreRole.objects.create(user=other, store=None, role=Role.ENTITY_ADMIN)
+        cashier_role = StoreRole.objects.create(user=other, store=self.store, role=Role.CASHIER)
+        self.assertEqual(self.grant(other, Role.STOREKEEPER).status_code, status.HTTP_403_FORBIDDEN)
+        response = self.client.delete(f'/api/core/store-roles/{cashier_role.id}/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

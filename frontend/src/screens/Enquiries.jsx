@@ -32,11 +32,11 @@ async function availableAt(store, productIds) {
   return out
 }
 
-export default function Enquiries({ storeId, entity, role }) {
+export default function Enquiries({ storeId, entity, roles }) {
   const { data: stores } = useApi(() => listAllStores({ is_active: true }), [])
   // An entity admin viewing "All stores" picks which store they act for.
   const [pickedStore, setActingStore] = useState(null)
-  const store = storeId || pickedStore || (role === 'entity_admin' ? stores?.[0]?.id : null)
+  const store = storeId || pickedStore || (roles.includes('entity_admin') ? stores?.[0]?.id : null)
   const [tab, setTab] = useState('requests')
   const [printing, setPrinting] = useState(null)
 

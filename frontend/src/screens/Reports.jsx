@@ -247,8 +247,8 @@ const todayIso = () => {
 }
 const monthStartIso = () => todayIso().slice(0, 8) + '01'
 
-export default function Reports({ role, storeId, storeName, entity, features }) {
-  const available = REPORTS.filter((r) => r.roles.includes(role) && (!r.feature || features?.[r.feature] !== false))
+export default function Reports({ roles, storeId, storeName, entity, features }) {
+  const available = REPORTS.filter((r) => r.roles.some((x) => roles.includes(x)) && (!r.feature || features?.[r.feature] !== false))
   const [reportId, setReportId] = useState(available[0]?.id)
   const [start, setStart] = useState(monthStartIso())
   const [end, setEnd] = useState(todayIso())
