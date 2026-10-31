@@ -151,14 +151,14 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'password', 'first_name', 'middle_name', 'last_name',
-            'gender', 'date_of_birth', 'highest_qualification', 'email', 'phone', 'entity', 'is_active',
+            'gender', 'date_of_birth', 'email', 'phone', 'entity', 'is_active',
             'must_change_password',
         ]
         read_only_fields = ['must_change_password']
 
     # Required when an admin creates a user; optional on PATCH (partial=True
     # skips required checks) so existing users can be edited piecemeal.
-    _REQUIRED_ON_CREATE = ('password', 'first_name', 'last_name', 'gender', 'date_of_birth', 'highest_qualification')
+    _REQUIRED_ON_CREATE = ('password', 'first_name', 'last_name', 'gender', 'date_of_birth')
 
     def validate_entity(self, entity):
         request = self.context.get('request')
@@ -233,7 +233,7 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth',
-            'highest_qualification', 'email', 'phone', 'current_password', 'new_password',
+            'email', 'phone', 'current_password', 'new_password',
         ]
 
     def validate_phone(self, value):

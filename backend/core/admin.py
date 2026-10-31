@@ -4,7 +4,7 @@ from django.utils.html import format_html
 
 from .models import Entity, ModuleEnablement, ModuleRegistry, Store, StoreRole, User
 
-_PROFILE_FIELDS = ('middle_name', 'gender', 'date_of_birth', 'highest_qualification')
+_PROFILE_FIELDS = ('middle_name', 'gender', 'date_of_birth')
 
 
 @admin.register(User)
@@ -21,7 +21,7 @@ class ShopUserAdmin(UserAdmin):
         ('Personal info', {
             'classes': ('wide',),
             'fields': ('first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth',
-                       'highest_qualification', 'email', 'entity'),
+                       'email', 'entity'),
         }),
     )
 

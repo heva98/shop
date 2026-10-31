@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Button, Card, Field, Input, NoticeBox, Select } from '../components/ds/index.js'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { GENDER_OPTIONS, QUALIFICATION_OPTIONS } from '../appData.js'
+import { GENDER_OPTIONS } from '../appData.js'
 
-const PROFILE_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'highest_qualification', 'email', 'phone']
+const PROFILE_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'email', 'phone']
 const FIELD_LABEL = {
   first_name: 'First name', last_name: 'Last name', gender: 'Gender', date_of_birth: 'Date of birth',
-  highest_qualification: 'Highest academic qualification', email: 'Email', phone: 'Mobile number',
+  email: 'Email', phone: 'Mobile number',
   current_password: 'Current password', new_password: 'New password',
 }
 
@@ -83,9 +83,6 @@ export default function MyProfile({ onDone }) {
           <Field label="Last name" required><Input value={draft.last_name} onChange={set('last_name')} /></Field>
           <Field label="Gender"><Select value={draft.gender} onChange={set('gender')} options={GENDER_OPTIONS} /></Field>
           <Field label="Date of birth"><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
-          <Field label="Highest academic qualification">
-            <Select value={draft.highest_qualification} onChange={set('highest_qualification')} options={QUALIFICATION_OPTIONS} />
-          </Field>
           <Field label="Email"><Input type="email" value={draft.email} onChange={set('email')} /></Field>
           <Field label="Mobile number (for SMS summaries)"><Input value={draft.phone} onChange={set('phone')} placeholder="e.g. 0712 345 678" /></Field>
         </div>

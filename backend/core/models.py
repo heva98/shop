@@ -127,23 +127,12 @@ class User(AbstractUser):
         MALE = 'male', 'Male'
         FEMALE = 'female', 'Female'
 
-    class Qualification(models.TextChoices):
-        PRIMARY = 'primary', 'Primary education'
-        O_LEVEL = 'o_level', 'Secondary (O-level)'
-        A_LEVEL = 'a_level', 'Advanced secondary (A-level)'
-        CERTIFICATE = 'certificate', 'Certificate'
-        DIPLOMA = 'diploma', 'Diploma'
-        BACHELOR = 'bachelor', "Bachelor's degree"
-        MASTER = 'master', "Master's degree"
-        DOCTORATE = 'doctorate', 'Doctorate (PhD)'
-
     entity = models.ForeignKey(Entity, null=True, blank=True, on_delete=models.SET_NULL, related_name='users')
     # Blank-able at the model level so createsuperuser and existing rows keep
     # working; UserSerializer requires them when an admin creates staff.
     middle_name = models.CharField(max_length=150, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    highest_qualification = models.CharField(max_length=20, choices=Qualification.choices, blank=True)
     phone = models.CharField(
         max_length=20, blank=True,
         help_text='Mobile number for SMS summaries, in international form, e.g. 255712345678.',

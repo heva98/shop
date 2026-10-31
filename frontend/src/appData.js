@@ -34,20 +34,8 @@ export const BUSINESS_TYPE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-// Mirror core.User.Gender / core.User.Qualification on the backend.
+// Mirror core.User.Gender on the backend.
 export const GENDER_OPTIONS = [{ value: '', label: 'Select…' }, { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]
-export const QUALIFICATION_OPTIONS = [
-  { value: '', label: 'Select…' },
-  { value: 'primary', label: 'Primary education' },
-  { value: 'o_level', label: 'Secondary (O-level)' },
-  { value: 'a_level', label: 'Advanced secondary (A-level)' },
-  { value: 'certificate', label: 'Certificate' },
-  { value: 'diploma', label: 'Diploma' },
-  { value: 'bachelor', label: 'Bachelor’s degree' },
-  { value: 'master', label: 'Master’s degree' },
-  { value: 'doctorate', label: 'Doctorate (PhD)' },
-]
-export const QUALIFICATION_LABEL = Object.fromEntries(QUALIFICATION_OPTIONS.map((o) => [o.value, o.label]))
 
 export function fmt(n) {
   // `|| 0` turns -0 (e.g. a zero-cost shortfall) and NaN into a plain 0.

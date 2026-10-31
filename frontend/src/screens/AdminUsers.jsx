@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import {
   createStoreRole, createUser, deleteStoreRole, listAllStoreRoles, listAllStores, listAllUsers, updateUser,
 } from '../api/core.js'
-import { GENDER_OPTIONS, QUALIFICATION_LABEL, QUALIFICATION_OPTIONS, ROLE_LABEL } from '../appData.js'
+import { GENDER_OPTIONS, ROLE_LABEL } from '../appData.js'
 
 // Owners (entity_admin) are appointed by the platform administrator, not here.
 const ROLES = ['cashier', 'storekeeper', 'store_manager']
@@ -13,12 +13,12 @@ const isOwner = (row) => row.roles.some((r) => r.role === 'entity_admin')
 
 const EMPTY_DRAFT = {
   username: '', password: '', confirmPassword: '', first_name: '', middle_name: '', last_name: '',
-  gender: '', date_of_birth: '', highest_qualification: '', email: '', phone: '', role: 'cashier', store: '',
+  gender: '', date_of_birth: '', email: '', phone: '', role: 'cashier', store: '',
 }
-const PROFILE_FIELDS = ['username', 'first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'highest_qualification', 'email', 'phone']
+const PROFILE_FIELDS = ['username', 'first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'email', 'phone']
 const REQUIRED = {
   username: 'Username', password: 'Password', first_name: 'First name', last_name: 'Last name',
-  gender: 'Gender', date_of_birth: 'Date of birth', highest_qualification: 'Highest academic qualification',
+  gender: 'Gender', date_of_birth: 'Date of birth',
 }
 
 function th() {
@@ -191,9 +191,6 @@ export default function AdminUsers() {
               <Field label="Last name" required><Input value={draft.last_name} onChange={set('last_name')} /></Field>
               <Field label="Gender" required><Select value={draft.gender} onChange={set('gender')} options={GENDER_OPTIONS} /></Field>
               <Field label="Date of birth" required><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
-              <Field label="Highest academic qualification" required>
-                <Select value={draft.highest_qualification} onChange={set('highest_qualification')} options={QUALIFICATION_OPTIONS} />
-              </Field>
               <Field label="Email"><Input type="email" value={draft.email} onChange={set('email')} /></Field>
               <Field label="Mobile number"><Input value={draft.phone} onChange={set('phone')} placeholder="e.g. 0712 345 678" /></Field>
             </div>
@@ -251,15 +248,14 @@ export default function AdminUsers() {
               <tr>
                 <th style={th()}>Name</th>
                 <th style={th()}>Username</th>
-                <th style={th()}>Qualification</th>
                 <th style={th()}>Role · Store scope</th>
                 <th style={th()}>Status</th>
                 <th style={th()}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td style={td()} colSpan={6}>Loading users…</td></tr>}
-              {loadError && <tr><td style={td('var(--red-600)')} colSpan={6}>Could not load users: {loadError.message}</td></tr>}
+              {loading && <tr><td style={td()} colSpan={5}>Loading users…</td></tr>}
+              {loadError && <tr><td style={td('var(--red-600)')} colSpan={5}>Could not load users: {loadError.message}</td></tr>}
               {rows.map((u) => {
                 const isSelf = u.id === auth.profile?.id
                 // Another owner's account is the system administrator's to change.
@@ -268,7 +264,6 @@ export default function AdminUsers() {
                   <tr key={u.id}>
                     <td style={td('var(--grey-900)')}>{u.fullName}</td>
                     <td style={td()}>{u.username}</td>
-                    <td style={td()}>{QUALIFICATION_LABEL[u.highest_qualification] || '—'}</td>
                     <td style={td()}>
                       {u.roles.length === 0 && '—'}
                       {u.roles.map((r) => <div key={r.id} style={{ marginBottom: 4 }}><Tag>{r.label}</Tag> {r.scope}</div>)}

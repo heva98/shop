@@ -176,7 +176,6 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             'last_name': user.last_name,
             'gender': user.gender,
             'date_of_birth': user.date_of_birth,
-            'highest_qualification': user.highest_qualification,
             'email': user.email,
             'phone': user.phone,
             'must_change_password': user.must_change_password,

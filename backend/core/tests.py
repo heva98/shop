@@ -154,7 +154,7 @@ class TenantIsolationTests(APITestCase):
 
 class UserCreationTests(APITestCase):
     """Admin > Users & roles creates staff with credentials and a profile
-    (names, gender, date of birth, highest academic qualification)."""
+    (names, gender, date of birth)."""
 
     def setUp(self):
         self.entity = Entity.objects.create(name='Firm A')
@@ -164,7 +164,7 @@ class UserCreationTests(APITestCase):
         self.payload = {
             'username': 'amina', 'password': 'Str0ng-pass-123',
             'first_name': 'Amina', 'middle_name': 'Said', 'last_name': 'Kassim',
-            'gender': 'female', 'date_of_birth': '1995-04-12', 'highest_qualification': 'diploma',
+            'gender': 'female', 'date_of_birth': '1995-04-12',
         }
 
     def test_creates_user_with_profile_and_hashed_password(self):
@@ -175,14 +175,14 @@ class UserCreationTests(APITestCase):
         self.assertTrue(user.check_password('Str0ng-pass-123'))
         self.assertEqual(user.entity, self.entity)
         self.assertEqual(
-            (user.middle_name, user.gender, str(user.date_of_birth), user.highest_qualification),
-            ('Said', 'female', '1995-04-12', 'diploma'),
+            (user.middle_name, user.gender, str(user.date_of_birth)),
+            ('Said', 'female', '1995-04-12'),
         )
 
     def test_profile_fields_and_password_required_on_create(self):
         response = self.client.post('/api/core/users/', {'username': 'bare'})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        for field in ('password', 'first_name', 'last_name', 'gender', 'date_of_birth', 'highest_qualification'):
+        for field in ('password', 'first_name', 'last_name', 'gender', 'date_of_birth'):
             self.assertIn(field, response.data)
 
     def test_middle_name_is_optional(self):
@@ -208,11 +208,11 @@ class UserCreationTests(APITestCase):
     def test_admin_can_edit_profile_and_reset_password(self):
         user = User.objects.create_user(username='legacy2', password='old-Pass-999', entity=self.entity)
         response = self.client.patch(f'/api/core/users/{user.id}/', {
-            'first_name': 'Neema', 'highest_qualification': 'bachelor', 'password': 'N3w-pass-4567',
+            'first_name': 'Neema', 'password': 'N3w-pass-4567',
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         user.refresh_from_db()
-        self.assertEqual((user.first_name, user.highest_qualification), ('Neema', 'bachelor'))
+        self.assertEqual(user.first_name, 'Neema')
         self.assertTrue(user.check_password('N3w-pass-4567'))
 
     def test_disabled_user_cannot_authenticate(self):
@@ -248,11 +248,11 @@ class OwnProfileTests(APITestCase):
         self.client.force_authenticate(self.cashier)
 
     def test_cashier_can_edit_own_profile(self):
-        response = self.client.patch('/api/core/users/me/', {'first_name': 'Juma', 'highest_qualification': 'diploma'})
+        response = self.client.patch('/api/core/users/me/', {'first_name': 'Juma', 'gender': 'male'})
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data['first_name'], 'Juma')
         self.cashier.refresh_from_db()
-        self.assertEqual(self.cashier.highest_qualification, 'diploma')
+        self.assertEqual(self.cashier.gender, 'male')
 
     def test_cannot_escalate_via_me(self):
         other = Entity.objects.create(name='Firm B')
