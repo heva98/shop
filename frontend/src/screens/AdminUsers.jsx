@@ -7,6 +7,7 @@ import {
 } from '../api/core.js'
 import { GENDER_OPTIONS, ROLE_LABEL } from '../appData.js'
 import { t, tOptions, useT } from '../i18n/index.js'
+import { PHONE_DIGITS, localPhone, phoneInput } from '../lib/phone.js'
 
 // Owners (entity_admin) are appointed by the platform administrator, not
 // here. Anyone, an owner included, may hold any number of these, at one
@@ -117,6 +118,7 @@ export default function AdminUsers() {
     setDraft({
       ...EMPTY_DRAFT,
       ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, row[f] ?? ''])),
+      phone: localPhone(row.phone),
       assignments: staffAssignments(row),
     })
     setErrors([])
@@ -214,7 +216,7 @@ export default function AdminUsers() {
               <Field label={t('Gender')} required><Select value={draft.gender} onChange={set('gender')} options={tOptions(GENDER_OPTIONS)} /></Field>
               <Field label={t('Date of birth')} required><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
               <Field label={t('Email')}><Input type="email" value={draft.email} onChange={set('email')} /></Field>
-              <Field label={t('Mobile number')}><Input value={draft.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+              <Field label={t('Mobile number')}><Input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: phoneInput(e.target.value) }))} inputMode="numeric" maxLength={PHONE_DIGITS} placeholder={t('e.g. 0712 345 678')} /></Field>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 12 }}>
               <Field label={t('Username')} required><Input value={draft.username} onChange={set('username')} /></Field>

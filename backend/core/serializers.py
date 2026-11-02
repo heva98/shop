@@ -145,6 +145,19 @@ def normalize_phone(value):
     return digits
 
 
+def normalize_mobile(value):
+    """A user's mobile number: exactly 10 digits in local form (0712 345 678),
+    or the same number already stored as 255712345678. Stored as the latter."""
+    digits = re.sub(r'[\s\-()+]', '', value or '')
+    if not digits:
+        return ''
+    if len(digits) == 12 and digits.startswith('255'):
+        digits = '0' + digits[3:]
+    if not (digits.isdigit() and len(digits) == 10 and digits.startswith('0')):
+        raise serializers.ValidationError(gettext('Enter a full mobile number, e.g. 0712 345 678.'))
+    return '255' + digits[1:]
+
+
 def validate_daily_sms_time(value):
     """The summary job runs every 5 minutes, so only those marks are kept to."""
     if value is not None and (value.minute % 5 or value.second):
@@ -176,7 +189,7 @@ class UserSerializer(serializers.ModelSerializer):
         return validate_owned_entity(entity, request)
 
     def validate_phone(self, value):
-        return normalize_phone(value)
+        return normalize_mobile(value)
 
     def validate_daily_sms_time(self, value):
         return validate_daily_sms_time(value)
@@ -248,7 +261,7 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         ]
 
     def validate_phone(self, value):
-        return normalize_phone(value)
+        return normalize_mobile(value)
 
     def validate_date_of_birth(self, dob):
         if dob is not None and dob >= date.today():

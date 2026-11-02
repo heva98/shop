@@ -20,7 +20,7 @@ from audit.services import Action, Summary, record
 
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
-from .serializers import normalize_phone, validate_daily_sms_time
+from .serializers import normalize_mobile, normalize_phone, validate_daily_sms_time
 
 
 class IsPlatformAdmin(BasePermission):
@@ -48,7 +48,7 @@ class OwnerSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone(self, value):
-        return normalize_phone(value)
+        return normalize_mobile(value)
 
     def validate_daily_sms_time(self, value):
         return validate_daily_sms_time(value)

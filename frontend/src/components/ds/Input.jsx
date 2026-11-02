@@ -1,6 +1,6 @@
 import Icon from './Icon.jsx'
 
-export default function Input({ value, onChange, placeholder, prefixIcon, type = 'text', step, disabled, style }) {
+export default function Input({ value, onChange, placeholder, prefixIcon, type = 'text', step, inputMode, maxLength, disabled, style }) {
   return (
     <div style={{ position: 'relative', width: '100%', ...style }}>
       {prefixIcon && <span className="ds-input-icon"><Icon name={prefixIcon} size={18} /></span>}
@@ -8,6 +8,8 @@ export default function Input({ value, onChange, placeholder, prefixIcon, type =
         className={['ds-input', disabled ? 'disabled' : ''].filter(Boolean).join(' ')}
         type={type}
         step={step}
+        inputMode={inputMode}
+        maxLength={maxLength}
         value={value}
         onChange={onChange}
         placeholder={placeholder}

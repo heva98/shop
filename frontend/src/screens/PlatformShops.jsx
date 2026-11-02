@@ -5,6 +5,7 @@ import { addShopOwner, listAllShops, registerShop, updateShop } from '../api/pla
 import { updateUser } from '../api/core.js'
 import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
 import { t, tOptions, useT } from '../i18n/index.js'
+import { PHONE_DIGITS, phoneInput } from '../lib/phone.js'
 
 const EMPTY_SHOP = {
   name: '', business_type: 'general', tin: '', phone: '', email: '', region: '', district: '', address: '',
@@ -414,7 +415,7 @@ function OwnerFields({ owner, setOwner }) {
       <div style={grid}>
         <Field label={t('First name')} required><Input value={owner.first_name} onChange={set('first_name')} /></Field>
         <Field label={t('Last name')} required><Input value={owner.last_name} onChange={set('last_name')} /></Field>
-        <Field label={t('Mobile number')}><Input value={owner.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+        <Field label={t('Mobile number')}><Input value={owner.phone} onChange={(e) => setOwner((o) => ({ ...o, phone: phoneInput(e.target.value) }))} inputMode="numeric" maxLength={PHONE_DIGITS} placeholder={t('e.g. 0712 345 678')} /></Field>
         <Field label={t('Email')}><Input type="email" value={owner.email} onChange={set('email')} /></Field>
         <Field label={t('Daily sales SMS time')}><Input type="time" step={300} value={owner.daily_sms_time} onChange={set('daily_sms_time')} /></Field>
         <Field label={t('Username')} required><Input value={owner.username} onChange={set('username')} /></Field>

@@ -3,6 +3,7 @@ import { Button, Card, Field, Input, NoticeBox, Select } from '../components/ds/
 import { useAuth } from '../auth/AuthContext.jsx'
 import { GENDER_OPTIONS } from '../appData.js'
 import { t, tOptions, useT } from '../i18n/index.js'
+import { PHONE_DIGITS, localPhone, phoneInput } from '../lib/phone.js'
 
 const PROFILE_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'email', 'phone']
 const FIELD_LABEL = {
@@ -24,6 +25,7 @@ function errorLines(err) {
 function draftFrom(profile) {
   return {
     ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, profile?.[f] ?? ''])),
+    phone: localPhone(profile?.phone),
     current_password: '', new_password: '', confirm_password: '',
   }
 }
@@ -86,7 +88,7 @@ export default function MyProfile({ onDone }) {
           <Field label={t('Gender')}><Select value={draft.gender} onChange={set('gender')} options={tOptions(GENDER_OPTIONS)} /></Field>
           <Field label={t('Date of birth')}><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
           <Field label={t('Email')}><Input type="email" value={draft.email} onChange={set('email')} /></Field>
-          <Field label={t('Mobile number (for SMS summaries)')}><Input value={draft.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+          <Field label={t('Mobile number (for SMS summaries)')}><Input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: phoneInput(e.target.value) }))} inputMode="numeric" maxLength={PHONE_DIGITS} placeholder={t('e.g. 0712 345 678')} /></Field>
         </div>
 
         <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 12px' }}>{t('Change password')}</p>
