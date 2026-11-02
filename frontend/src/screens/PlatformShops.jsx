@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Button, Field, Icon, Input, Modal, NoticeBox, PageHeader, Radio, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
+import LocationFields, { TANZANIA, countryName } from '../components/LocationFields.jsx'
 import { addShopOwner, listAllShops, registerShop, updateShop } from '../api/platform.js'
 import { updateUser } from '../api/core.js'
 import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
-import { t, tOptions, useT } from '../i18n/index.js'
+import { t, tOptions, useLanguage, useT } from '../i18n/index.js'
 import { PHONE_DIGITS, phoneInput } from '../lib/phone.js'
 
 const EMPTY_SHOP = {
-  name: '', business_type: 'general', tin: '', phone: '', email: '', region: '', district: '', address: '',
+  name: '', business_type: 'general', tin: '', phone: '', email: '', country: 'TZ', region: '', council: '', address: '',
   store_mode: 'single',
 }
 const EMPTY_OWNER = { first_name: '', last_name: '', username: '', phone: '', email: '', daily_sms_time: '', password: '', confirmPassword: '' }
@@ -16,7 +17,7 @@ const SHOP_FIELDS = Object.keys(EMPTY_SHOP)
 
 const LABEL = {
   name: 'Shop name', business_type: 'Type of shop', tin: 'TIN', phone: 'Phone', email: 'Email', region: 'Region',
-  district: 'District', address: 'Street / area', store_mode: 'Store setup', first_name: 'First name',
+  country: 'Country', council: 'Council', address: 'Street / area', store_mode: 'Store setup', first_name: 'First name',
   last_name: 'Last name', username: 'Username', password: 'Password', owner: 'Owner', daily_sms_time: 'Daily sales SMS time',
 }
 
@@ -58,6 +59,7 @@ const smsTimeLabel = (value) => (value ? value.slice(0, 5) : t('default time'))
 
 export default function PlatformShops() {
   useT()
+  const lang = useLanguage()
   const { data: shops, loading, error: loadError, refetch } = useApi(() => listAllShops(), [])
   const [search, setSearch] = useState('')
   const [notice, setNotice] = useState(null)
@@ -68,7 +70,7 @@ export default function PlatformShops() {
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return (shops ?? []).filter((s) => !q || [s.name, s.region, s.district, s.phone, ...s.owners.map((o) => o.username)]
+    return (shops ?? []).filter((s) => !q || [s.name, s.region, s.council, s.phone, ...s.owners.map((o) => o.username)]
       .some((v) => (v || '').toLowerCase().includes(q)))
   }, [shops, search])
 
@@ -132,7 +134,7 @@ export default function PlatformShops() {
                   <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{t(s.business_type_label)}{s.phone ? ` · ${s.phone}` : ''}</div>
                 </td>
                 <td style={td()}>
-                  {[s.district, s.region].filter(Boolean).join(', ') || '—'}
+                  {[s.council, s.region, s.country !== TANZANIA && countryName(s.country, lang)].filter(Boolean).join(', ') || '—'}
                   {s.address && <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{s.address}</div>}
                 </td>
                 <td style={td()}>
@@ -244,8 +246,7 @@ function ShopDialog({ shop, onClose, onDone }) {
       </div>
       <SectionTitle>{t('Location')}</SectionTitle>
       <div style={grid}>
-        <Field label={t('Region')}><Input value={draft.region} onChange={set('region')} placeholder={t('e.g. Dar es Salaam')} /></Field>
-        <Field label={t('District')}><Input value={draft.district} onChange={set('district')} placeholder={t('e.g. Kinondoni')} /></Field>
+        <LocationFields country={draft.country} region={draft.region} council={draft.council} onChange={(loc) => setDraft((d) => ({ ...d, ...loc }))} />
         <Field label={t('Street / area')}><Input value={draft.address} onChange={set('address')} placeholder={t('e.g. Sinza, near the market')} /></Field>
       </div>
       {registering && (

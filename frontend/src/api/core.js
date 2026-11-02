@@ -47,3 +47,6 @@ export const updateModuleEnablement = (id, data) => client.patch(`/api/core/modu
 
 export const getFeatures = () => client.get('/api/core/features/')
 export const setFeature = (key, store, enabled) => client.patch('/api/core/features/', { key, store, enabled })
+
+// Tanzania's regions and their councils, for the shop's location dropdowns.
+export const listLocations = () => client.get('/api/core/locations/')

@@ -6,8 +6,8 @@ from .models import Entity, Role, Store, StoreRole, User
 
 OWNER = {'username': 'mama_neema', 'password': 'Duka-Yangu-2026', 'first_name': 'Neema', 'last_name': 'Mushi',
          'phone': '0712 345 678'}
-SHOP = {'name': 'Neema General Store', 'business_type': 'general', 'region': 'Dar es Salaam',
-        'district': 'Kinondoni', 'address': 'Sinza, near the market', 'store_mode': 'single'}
+SHOP = {'name': 'Neema General Store', 'business_type': 'general', 'region': 'Dar Es Salaam Region',
+        'council': 'Kinondoni Municipal Council', 'address': 'Sinza, near the market', 'store_mode': 'single'}
 
 
 class RegisterShopTests(APITestCase):
@@ -22,7 +22,7 @@ class RegisterShopTests(APITestCase):
         response = self.register()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         entity = Entity.objects.get(name='Neema General Store')
-        self.assertEqual(entity.region, 'Dar es Salaam')
+        self.assertEqual((entity.country, entity.region, entity.council), ('TZ', 'Dar Es Salaam Region', 'Kinondoni Municipal Council'))
         store = entity.stores.get()
         self.assertEqual(store.address, 'Sinza, near the market')
         owner = User.objects.get(username='mama_neema')
@@ -32,6 +32,39 @@ class RegisterShopTests(APITestCase):
         self.assertTrue(owner.check_password(OWNER['password']))
         self.assertTrue(StoreRole.objects.filter(user=owner, store=None, role=Role.ENTITY_ADMIN).exists())
         self.assertEqual([o['username'] for o in response.data['owners']], ['mama_neema'])
+
+    def test_council_must_be_of_the_region(self):
+        response = self.register(council='Arusha City Council')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('council', response.data)
+        self.assertIn('region', self.register(region='Nowhere').data)
+        self.assertFalse(Entity.objects.exists())
+
+    def test_location_typed_before_the_dropdowns_can_stay(self):
+        shop_id = self.register().data['id']
+        Entity.objects.filter(pk=shop_id).update(region='Dar es Salaam', council='Kinondoni')
+        response = self.client.patch(f'/api/platform/shops/{shop_id}/',
+                                     {'region': 'Dar es Salaam', 'council': 'Kinondoni', 'phone': '0713 000 000'},
+                                     format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        response = self.client.patch(f'/api/platform/shops/{shop_id}/', {'council': 'Ubungo'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_other_countries_are_typed_in(self):
+        self.assertIn('country', self.register(country='XX').data)
+        response = self.register(country='KE', region='Nairobi', council='Westlands')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        shop_id = response.data['id']
+        response = self.client.patch(f'/api/platform/shops/{shop_id}/', {'country': 'TZ'}, format='json')
+        self.assertIn('region', response.data)
+
+    def test_locations_list(self):
+        data = self.client.get('/api/core/locations/').data
+        self.assertIn({'code': 'TZ', 'name': 'Tanzania'}, data['countries'])
+        regions = {r['region']: r['councils'] for r in data['regions']}
+        self.assertEqual(len(regions), 26)
+        self.assertIn('Arusha City Council', regions['Arusha Region'])
+        self.assertNotIn('Arusha City Council', regions['Dar Es Salaam Region'])
 
     def test_multi_branch_shop_starts_with_one_store(self):
         self.register(store_mode='multi')

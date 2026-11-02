@@ -11,4 +11,4 @@ router.register('store-roles', views.StoreRoleViewSet)
 router.register('modules', views.ModuleRegistryViewSet)
 router.register('module-enablements', views.ModuleEnablementViewSet)
 
-urlpatterns = [path('features/', views.features)] + router.urls
+urlpatterns = [path('features/', views.features), path('locations/', views.locations)] + router.urls

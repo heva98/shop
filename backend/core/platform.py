@@ -21,6 +21,7 @@ from audit.services import Action, Summary, record
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
 from .serializers import normalize_mobile, normalize_phone, validate_daily_sms_time
+from .tz_locations import check_location
 
 
 class IsPlatformAdmin(BasePermission):
@@ -82,8 +83,8 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Entity
-        fields = ['id', 'name', 'tin', 'business_type', 'business_type_label', 'phone', 'email', 'region',
-                  'district', 'address', 'store_mode', 'price_mode', 'is_active', 'created_at',
+        fields = ['id', 'name', 'tin', 'business_type', 'business_type_label', 'phone', 'email', 'country',
+                  'region', 'council', 'address', 'store_mode', 'price_mode', 'is_active', 'created_at',
                   'owner', 'owners', 'store_count', 'staff_count']
         read_only_fields = ['created_at']
 
@@ -101,6 +102,9 @@ class ShopSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'owner': gettext('A new shop needs its owner.')})
         if self.instance is not None and 'owner' in attrs:
             raise serializers.ValidationError({'owner': gettext('Add owners to an existing shop with its owners action.')})
+        errors = check_location(attrs, self.instance)
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs
 
     @transaction.atomic
@@ -125,7 +129,7 @@ class ShopViewSet(viewsets.ModelViewSet):
     serializer_class = ShopSerializer
     permission_classes = [IsPlatformAdmin]
     http_method_names = ['get', 'post', 'patch', 'head', 'options']
-    search_fields = ['name', 'region', 'district', 'phone']
+    search_fields = ['name', 'region', 'council', 'phone']
     filterset_fields = ['business_type', 'is_active']
 
     def get_queryset(self):

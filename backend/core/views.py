@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from audit.services import Action, Summary, record
 
+from . import tz_locations
 from .features import FEATURES, FEATURES_BY_KEY, feature_values, is_enabled, set_feature, unavailable_reason
 from .models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
 from .permissions import SuperuserForWrite, roles, write_roles
@@ -193,6 +194,12 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
                 for sr in store_roles
             ],
         })
+
+
+@api_view(['GET'])
+def locations(request):
+    """Tanzania's regions and their councils, for the shop's dropdowns."""
+    return Response(tz_locations.locations())
 
 
 @api_view(['GET', 'PATCH'])

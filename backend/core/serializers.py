@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from .models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
 from .queryset_scoping import accessible_store_ids
+from .tz_locations import check_location
 
 
 class ClientGeneratedIdMixin(serializers.Serializer):
@@ -97,13 +98,19 @@ _MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB — plenty for a header/print logo
 class EntitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Entity
-        fields = ['id', 'name', 'tin', 'business_type', 'phone', 'email', 'region', 'district', 'address',
+        fields = ['id', 'name', 'tin', 'business_type', 'phone', 'email', 'country', 'region', 'council', 'address',
                   'is_active', 'logo', 'main_store', 'price_mode', 'store_mode', 'cashier_discount_limit', 'created_at']
         # Suspending a shop is the platform administrator's (core.platform).
         read_only_fields = ['is_active']
 
     def validate_phone(self, value):
         return normalize_phone(value)
+
+    def validate(self, attrs):
+        errors = check_location(attrs, self.instance)
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
     def validate_store_mode(self, mode):
         entity = self.instance

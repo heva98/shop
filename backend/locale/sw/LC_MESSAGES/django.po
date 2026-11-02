@@ -2819,3 +2819,12 @@ msgstr[1] "Nenosiri lako lazima liwe na angalau herufi %(min_length)d."
 
 msgid "Pick a time on a 5-minute mark, e.g. 20:00 or 20:05."
 msgstr "Chagua muda unaoishia kwa dakika 5, mfano 20:00 au 20:05."
+
+msgid "Pick a region from the list."
+msgstr "Chagua mkoa kutoka kwenye orodha."
+
+msgid "Pick a council of the chosen region."
+msgstr "Chagua halmashauri ya mkoa uliouchagua."
+
+msgid "Pick a country from the list."
+msgstr "Chagua nchi kutoka kwenye orodha."

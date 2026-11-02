@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Field, Input, NoticeBox, Radio, Select } from '../components/ds/index.js'
 import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
+import LocationFields from '../components/LocationFields.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { updateEntity, updateEntityLogo } from '../api/core.js'
 import { t, tOptions, useT } from '../i18n/index.js'
@@ -16,7 +17,7 @@ function errorLines(err) {
 }
 
 // Type, contact and location: set at registration, kept up to date by the owner.
-const DETAIL_FIELDS = ['business_type', 'phone', 'email', 'region', 'district', 'address']
+const DETAIL_FIELDS = ['business_type', 'phone', 'email', 'country', 'region', 'council', 'address']
 const detailsOf = (entity) => Object.fromEntries(DETAIL_FIELDS.map((f) => [f, entity?.[f] ?? '']))
 
 const STORE_MODE_OPTIONS = [
@@ -140,8 +141,7 @@ export default function AdminShopProfile() {
           </Field>
           <Field label={t('Phone')}><Input value={details.phone} onChange={setDetail('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
           <Field label={t('Email')}><Input type="email" value={details.email} onChange={setDetail('email')} /></Field>
-          <Field label={t('Region')}><Input value={details.region} onChange={setDetail('region')} placeholder={t('e.g. Dar es Salaam')} /></Field>
-          <Field label={t('District')}><Input value={details.district} onChange={setDetail('district')} placeholder={t('e.g. Kinondoni')} /></Field>
+          <LocationFields country={details.country || 'TZ'} region={details.region} council={details.council} onChange={(loc) => setDetails((d) => ({ ...d, ...loc }))} />
           <Field label={t('Street / area')}><Input value={details.address} onChange={setDetail('address')} placeholder={t('e.g. Sinza, near the market')} /></Field>
         </div>
 

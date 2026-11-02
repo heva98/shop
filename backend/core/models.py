@@ -40,8 +40,9 @@ class Entity(models.Model):
     business_type = models.CharField(max_length=20, choices=BusinessType.choices, default=BusinessType.GENERAL)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    region = models.CharField(max_length=64, blank=True)
-    district = models.CharField(max_length=64, blank=True)
+    country = models.CharField(max_length=2, default='TZ', help_text='ISO code (core.countries).')
+    region = models.CharField(max_length=64, blank=True, help_text="From the list in Tanzania, else typed in.")
+    council = models.CharField(max_length=64, blank=True, help_text='In Tanzania, a council of the region (core.tz_locations).')
     address = models.CharField(
         max_length=255, blank=True, help_text='Street, area or landmark where the shop is.',
     )
