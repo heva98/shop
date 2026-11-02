@@ -145,6 +145,13 @@ def normalize_phone(value):
     return digits
 
 
+def validate_daily_sms_time(value):
+    """The summary job runs every 5 minutes, so only those marks are kept to."""
+    if value is not None and (value.minute % 5 or value.second):
+        raise serializers.ValidationError(gettext('Pick a time on a 5-minute mark, e.g. 20:00 or 20:05.'))
+    return value
+
+
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
 
@@ -153,7 +160,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'password', 'first_name', 'middle_name', 'last_name',
             'gender', 'date_of_birth', 'email', 'phone', 'entity', 'is_active',
-            'must_change_password',
+            'must_change_password', 'daily_sms_time',
         ]
         read_only_fields = ['must_change_password']
 
@@ -170,6 +177,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         return normalize_phone(value)
+
+    def validate_daily_sms_time(self, value):
+        return validate_daily_sms_time(value)
 
     def validate_date_of_birth(self, dob):
         if dob is not None and dob >= date.today():

@@ -522,6 +522,14 @@ export default {
   "Could not reset the password": "Imeshindwa kuweka nenosiri upya",
   "The owner is signed out everywhere and must choose their own password at their next sign-in.": "Mmiliki atatolewa kila mahali na lazima achague nenosiri lake atakapoingia tena.",
   "This password is temporary: the owner must choose their own the first time they sign in.": "Nenosiri hili ni la muda: mmiliki lazima achague lake mara ya kwanza atakapoingia.",
+  "Daily sales SMS time": "Muda wa SMS ya mauzo ya siku",
+  "Daily sales SMS at {time}": "SMS ya mauzo ya siku saa {time}",
+  "default time": "muda wa kawaida",
+  "Use the default time": "Tumia muda wa kawaida",
+  "{user} gets the daily sales SMS at {time}.": "{user} atapata SMS ya mauzo ya siku saa {time}.",
+  "{user} gets the daily sales SMS at the default time.": "{user} atapata SMS ya mauzo ya siku kwa muda wa kawaida.",
+  "The SMS covers that day's sales up to the time it is sent. Pick a time on a 5-minute mark, e.g. 20:00 or 20:05.": "SMS inahusu mauzo ya siku hiyo hadi muda inapotumwa. Chagua muda unaoishia kwa dakika 5, mfano 20:00 au 20:05.",
+  "Leave the SMS time blank to use the default time.": "Acha muda wa SMS wazi ili kutumia muda wa kawaida.",
 
   // Stock
   "Transfer In": "Uhamisho ndani",

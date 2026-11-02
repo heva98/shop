@@ -1,11 +1,13 @@
 [Unit]
-Description=Shop ERP — send the end-of-day summary after closing
+Description=Shop ERP — send the end-of-day summaries when each is due
 
 [Timer]
-# Times are the server's clock; set it to Africa/Dar_es_Salaam
-# (sudo timedatectl set-timezone Africa/Dar_es_Salaam) or adjust this.
-OnCalendar=*-*-* 21:30:00
-Persistent=true
+# Every 5 minutes: the command sends the emails once DAILY_SUMMARY_TIME
+# (default 21:30) has passed, and each owner's SMS at their own time
+# (Shops console). Those times are TIME_ZONE (Africa/Dar_es_Salaam),
+# whatever the server's clock.
+OnCalendar=*:0/5
+AccuracySec=1s
 
 [Install]
 WantedBy=timers.target

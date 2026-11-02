@@ -296,3 +296,6 @@ SMS_BATCH_RECIPIENT_CAP = env.int('SMS_BATCH_RECIPIENT_CAP', default=500)
 SMS_PROVIDER_CHUNK_SIZE = env.int('SMS_PROVIDER_CHUNK_SIZE', default=100)
 SMS_PROVIDER_CHUNK_SLEEP = env.float('SMS_PROVIDER_CHUNK_SLEEP', default=1.0)
 SMS_PRICE_PER_SEGMENT = env.float('SMS_PRICE_PER_SEGMENT', default=0)  # TZS; 0 hides the cost estimate
+# When the end-of-day emails, and the SMS of owners without their own time
+# (Shops console), go out: HH:MM, TIME_ZONE. The timer runs every 5 minutes.
+DAILY_SUMMARY_TIME = env('DAILY_SUMMARY_TIME', default='21:30')

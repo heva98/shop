@@ -146,6 +146,10 @@ class User(AbstractUser):
         max_length=8, choices=[('en', 'English'), ('sw', 'Kiswahili')], default='en',
         help_text='The language the user last chose in the app; their SMS and email summaries use it.',
     )
+    daily_sms_time = models.TimeField(
+        null=True, blank=True,
+        help_text="When an owner gets the daily sales SMS (on a 5-minute mark); blank = DAILY_SUMMARY_TIME.",
+    )
 
     class Meta:
         ordering = ['username']

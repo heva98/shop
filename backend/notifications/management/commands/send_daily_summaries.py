@@ -1,7 +1,8 @@
 """Send each active store's end-of-day summary: by email to its managers
 and the firm's admins, and by SMS to the owner (notifications.sms_jobs).
-Settings > Notifications turns each on. Run once a day after closing —
-deploy/systemd/shop-daily-summary.timer does it at 21:30.
+Settings > Notifications turns each on. deploy/systemd/shop-daily-summary.timer
+runs this every 5 minutes: the emails go once DAILY_SUMMARY_TIME has
+passed, each owner's SMS once their own time (Shops console) has.
 
 Safe to run again: anyone who already got today's summary for a store is
 skipped, so a retry after a failure only sends what's missing.
@@ -18,6 +19,7 @@ from core.models import Role, Store, User
 from notifications.channels.email_channel import EmailChannel
 from notifications.models import NotificationLog, SmsMessage
 from notifications.modules import channel_enabled
+from notifications.sms_audiences import default_summary_time
 from notifications.sms_jobs import daily_sales_sms_run
 from reports.views import summarize_day
 
@@ -67,9 +69,9 @@ class Command(BaseCommand):
     help = "Send each active store's end-of-day summary: email to its managers, SMS to the owner."
 
     def handle(self, *args, **options):
-        today = timezone.localdate()
-        failures = self.send_emails(today)
-        for batch in daily_sales_sms_run(today):
+        now = timezone.localtime()
+        failures = self.send_emails(now.date()) if now.time() >= default_summary_time() else 0
+        for batch in daily_sales_sms_run(now):
             failures += batch.failed_count
             for message in batch.messages.exclude(status=SmsMessage.Status.SKIPPED):
                 self.stdout.write(f'SMS {message.get_status_display()} to {message.phone} for {message.store}')
@@ -83,7 +85,7 @@ class Command(BaseCommand):
         for store in Store.objects.filter(is_active=True).select_related('entity'):
             if not channel_enabled(key, store):
                 continue
-            stats = summarize_day(store, today)
+            stats = None
             for user in summary_recipients(store):
                 address = user.email
                 if not address:
@@ -94,6 +96,7 @@ class Command(BaseCommand):
                 ).exists()
                 if already:
                     continue
+                stats = stats or summarize_day(store, today)
                 with translation.override(user.language or 'en'):
                     subject, body = email_subject(store, today), email_text(store, today, stats)
                 success, error = True, ''

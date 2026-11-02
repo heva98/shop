@@ -10,13 +10,13 @@ const EMPTY_SHOP = {
   name: '', business_type: 'general', tin: '', phone: '', email: '', region: '', district: '', address: '',
   store_mode: 'single',
 }
-const EMPTY_OWNER = { first_name: '', last_name: '', username: '', phone: '', email: '', password: '', confirmPassword: '' }
+const EMPTY_OWNER = { first_name: '', last_name: '', username: '', phone: '', email: '', daily_sms_time: '', password: '', confirmPassword: '' }
 const SHOP_FIELDS = Object.keys(EMPTY_SHOP)
 
 const LABEL = {
   name: 'Shop name', business_type: 'Type of shop', tin: 'TIN', phone: 'Phone', email: 'Email', region: 'Region',
   district: 'District', address: 'Street / area', store_mode: 'Store setup', first_name: 'First name',
-  last_name: 'Last name', username: 'Username', password: 'Password', owner: 'Owner',
+  last_name: 'Last name', username: 'Username', password: 'Password', owner: 'Owner', daily_sms_time: 'Daily sales SMS time',
 }
 
 function th() {
@@ -50,7 +50,10 @@ function ownerProblems(owner, { needsPassword = true } = {}) {
   return problems
 }
 
-const ownerPayload = ({ confirmPassword, ...owner }) => owner
+const ownerPayload = ({ confirmPassword, ...owner }) => ({ ...owner, daily_sms_time: owner.daily_sms_time || null })
+
+/** "18:00:00" → "18:00"; blank → the server's DAILY_SUMMARY_TIME. */
+const smsTimeLabel = (value) => (value ? value.slice(0, 5) : t('default time'))
 
 export default function PlatformShops() {
   useT()
@@ -59,7 +62,7 @@ export default function PlatformShops() {
   const [notice, setNotice] = useState(null)
   const [errors, setErrors] = useState([])
   const [busyId, setBusyId] = useState(null)
-  // { kind: 'register' | 'edit' | 'owner' | 'password', shop?, owner? }
+  // { kind: 'register' | 'edit' | 'owner' | 'password' | 'smsTime', shop?, owner? }
   const [dialog, setDialog] = useState(null)
 
   const rows = useMemo(() => {
@@ -144,6 +147,14 @@ export default function PlatformShops() {
                           {t('Reset password')}
                         </button>
                       </div>
+                      <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
+                        {t('Daily sales SMS at {time}', { time: smsTimeLabel(o.daily_sms_time) })}
+                        {' · '}
+                        <button type="button" style={{ background: 'none', border: 0, padding: 0, color: 'var(--blue-700)', cursor: 'pointer', fontSize: 12 }}
+                          onClick={() => { setNotice(null); setDialog({ kind: 'smsTime', shop: s, owner: o }) }}>
+                          {t('Change')}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </td>
@@ -168,6 +179,7 @@ export default function PlatformShops() {
       {dialog?.kind === 'edit' && <ShopDialog shop={dialog.shop} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === 'owner' && <OwnerDialog shop={dialog.shop} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === 'password' && <PasswordDialog owner={dialog.owner} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === 'smsTime' && <SmsTimeDialog owner={dialog.owner} onClose={() => setDialog(null)} onDone={done} />}
     </div>
   )
 }
@@ -345,6 +357,55 @@ function PasswordDialog({ owner, onClose, onDone }) {
   )
 }
 
+/** When this owner gets the daily sales SMS. The summary job runs every
+ * 5 minutes, so the server only takes times on a 5-minute mark. */
+function SmsTimeDialog({ owner, onClose, onDone }) {
+  useT()
+  const [value, setValue] = useState(owner.daily_sms_time ? owner.daily_sms_time.slice(0, 5) : '')
+  const [errors, setErrors] = useState([])
+  const [saving, setSaving] = useState(false)
+
+  async function save(time) {
+    setSaving(true)
+    setErrors([])
+    try {
+      await updateUser(owner.id, { daily_sms_time: time || null })
+      onDone(time
+        ? t('{user} gets the daily sales SMS at {time}.', { user: owner.username, time })
+        : t('{user} gets the daily sales SMS at the default time.', { user: owner.username }))
+    } catch (err) {
+      setErrors(errorLines(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      title={`${t('Daily sales SMS time')} — ${owner.username}`}
+      size="sm"
+      onClose={onClose}
+      footer={(
+        <>
+          <Button onClick={onClose} disabled={saving}>{t('Cancel')}</Button>
+          {owner.daily_sms_time && <Button onClick={() => save(null)} disabled={saving}>{t('Use the default time')}</Button>}
+          <Button variant="primary" onClick={() => save(value)} disabled={saving || !value}>{saving ? t('Saving…') : t('Save changes')}</Button>
+        </>
+      )}
+    >
+      {errors.length > 0 && (
+        <NoticeBox variant="error" title={t('Could not save')} style={{ marginBottom: 12 }}>
+          {errors.map((e) => <div key={e}>{e}</div>)}
+        </NoticeBox>
+      )}
+      <Field label={t('Daily sales SMS time')}>
+        <Input type="time" step={300} value={value} onChange={(e) => setValue(e.target.value)} />
+      </Field>
+      <p style={hint}>{t("The SMS covers that day's sales up to the time it is sent. Pick a time on a 5-minute mark, e.g. 20:00 or 20:05.")}</p>
+    </Modal>
+  )
+}
+
 function OwnerFields({ owner, setOwner }) {
   useT()
   const set = (field) => (e) => setOwner((o) => ({ ...o, [field]: e.target.value }))
@@ -355,11 +416,12 @@ function OwnerFields({ owner, setOwner }) {
         <Field label={t('Last name')} required><Input value={owner.last_name} onChange={set('last_name')} /></Field>
         <Field label={t('Mobile number')}><Input value={owner.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
         <Field label={t('Email')}><Input type="email" value={owner.email} onChange={set('email')} /></Field>
+        <Field label={t('Daily sales SMS time')}><Input type="time" step={300} value={owner.daily_sms_time} onChange={set('daily_sms_time')} /></Field>
         <Field label={t('Username')} required><Input value={owner.username} onChange={set('username')} /></Field>
         <Field label={t('Password')} required><Input type="password" value={owner.password} onChange={set('password')} /></Field>
         <Field label={t('Confirm password')} required><Input type="password" value={owner.confirmPassword} onChange={set('confirmPassword')} /></Field>
       </div>
-      <p style={hint}>{t('This password is temporary: the owner must choose their own the first time they sign in.')}</p>
+      <p style={hint}>{t('Leave the SMS time blank to use the default time.')} {t('This password is temporary: the owner must choose their own the first time they sign in.')}</p>
     </>
   )
 }

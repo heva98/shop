@@ -20,7 +20,7 @@ from audit.services import Action, Summary, record
 
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
-from .serializers import normalize_phone
+from .serializers import normalize_phone, validate_daily_sms_time
 
 
 class IsPlatformAdmin(BasePermission):
@@ -36,8 +36,8 @@ class OwnerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'phone', 'email', 'is_active',
-                  'last_login']
+        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'phone', 'email', 'daily_sms_time',
+                  'is_active', 'last_login']
         read_only_fields = ['is_active', 'last_login']
         extra_kwargs = {'first_name': {'required': True, 'allow_blank': False},
                         'last_name': {'required': True, 'allow_blank': False}}
@@ -49,6 +49,9 @@ class OwnerSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         return normalize_phone(value)
+
+    def validate_daily_sms_time(self, value):
+        return validate_daily_sms_time(value)
 
     def validate(self, attrs):
         try:

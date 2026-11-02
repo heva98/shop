@@ -2,7 +2,7 @@ import base64
 import io
 import json
 import urllib.error
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from io import StringIO
 from unittest import mock
@@ -10,6 +10,7 @@ from unittest import mock
 from django.core import mail
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from catalog.models import Product, UnitOfMeasure
@@ -27,8 +28,10 @@ from .sms_segments import count_segments
 from .sms_service import ensure_templates
 from .sms_templates import DAILY_SALES_SUMMARY, MissingPlaceholder, TemplateSyntaxError, check_template, render
 
+# DAILY_SUMMARY_TIME 00:00: the summaries are due whenever the tests run.
 NOTIFY = dict(SMS_BACKEND='notify_africa', NOTIFY_AFRICA_BASE_URL='https://api.notify.africa',
-              NOTIFY_AFRICA_API_TOKEN='tok', NOTIFY_AFRICA_SENDER_ID='55', SMS_PROVIDER_CHUNK_SLEEP=0)
+              NOTIFY_AFRICA_API_TOKEN='tok', NOTIFY_AFRICA_SENDER_ID='55', SMS_PROVIDER_CHUNK_SLEEP=0,
+              DAILY_SUMMARY_TIME='00:00')
 BEEM = dict(SMS_BACKEND='beem', BEEM_API_KEY='key', BEEM_SECRET_KEY='secret', BEEM_SENDER_ID='KILIMANI')
 
 
@@ -276,6 +279,56 @@ class DailySummaryTests(ShopFixture):
             res = client.post(f'/api/notifications/sms/batches/{batch.pk}/resend-failed/')
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual((res.data['status'], res.data['sent_count'], res.data['failed_count']), ('COMPLETED', 1, 0))
+
+    def run_at(self, hour, minute):
+        now = timezone.localtime().replace(hour=hour, minute=minute, second=0, microsecond=0)
+        with mock.patch('urllib.request.urlopen', side_effect=fake_send) as urlopen:
+            daily_sales_sms_run(now)
+        return sorted(s['phone_number'] for s in self.sms_bodies(urlopen))
+
+    @override_settings(DAILY_SUMMARY_TIME='21:30')
+    def test_each_owner_gets_it_at_their_own_time(self):
+        self.owner.daily_sms_time = time(18, 0)
+        self.owner.save()
+        second = User.objects.create_user(username='owner2', password='x', entity=self.entity, phone='255700000008')
+        StoreRole.objects.create(user=second, store=None, role=Role.ENTITY_ADMIN)
+        self.assertEqual(self.run_at(17, 55), [])
+        self.assertEqual(self.run_at(18, 0), ['255700000009'])
+        self.assertEqual(self.run_at(18, 5), [])
+        self.assertEqual(self.run_at(21, 30), ['255700000008'])
+        self.assertEqual(self.run_at(21, 35), [])
+        self.assertEqual(SmsBatch.objects.count(), 2)
+
+    @override_settings(DAILY_SUMMARY_TIME='21:30')
+    def test_managers_get_it_at_the_default_time(self):
+        SmsConfiguration.objects.create(entity=self.entity, daily_sales_to_managers=True)
+        self.owner.daily_sms_time = time(19, 0)
+        self.owner.save()
+        self.assertEqual(self.run_at(19, 0), ['255700000009'])
+        self.assertEqual(self.run_at(21, 30), ['255700000001'])
+
+    def test_emails_wait_for_the_default_time(self):
+        if timezone.localtime().time() >= time(23, 55):
+            self.skipTest('too close to midnight')
+        with self.settings(DAILY_SUMMARY_TIME='23:55'):
+            self.run_command()
+        self.assertEqual(len(mail.outbox), 0)
+        self.run_command()
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_platform_admin_sets_an_owners_time(self):
+        api = APIClient()
+        api.force_authenticate(User.objects.create_superuser(username='root', password='x', email='r@example.com'))
+        url = f'/api/core/users/{self.owner.pk}/'
+        self.assertEqual(api.patch(url, {'daily_sms_time': '18:07'}, format='json').status_code, 400)
+        res = api.patch(url, {'daily_sms_time': '18:15'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.daily_sms_time, time(18, 15))
+        shops = api.get('/api/platform/shops/').data
+        shops = shops['results'] if isinstance(shops, dict) else shops
+        self.assertEqual(shops[0]['owners'][0]['daily_sms_time'], '18:15:00')
+        self.assertEqual(api.patch(url, {'daily_sms_time': None}, format='json').status_code, 200)
 
 
 @override_settings(**NOTIFY)

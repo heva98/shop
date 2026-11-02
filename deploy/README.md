@@ -265,9 +265,12 @@ one row per recipient, including skipped ones and the reason they were skipped.
    switches SMS on under Settings → Notifications and presses *Send me a
    test SMS*. Then use *Send now → Preview and send…* to check the real
    summary. The message text can be edited there in Kiswahili and English.
-4. Switch on the evening timer (21:30 — set the server's time zone first):
+4. Switch on the timer. It runs every 5 minutes; the emails go out at
+   `DAILY_SUMMARY_TIME` (default 21:30, Dar es Salaam time) and each
+   owner's SMS at the time set for them in the Shops console (*SMS time*
+   under each owner; blank = `DAILY_SUMMARY_TIME`). Re-copy both files
+   when upgrading from the old once-a-night timer:
    ```bash
-   sudo timedatectl set-timezone Africa/Dar_es_Salaam
    sudo cp /opt/shop/deploy/systemd/shop-daily-summary.{service,timer} /etc/systemd/system/
    sudo systemctl daemon-reload && sudo systemctl enable --now shop-daily-summary.timer
    ```

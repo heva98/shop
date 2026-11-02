@@ -366,7 +366,10 @@ separately hosted store server, which is still unused.
 `python manage.py send_daily_summaries` sends each store's daily summary:
 by email to its managers and the firm's admins (Django's `send_mail`,
 console in dev), and by SMS to the owner. `deploy/systemd/shop-daily-summary.timer`
-runs it each evening. Each recipient gets it in their own language
+runs it every 5 minutes: the emails go once `DAILY_SUMMARY_TIME` (21:30)
+has passed, each owner's SMS at their own `User.daily_sms_time` (set by
+the platform administrator in the Shops console; blank = `DAILY_SUMMARY_TIME`,
+which managers also get). Each recipient gets it in their own language
 (`User.language`), unless the shop picks one for SMS.
 
 SMS follows one pipeline (`notifications/`): `sms_audiences` works out
@@ -376,9 +379,9 @@ segments), fills in the editable template (`SmsTemplate`, defaults in
 `sms_templates.py`; `manage.py seed_sms_templates [--force]`) and saves
 one `SmsBatch` plus an `SmsMessage` per recipient → `send_batch()` sends
 the PENDING rows in chunks through `sms_backends` (`SMS_BACKEND` =
-noop | console | notify_africa | beem). The nightly batch has the
-idempotency key `daily-sales-<entity>-<date>`, so re-running only sends
-what's still pending. The API is under `/api/notifications/sms/`
+noop | console | notify_africa | beem). Each scheduled batch has the
+idempotency key `daily-sales-<entity>-<date>-<HHMM>`; a run sends what's
+still pending in today's batches and never adds someone already in one. The API is under `/api/notifications/sms/`
 (config, templates, preview, send, batches, `batches/<id>/resend-failed/`),
 for the owner only.
 

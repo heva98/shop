@@ -1,6 +1,9 @@
 """Who gets which SMS: one Recipient per (person, store), with the values
 their template needs. The checks and sending are sms_service's job."""
 
+from datetime import time
+
+from django.conf import settings
 from django.utils import translation
 from django.utils.translation import gettext
 
@@ -26,6 +29,12 @@ def store_managers(store):
     ).distinct()
 
 
+def default_summary_time():
+    """settings.DAILY_SUMMARY_TIME as a time: the emails' time, and the SMS
+    time of managers and of owners who have none of their own."""
+    return time.fromisoformat(settings.DAILY_SUMMARY_TIME)
+
+
 def daily_sales_values(entity, store, day, stats):
     """Template values for DAILY_SALES_SUMMARY, in the active language."""
     by_method = ', '.join(f'{gettext(name)} {total:,.0f}' for name, total in stats['by_method'])
@@ -45,18 +54,28 @@ def daily_sales_values(entity, store, day, stats):
     }
 
 
-def daily_sales_recipients(entity, day, language=None):
+def daily_sales_recipients(entity, day, language=None, due_at=None, exclude=()):
     """The owners (and, if switched on, each store's managers) for every
-    active store with SMS switched on — one message per person per store."""
+    active store with SMS switched on — one message per person per store.
+
+    due_at (a time) keeps only those whose send time has come: the owner's
+    own daily_sms_time, else DAILY_SUMMARY_TIME. exclude holds (user id,
+    store id) pairs already handled today."""
     config = SmsConfiguration.load(entity)
+    default = default_summary_time()
+
+    def due(send_time):
+        return due_at is None or (send_time or default) <= due_at
+
     shop_owners = list(owners(entity))
     recipients = []
     for store in entity.stores.filter(is_active=True).order_by('name'):
         if not sms_enabled(store):
             continue
-        people = list(shop_owners)
+        people = [o for o in shop_owners if due(o.daily_sms_time)]
         if config.daily_sales_to_managers:
-            people += [m for m in store_managers(store) if m not in people]
+            people += [m for m in store_managers(store) if m not in shop_owners and due(None)]
+        people = [p for p in people if (p.pk, store.pk) not in exclude]
         if not people:
             continue
         stats = summarize_day(store, day)
