@@ -276,10 +276,23 @@ BACKUP_KEEP = env.int('BACKUP_KEEP', default=14)
 BACKUP_MAX_AGE_HOURS = env.int('BACKUP_MAX_AGE_HOURS', default=26)
 
 
-# SMS (notifications/channels/sms_channel.py). SMS_PROVIDER=beem sends
-# through Beem Africa (https://beem.africa) with the account's API key and
-# secret and an approved sender ID; anything else only logs the message.
-SMS_PROVIDER = env('SMS_PROVIDER', default='log')
+# SMS (notifications/sms_backends.py). SMS_BACKEND picks the provider:
+#   noop           saves the rows in the delivery log, sends nothing (default)
+#   console        same, and writes each message to the log
+#   notify_africa  sends through Notify Africa (bearer token + numeric sender ID)
+#   beem           sends through Beem Africa (API key + secret + sender name)
+# `manage.py check` fails if the chosen provider's credentials are missing.
+# The older SMS_PROVIDER=beem still selects Beem when SMS_BACKEND is unset.
+SMS_BACKEND = env('SMS_BACKEND', default='beem' if env('SMS_PROVIDER', default='') == 'beem' else 'noop')
+NOTIFY_AFRICA_BASE_URL = env('NOTIFY_AFRICA_BASE_URL', default='https://api.notify.africa')
+NOTIFY_AFRICA_API_TOKEN = env('NOTIFY_AFRICA_API_TOKEN', default='')
+NOTIFY_AFRICA_SENDER_ID = env('NOTIFY_AFRICA_SENDER_ID', default='')
+NOTIFY_AFRICA_TIMEOUT = env.int('NOTIFY_AFRICA_TIMEOUT', default=15)
 BEEM_API_KEY = env('BEEM_API_KEY', default='')
 BEEM_SECRET_KEY = env('BEEM_SECRET_KEY', default='')
 BEEM_SENDER_ID = env('BEEM_SENDER_ID', default='')
+SMS_MAX_SEGMENTS = env.int('SMS_MAX_SEGMENTS', default=3)  # longer messages are skipped
+SMS_BATCH_RECIPIENT_CAP = env.int('SMS_BATCH_RECIPIENT_CAP', default=500)
+SMS_PROVIDER_CHUNK_SIZE = env.int('SMS_PROVIDER_CHUNK_SIZE', default=100)
+SMS_PROVIDER_CHUNK_SLEEP = env.float('SMS_PROVIDER_CHUNK_SLEEP', default=1.0)
+SMS_PRICE_PER_SEGMENT = env.float('SMS_PRICE_PER_SEGMENT', default=0)  # TZS; 0 hides the cost estimate

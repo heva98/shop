@@ -4,10 +4,11 @@ import { useApi } from '../hooks/useApi.js'
 import { client } from '../api/client.js'
 import { apiErrorText } from '../lib/apiError.js'
 import { useT } from '../i18n/index.js'
+import SmsPanel from './SettingsSms.jsx'
 
-/** The end-of-day summary each store's managers and the firm's admins get
- * after closing: sales by payment method, voids, missing EFD numbers, cash
- * differences, purchases, low stock and expiring batches. */
+/** The end-of-day summary after closing: sales by payment method, voids,
+ * missing EFD numbers, cash differences, purchases, low stock and expiring
+ * batches — by email to managers and admins, by SMS to the owner. */
 export default function NotificationsPanel() {
   const t = useT()
   const { data, refetch } = useApi(() => client.get('/api/notifications/settings/'), [])
@@ -37,8 +38,8 @@ export default function NotificationsPanel() {
   const rows = [
     {
       field: 'sms_enabled', title: t('End-of-day summary by SMS'), configured: data.sms_configured,
-      help: t('A short text to each manager’s mobile number (set under “Edit my details”).'),
-      missing: t('SMS is not set up on the server yet (Beem Africa keys in .env — see deploy/README.md).'),
+      help: t('A short text to the owner’s mobile number (set under “Edit my details”).'),
+      missing: t('SMS is not set up on the server yet (SMS_BACKEND and the Notify Africa keys in .env — see deploy/README.md). Messages are only saved in the delivery log.'),
     },
     {
       field: 'email_enabled', title: t('End-of-day summary by email'), configured: data.email_configured,
@@ -49,7 +50,7 @@ export default function NotificationsPanel() {
   return (
     <>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px', maxWidth: 640 }}>
-        {t('After closing each day, store managers and admins get a summary: sales by payment method, voids, sales missing an EFD receipt number, cash differences, purchases, low stock and batches about to expire.')}
+        {t('After closing each day the owner gets a summary by SMS, and store managers and admins by email: sales by payment method, voids, sales missing an EFD receipt number, cash differences, purchases, low stock and batches about to expire.')}
       </p>
       {message && <NoticeBox variant={message.variant} style={{ marginBottom: 12, maxWidth: 640 }}>{message.text}</NoticeBox>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 640 }}>
@@ -69,6 +70,7 @@ export default function NotificationsPanel() {
       <Button onClick={testSms} disabled={busy || !data.sms_configured} style={{ marginTop: 16 }}>
         {busy ? t('Sending…') : t('Send me a test SMS')}
       </Button>
+      <SmsPanel />
     </>
   )
 }

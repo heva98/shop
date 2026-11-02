@@ -2076,49 +2076,17 @@ msgstr "{name} huisha muda: weka tarehe ya kuisha muda iliyo kwenye pakiti."
 msgid "{name} stock like this"
 msgstr "Stoku ya {name} kama hii"
 
-#: notifications/channels/sms_channel.py
-msgid "Beem did not accept the message: {value}"
-msgstr "Beem haikukubali ujumbe: {value}"
-
-#: notifications/channels/sms_channel.py
-msgid "Beem refused the message (HTTP {code}): {detail}"
-msgstr "Beem imekataa ujumbe (HTTP {code}): {detail}"
-
-#: notifications/channels/sms_channel.py
-msgid "Beem rejected the number {recipient} as invalid."
-msgstr "Beem imekataa namba {recipient} kuwa si sahihi."
-
-#: notifications/channels/sms_channel.py
-msgid "Could not reach Beem: {exc}"
-msgstr "Imeshindwa kufikia Beem: {exc}"
-
 #: notifications/management/commands/send_daily_summaries.py
 msgid "Batches expiring within 30 days: {n}"
 msgstr "Mafungu yanayoisha muda ndani ya siku 30: {n}"
-
-#: notifications/management/commands/send_daily_summaries.py
-msgid "Cash diff {amount:+,.0f}"
-msgstr "Tofauti ya fedha {amount:+,.0f}"
 
 #: notifications/management/commands/send_daily_summaries.py
 msgid "Cash difference at shift close: TZS {amount:+,.0f}"
 msgstr "Tofauti ya fedha wakati wa kufunga zamu: TZS {amount:+,.0f}"
 
 #: notifications/management/commands/send_daily_summaries.py
-msgid "Low stock {low}, expiring 30d {expiring}"
-msgstr "Zinazoisha {low}, zinaisha muda siku 30 {expiring}"
-
-#: notifications/management/commands/send_daily_summaries.py
-msgid "NO EFD no: {n}"
-msgstr "HAKUNA namba ya EFD: {n}"
-
-#: notifications/management/commands/send_daily_summaries.py
 msgid "Products low or out of stock: {n}"
 msgstr "Bidhaa zinazoisha au zilizoisha: {n}"
-
-#: notifications/management/commands/send_daily_summaries.py
-msgid "Purchases {amount:,.0f}"
-msgstr "Manunuzi {amount:,.0f}"
 
 #: notifications/management/commands/send_daily_summaries.py
 msgid "Sales without an EFD receipt number: {n}"
@@ -2135,14 +2103,6 @@ msgstr "Ankara za wasambazaji zilizopokelewa: TZS {amount:,.0f}"
 #: notifications/management/commands/send_daily_summaries.py
 msgid "Voided sales: {n}"
 msgstr "Mauzo yaliyobatilishwa: {n}"
-
-#: notifications/management/commands/send_daily_summaries.py
-msgid "Voids {n}"
-msgstr "Ubatilishaji {n}"
-
-#: notifications/management/commands/send_daily_summaries.py
-msgid "{store} {day}: Sales TZS {total:,.0f} ({count})"
-msgstr "{store} {day}: Mauzo TZS {total:,.0f} ({count})"
 
 #: notifications/management/commands/send_daily_summaries.py
 msgid "{store} — end of day {day}"
@@ -2165,12 +2125,92 @@ msgid "Add your mobile number under \"Edit my details\" first."
 msgstr "Ongeza namba yako ya simu kwenye \"Hariri taarifa zangu\" kwanza."
 
 #: notifications/views.py
+msgid "{phone} is not a Tanzanian mobile number."
+msgstr "{phone} si namba ya simu ya mkononi ya Tanzania."
+
+#: notifications/views.py
+msgid "The SMS provider refused the message: {error}"
+msgstr "Mtoa huduma wa SMS amekataa ujumbe: {error}"
+
+#: notifications/views.py
+msgid "Pick today or an earlier day."
+msgstr "Chagua leo au siku iliyopita."
+
+#: notifications/views.py
+msgid "Nobody to send to: switch SMS on and add an owner with a mobile number."
+msgstr "Hakuna wa kutumiwa: washa SMS na uweke mmiliki mwenye namba ya simu."
+
+#: notifications/views.py
+msgid "The SMS template has an error: {error}"
+msgstr "Kiolezo cha SMS kina kosa: {error}"
+
+#: notifications/views.py
+msgid "No failed messages to resend."
+msgstr "Hakuna ujumbe ulioshindwa wa kutuma tena."
+
+#: notifications/views.py
+msgid "SMS settings changed"
+msgstr "Mipangilio ya SMS imebadilishwa"
+
+#: notifications/views.py
+msgid "SMS template {key} ({language}) changed"
+msgstr "Kiolezo cha SMS {key} ({language}) kimebadilishwa"
+
+#: notifications/serializers.py
+msgid "The message cannot be empty."
+msgstr "Ujumbe hauwezi kuwa tupu."
+
+#: notifications/models.py
+msgid "Queued"
+msgstr "Kwenye foleni"
+
+#: notifications/models.py
+msgid "Sending"
+msgstr "Inatuma"
+
+#: notifications/models.py
+msgid "Sent"
+msgstr "Umetumwa"
+
+#: notifications/models.py
+msgid "Delivered"
+msgstr "Umefika"
+
+#: notifications/models.py
+msgid "Skipped"
+msgstr "Umerukwa"
+
+#: notifications/models.py
+msgid "No mobile number on file"
+msgstr "Hakuna namba ya simu iliyohifadhiwa"
+
+#: notifications/models.py
+msgid "No active template for this language"
+msgstr "Hakuna kiolezo kinachotumika kwa lugha hii"
+
+#: notifications/models.py
+msgid "Not a valid Tanzanian mobile number"
+msgstr "Si namba sahihi ya simu ya Tanzania"
+
+#: notifications/models.py
+msgid "Already in this batch"
+msgstr "Tayari yumo kwenye kundi hili"
+
+#: notifications/models.py
+msgid "A template value is missing"
+msgstr "Thamani ya kiolezo inakosekana"
+
+#: notifications/models.py
+msgid "Longer than the SMS limit"
+msgstr "Ni ndefu kuliko kikomo cha SMS"
+
+#: notifications/views.py
 msgid "Daily summary by {channel} switched {value}"
 msgstr "Muhtasari wa siku kwa {channel} {value}"
 
 #: notifications/views.py
-msgid "SMS is not configured on the server. Set SMS_PROVIDER and the Beem keys in .env."
-msgstr "SMS haijawekwa kwenye seva. Weka SMS_PROVIDER na funguo za Beem kwenye .env."
+msgid "SMS is not configured on the server. Set SMS_BACKEND and the provider keys in .env."
+msgstr "SMS haijawekwa kwenye seva. Weka SMS_BACKEND na funguo za mtoa huduma kwenye .env."
 
 #: notifications/views.py
 msgid "Test SMS sent to {phone}."

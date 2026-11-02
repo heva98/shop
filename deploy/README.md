@@ -241,21 +241,30 @@ Point a free monitor (UptimeRobot, Better Stack…) at
 alerting you by SMS/email. It returns 503 if the database is unreachable
 or the newest backup is older than `BACKUP_MAX_AGE_HOURS` (default 26).
 
-### SMS end-of-day summaries (Beem Africa)
+### SMS daily sales summary to the owner (Notify Africa)
 
-1. Open an account at [beem.africa](https://beem.africa), buy SMS credit,
-   and apply for a sender ID (e.g. your shop's name; approval takes a
-   few days — until then Beem's default `INFO` works).
-2. Add to `backend/.env`, then restart gunicorn:
+The owner (Entity admin) gets one SMS per store each evening. Every send
+is saved as a batch in the delivery log (Settings → Notifications), with
+one row per recipient, including skipped ones and the reason they were skipped.
+
+1. Open a Notify Africa account. Get the API token, get a sender name
+   approved, note its **numeric** sender ID, and top up credit.
+2. Add to `backend/.env`. Start with `SMS_BACKEND=console` to try it
+   without sending, then switch to `notify_africa`:
    ```bash
-   SMS_PROVIDER=beem
-   BEEM_API_KEY=<from Beem: Profile > Authentication information>
-   BEEM_SECRET_KEY=<same place>
-   BEEM_SENDER_ID=INFO
+   SMS_BACKEND=notify_africa
+   NOTIFY_AFRICA_API_TOKEN=<bearer token>
+   NOTIFY_AFRICA_SENDER_ID=<numeric sender ID, not the name>
+   # Optional: SMS_PRICE_PER_SEGMENT=<TZS> shows a cost estimate before sending
    ```
-3. In the app: managers add their mobile number under *Edit my details*;
-   an admin switches SMS on under Settings → Notifications and presses
-   *Send test SMS*.
+   `python manage.py check` must pass. It fails (notifications.E001/E002)
+   if the token or sender ID is missing, so a typo can't silently send
+   nothing. Then run `python manage.py migrate` and restart gunicorn.
+   (Beem still works: `SMS_BACKEND=beem` with the `BEEM_*` keys.)
+3. In the app: the owner adds their mobile number under *Edit my details*,
+   switches SMS on under Settings → Notifications and presses *Send me a
+   test SMS*. Then use *Send now → Preview and send…* to check the real
+   summary. The message text can be edited there in Kiswahili and English.
 4. Switch on the evening timer (21:30 — set the server's time zone first):
    ```bash
    sudo timedatectl set-timezone Africa/Dar_es_Salaam
