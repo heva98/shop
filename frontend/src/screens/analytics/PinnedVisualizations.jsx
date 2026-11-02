@@ -10,7 +10,7 @@ import { catalogueItemLabels, makeLabelFor, unavailableMessage } from './savedVi
 import {
   FIXED_DIMENSION_LABELS, buildQuery, configReducer, initialConfig, isChart, layoutProblem,
 } from './visualizationConfig.js'
-import { t, useLanguage } from '../../i18n/index.js'
+import { t, useLanguage, useT } from '../../i18n/index.js'
 
 function Placeholder({ title, message }) {
   return (
