@@ -32,7 +32,8 @@ class IsPlatformAdmin(BasePermission):
 class OwnerSerializer(serializers.ModelSerializer):
     """A shop owner as the platform console shows and creates them. The
     password is the platform administrator's choice, so the owner must
-    pick their own at first sign-in (must_change_password)."""
+    pick their own at first sign-in (must_change_password). A new owner
+    holds every role (see create)."""
     password = serializers.CharField(write_only=True, style={'input_type': 'password'}, trim_whitespace=False)
 
     class Meta:
@@ -67,7 +68,15 @@ class OwnerSerializer(serializers.ModelSerializer):
         user = User(entity=entity, must_change_password=True, **validated_data)
         user.set_password(password)
         user.save()
-        StoreRole.objects.create(user=user, store=None, role=Role.ENTITY_ADMIN)
+        # In most shops the owner also works the till and the stockroom, so
+        # they hold every role: entity-wide admin, plus each store role at
+        # every store the shop has so far.
+        StoreRole.objects.bulk_create(
+            [StoreRole(user=user, store=None, role=Role.ENTITY_ADMIN)]
+            + [StoreRole(user=user, store=store, role=role)
+               for store in entity.stores.filter(is_active=True)
+               for role in Role if role != Role.ENTITY_ADMIN]
+        )
         return user
 
 

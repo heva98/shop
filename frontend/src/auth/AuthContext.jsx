@@ -69,7 +69,10 @@ export function AuthProvider({ children }) {
       setActiveWorkplaceKey((prev) => {
         const workplaces = workplacesOf(data.store_roles)
         if (prev && workplaces.some((w) => w.key === prev)) return prev
-        return workplaces[0]?.key ?? null
+        // A single shop's owner starts at the shop itself, where the till
+        // is, rather than on "All stores".
+        const single = data.entity?.store_mode === 'single' && workplaces.find((w) => w.store !== null)
+        return (single || workplaces[0])?.key ?? null
       })
       setStatus('signed-in')
     }

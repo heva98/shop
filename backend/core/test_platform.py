@@ -30,7 +30,9 @@ class RegisterShopTests(APITestCase):
         self.assertEqual(owner.phone, '255712345678')
         self.assertTrue(owner.must_change_password)
         self.assertTrue(owner.check_password(OWNER['password']))
-        self.assertTrue(StoreRole.objects.filter(user=owner, store=None, role=Role.ENTITY_ADMIN).exists())
+        self.assertEqual(set(owner.store_roles.values_list('store', 'role')),
+                         {(None, Role.ENTITY_ADMIN), (store.id, Role.CASHIER), (store.id, Role.STOREKEEPER),
+                          (store.id, Role.STORE_MANAGER)})
         self.assertEqual([o['username'] for o in response.data['owners']], ['mama_neema'])
 
     def test_council_must_be_of_the_region(self):
