@@ -3,6 +3,7 @@ import uuid
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 
 class SyncOutbox(models.Model):
@@ -16,9 +17,9 @@ class SyncOutbox(models.Model):
     """
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        SYNCED = 'synced', 'Synced'
-        FAILED = 'failed', 'Failed'
+        PENDING = 'pending', gettext_lazy('Pending')
+        SYNCED = 'synced', gettext_lazy('Synced')
+        FAILED = 'failed', gettext_lazy('Failed')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store_id = models.UUIDField()

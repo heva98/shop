@@ -1,9 +1,10 @@
+from django.utils.translation import gettext
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import ModuleEnablement, ModuleRegistry, Role
 from core.permissions import roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
@@ -46,7 +47,7 @@ def notification_settings(request):
     sms_enabled} to switch them."""
     entity = request.user.entity
     if entity is None:
-        raise ValidationError('Your account is not linked to a shop.')
+        raise ValidationError(gettext('Your account is not linked to a shop.'))
     if request.method == 'PATCH':
         for channel, key in MODULE_KEY_BY_CHANNEL.items():
             field = f'{channel}_enabled'
@@ -55,7 +56,7 @@ def notification_settings(request):
                 module = ModuleRegistry.objects.get(key=key)
                 ModuleEnablement.objects.update_or_create(
                     module=module, entity=entity, store=None, defaults={'enabled': on})
-                record(Action.SETTINGS_CHANGED, f'Daily summary by {channel} switched {"on" if on else "off"}',
+                record(Action.SETTINGS_CHANGED, Summary('Daily summary by {channel} switched {value}', channel=channel, value="on" if on else "off"),
                        request=request, entity=entity)
     return Response(_channel_state(entity))
 
@@ -67,12 +68,13 @@ def test_sms(request):
     SMS set-up end to end."""
     user = request.user
     if not user.phone:
-        raise ValidationError('Add your mobile number under "Edit my details" first.')
+        raise ValidationError(gettext('Add your mobile number under "Edit my details" first.'))
     channel = SMSChannel()
     if not channel.configured:
-        raise ValidationError('SMS is not configured on the server. Set SMS_PROVIDER and the Beem keys in .env.')
+        raise ValidationError(gettext('SMS is not configured on the server. Set SMS_PROVIDER and the Beem keys in .env.'))
     try:
-        channel.send(user.phone, '', f'Test message from {user.entity.name if user.entity else "Shop ERP"}. SMS is working.')
+        channel.send(user.phone, '', gettext('Test message from {name}. SMS is working.').format(
+            name=user.entity.name if user.entity else 'Shop ERP'))
     except SMSError as exc:
         raise ValidationError(str(exc))
-    return Response({'detail': f'Test SMS sent to {user.phone}.'})
+    return Response({'detail': gettext('Test SMS sent to {phone}.').format(phone=user.phone)})

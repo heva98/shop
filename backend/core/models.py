@@ -2,6 +2,7 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 
 class Entity(models.Model):
@@ -14,24 +15,24 @@ class Entity(models.Model):
     multi later just allows more of them — nothing has to be migrated.
     """
     class PriceMode(models.TextChoices):
-        ENTITY = 'entity', 'Shared price list for all stores'
-        STORE = 'store', 'Each store sets its own prices'
+        ENTITY = 'entity', gettext_lazy('Shared price list for all stores')
+        STORE = 'store', gettext_lazy('Each store sets its own prices')
 
     class StoreMode(models.TextChoices):
-        SINGLE = 'single', 'Single shop'
-        MULTI = 'multi', 'Shop with multiple branches'
+        SINGLE = 'single', gettext_lazy('Single shop')
+        MULTI = 'multi', gettext_lazy('Shop with multiple branches')
 
     class BusinessType(models.TextChoices):
-        GENERAL = 'general', 'General shop (duka)'
-        SUPERMARKET = 'supermarket', 'Supermarket / minimarket'
-        WHOLESALE = 'wholesale', 'Wholesale'
-        HARDWARE = 'hardware', 'Hardware'
-        PHARMACY = 'pharmacy', 'Pharmacy / chemist'
+        GENERAL = 'general', gettext_lazy('General shop (duka)')
+        SUPERMARKET = 'supermarket', gettext_lazy('Supermarket / minimarket')
+        WHOLESALE = 'wholesale', gettext_lazy('Wholesale')
+        HARDWARE = 'hardware', gettext_lazy('Hardware')
+        PHARMACY = 'pharmacy', gettext_lazy('Pharmacy / chemist')
         ELECTRONICS = 'electronics', 'Electronics & phones'
         CLOTHING = 'clothing', 'Clothing & textiles'
         COSMETICS = 'cosmetics', 'Cosmetics & beauty'
         STATIONERY = 'stationery', 'Stationery & books'
-        OTHER = 'other', 'Other'
+        OTHER = 'other', gettext_lazy('Other')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
@@ -116,16 +117,16 @@ class Store(models.Model):
 
 
 class Role(models.TextChoices):
-    CASHIER = 'cashier', 'Cashier'
-    STOREKEEPER = 'storekeeper', 'Storekeeper'
-    STORE_MANAGER = 'store_manager', 'Store manager'
-    ENTITY_ADMIN = 'entity_admin', 'Entity admin'
+    CASHIER = 'cashier', gettext_lazy('Cashier')
+    STOREKEEPER = 'storekeeper', gettext_lazy('Storekeeper')
+    STORE_MANAGER = 'store_manager', gettext_lazy('Store manager')
+    ENTITY_ADMIN = 'entity_admin', gettext_lazy('Entity admin')
 
 
 class User(AbstractUser):
     class Gender(models.TextChoices):
-        MALE = 'male', 'Male'
-        FEMALE = 'female', 'Female'
+        MALE = 'male', gettext_lazy('Male')
+        FEMALE = 'female', gettext_lazy('Female')
 
     entity = models.ForeignKey(Entity, null=True, blank=True, on_delete=models.SET_NULL, related_name='users')
     # Blank-able at the model level so createsuperuser and existing rows keep
@@ -140,6 +141,10 @@ class User(AbstractUser):
     must_change_password = models.BooleanField(
         default=False,
         help_text='Set when an admin chooses the password; the user must pick their own at next sign-in.',
+    )
+    language = models.CharField(
+        max_length=8, choices=[('en', 'English'), ('sw', 'Kiswahili')], default='en',
+        help_text='The language the user last chose in the app; their SMS and email summaries use it.',
     )
 
     class Meta:
@@ -165,8 +170,8 @@ class ModuleRegistry(models.Model):
     Settings > Module registry screen; drives both API permission checks
     and (already, on the frontend) menu rendering."""
     class Scope(models.TextChoices):
-        ENTITY = 'entity', 'Entity'
-        STORE = 'store', 'Store'
+        ENTITY = 'entity', gettext_lazy('Entity')
+        STORE = 'store', gettext_lazy('Store')
 
     key = models.SlugField(max_length=64, unique=True, help_text='e.g. "pos", "customer_credit"')
     name = models.CharField(max_length=128)

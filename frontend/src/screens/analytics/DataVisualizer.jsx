@@ -25,6 +25,7 @@ import {
   FIXED_DIMENSION_LABELS, TOTAL, VISUALIZATION_TYPES, axisLabels, buildQuery, configReducer, initialConfig,
   isChart, layoutProblem, placementError, starterConfig, totalSpecs,
 } from './visualizationConfig.js'
+import { t, useLanguage } from '../../i18n/index.js'
 
 /**
  * The Data Visualizer (DHIS2 style): pick Data, Periods, Stores and any
@@ -35,6 +36,7 @@ import {
  * opens a saved visualization (from a dashboard widget).
  */
 export default function DataVisualizer({ storeId, openVizId }) {
+  const lang = useLanguage()
   const [config, dispatch] = useReducer(configReducer, initialConfig)
   // The config the table on screen was produced from: layout edits don't
   // reshape the table until Update runs them.
@@ -84,11 +86,13 @@ export default function DataVisualizer({ storeId, openVizId }) {
   }, [notice])
 
   const dimensionLabel = useCallback(
-    (id) => FIXED_DIMENSION_LABELS[id] ?? dimensionsById[id]?.label ?? id,
-    [dimensionsById],
+    (id) => FIXED_DIMENSION_LABELS[id] ?? t(dimensionsById[id]?.label) ?? id,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dimensionsById, lang],
   )
   const itemLabels = useMemo(() => catalogueItemLabels(dimensions), [dimensions])
-  const labelFor = useMemo(() => makeLabelFor(itemLabels, result.data), [itemLabels, result.data])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labelFor = useMemo(() => makeLabelFor(itemLabels, result.data), [itemLabels, result.data, lang])
 
   const pivot = useMemo(() => {
     if (!result.data || !applied) return null
@@ -99,8 +103,9 @@ export default function DataVisualizer({ storeId, openVizId }) {
   const notApplicable = useCallback((dim) => {
     if (dim.kind !== 'dynamic') return null
     const missing = (config.items.dx ?? []).map((id) => metricsById[id]).filter((m) => m && !dim.applies_to.includes(m.source))
-    return missing.length ? `Does not apply to: ${missing.map((m) => m.label).join(', ')}` : null
-  }, [config.items.dx, metricsById])
+    return missing.length ? t('Does not apply to: {items}', { items: missing.map((m) => t(m.label)).join(', ') }) : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.items.dx, metricsById, lang])
 
   const appliedType = applied?.config.type
   const chartModel = useMemo(() => {
@@ -167,7 +172,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
     let cancelled = false
     getVisualization(openVizId).then(
       (viz) => { if (!cancelled) openSaved(viz) },
-      () => { if (!cancelled) setValidationError('That saved visualization could not be opened. It may have been deleted or unshared.') },
+      () => { if (!cancelled) setValidationError(t('That saved visualization could not be opened. It may have been deleted or unshared.')) },
     )
     return () => { cancelled = true }
   // Reacts to the link only; openSaved is a fresh closure every render.
@@ -187,7 +192,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
     try {
       const viz = await updateVisualization(saved.id, { config })
       showSaved({ ...viz, is_pinned: saved.is_pinned }, config)
-      setNotice({ variant: 'valid', text: 'Saved.' })
+      setNotice({ variant: 'valid', text: t('Saved.') })
     } catch (err) {
       setNotice({ variant: 'error', text: apiErrorMessage(err, 'The visualization could not be saved. Try again.') })
     }
@@ -199,7 +204,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
       const viz = await createVisualization({ ...values, config })
       setFileDialog(null)
       showSaved(viz, config)
-      setNotice({ variant: 'valid', text: `Saved as “${viz.name}”.` })
+      setNotice({ variant: 'valid', text: t('Saved as “{name}”.', { name: viz.name }) })
     } catch (err) {
       throw new Error(apiErrorMessage(err, 'The visualization could not be saved. Try again.'), { cause: err })
     }
@@ -231,7 +236,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
     try {
       await (pinned ? unpinVisualization(saved.id) : pinVisualization(saved.id))
       setSaved({ ...saved, is_pinned: !pinned })
-      setNotice({ variant: 'valid', text: pinned ? 'Removed from your dashboard.' : 'Pinned to your dashboard.' })
+      setNotice({ variant: 'valid', text: pinned ? t('Removed from your dashboard.') : t('Pinned to your dashboard.') })
     } catch (err) {
       setNotice({ variant: 'error', text: apiErrorMessage(err, 'The dashboard could not be updated. Try again.') })
     }
@@ -298,7 +303,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
     const cellSummary = [
       { label: dimensionLabel('dx'), value: labelFor('dx', cell.metric) },
       ...Object.entries(cell.filters).map(([id, list]) => ({
-        label: dimensionLabel(id), value: items[id] === TOTAL ? `Total (${describe(id, list)})` : describe(id, list),
+        label: dimensionLabel(id), value: items[id] === TOTAL ? `${t('Total')} (${describe(id, list)})` : describe(id, list),
       })),
     ]
     setBreakdown({ cell, cellSummary, metric: metricsById[cell.metric] })
@@ -364,8 +369,8 @@ export default function DataVisualizer({ storeId, openVizId }) {
     body = (
       <div className="viz-center">
         <Icon name="pivot-table" size={32} style={{ color: 'var(--blue-600)' }} />
-        <h3>Build a visualization</h3>
-        <p>Choose data, periods and stores from the dimensions, arrange them as Columns, Rows and Filter, then click Update.</p>
+        <h3>{t('Build a visualization')}</h3>
+        <p>{t('Choose data, periods and stores from the dimensions, arrange them as Columns, Rows and Filter, then click Update.')}</p>
       </div>
     )
   } else if (result.loading && !pivot) {
@@ -373,16 +378,16 @@ export default function DataVisualizer({ storeId, openVizId }) {
   } else if (result.error) {
     body = (
       <div className="viz-center">
-        <h3>The visualization could not be built</h3>
+        <h3>{t('The visualization could not be built')}</h3>
         <p>{apiErrorMessage(result.error, 'The analytics service could not be reached. Try again.')}</p>
-        <Button size="small" onClick={() => setRefreshKey((k) => k + 1)}><Icon name="sync" size={16} /> Try again</Button>
+        <Button size="small" onClick={() => setRefreshKey((k) => k + 1)}><Icon name="sync" size={16} /> {t('Try again')}</Button>
       </div>
     )
   } else if (pivot?.isEmpty) {
     body = (
       <div className="viz-center">
-        <h3>No data</h3>
-        <p>Nothing was recorded for this selection. Try a longer period or other stores.</p>
+        <h3>{t('No data')}</h3>
+        <p>{t('Nothing was recorded for this selection. Try a longer period or other stores.')}</p>
       </div>
     )
   } else if (pivot) {
@@ -395,7 +400,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
         ) : (
           <PivotTable pivot={pivot} options={config.options} dimensionLabel={dimensionLabel} canDrill={canDrill} onDrill={openBreakdown} />
         )}
-        {!chartModel && <p className="viz-footnote">Click any number to break it down by product, store, cashier, day and more.</p>}
+        {!chartModel && <p className="viz-footnote">{t('Click any number to break it down by product, store, cashier, day and more.')}</p>}
       </>
     )
   }
@@ -404,39 +409,39 @@ export default function DataVisualizer({ storeId, openVizId }) {
     <div className="viz">
       <div className="viz-topbar">
         <span className="viz-only-narrow">
-          <Button size="small" onClick={() => setDrawerOpen(true)}><Icon name="layers" size={16} /> Dimensions</Button>
+          <Button size="small" onClick={() => setDrawerOpen(true)}><Icon name="layers" size={16} /> {t('Dimensions')}</Button>
         </span>
         <FileMenu saved={saved} canSave={ready} onAction={fileAction} />
-        <Select value={config.type} onChange={(e) => changeType(e.target.value)} aria-label="Visualization type"
+        <Select value={config.type} onChange={(e) => changeType(e.target.value)} aria-label={t('Visualization type')}
           options={VISUALIZATION_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
         <div className="viz-title">
           {saved && (
             <>
               <span title={saved.description || undefined}>{saved.name}</span>
-              {dirty && <span className="viz-muted">(unsaved changes)</span>}
-              {saved.shared && <span className="viz-muted">· Shared</span>}
+              {dirty && <span className="viz-muted">({t('unsaved changes')})</span>}
+              {saved.shared && <span className="viz-muted">· {t('Shared')}</span>}
               {saved.is_pinned && <Icon name="pin" size={14} style={{ color: 'var(--muted)' }} />}
-              {!saved.is_owner && <span className="viz-muted">by {saved.created_by_name}</span>}
+              {!saved.is_owner && <span className="viz-muted">{t('by {name}', { name: saved.created_by_name })}</span>}
             </>
           )}
         </div>
-        {stale && <span className="viz-stale">Layout changed — click Update</span>}
-        <Button size="small" onClick={() => setOptionsOpen(true)}><Icon name="sliders" size={16} /> Options</Button>
+        {stale && <span className="viz-stale">{t('Layout changed — click Update')}</span>}
+        <Button size="small" onClick={() => setOptionsOpen(true)}><Icon name="sliders" size={16} /> {t('Options')}</Button>
         <div className="viz-rel">
           <Button size="small" disabled={!canDownload} aria-haspopup="menu" aria-expanded={downloadOpen}
             onClick={() => setDownloadOpen((o) => !o)}>
-            <Icon name="download" size={16} /> Download
+            <Icon name="download" size={16} /> {t('Download')}
           </Button>
           {downloadOpen && (
             <>
               <div className="viz-scrim" onClick={() => setDownloadOpen(false)} />
               <div className="viz-popover right">
                 <Menu>
-                  <div className="viz-menu-heading">Table</div>
-                  <MenuItem label="Excel (.xlsx)" onClick={() => download('xlsx')} />
-                  <MenuItem label="CSV (.csv)" onClick={() => download('csv')} />
-                  <div className="viz-menu-heading">Chart</div>
-                  <MenuItem label={canDownloadPng ? 'Image (.png)' : 'Image (.png) — switch to a chart'} disabled={!canDownloadPng}
+                  <div className="viz-menu-heading">{t('Table')}</div>
+                  <MenuItem label={t('Excel (.xlsx)')} onClick={() => download('xlsx')} />
+                  <MenuItem label={t('CSV (.csv)')} onClick={() => download('csv')} />
+                  <div className="viz-menu-heading">{t('Chart')}</div>
+                  <MenuItem label={canDownloadPng ? t('Image (.png)') : t('Image (.png) — switch to a chart')} disabled={!canDownloadPng}
                     onClick={() => download('png')} />
                 </Menu>
               </div>
@@ -444,7 +449,7 @@ export default function DataVisualizer({ storeId, openVizId }) {
           )}
         </div>
         <Button size="small" variant="primary" disabled={!ready} onClick={() => run(config)}>
-          <Icon name="sync" size={16} /> Update
+          <Icon name="sync" size={16} /> {t('Update')}
         </Button>
       </div>
 
@@ -456,12 +461,12 @@ export default function DataVisualizer({ storeId, openVizId }) {
 
           {notice && <NoticeBox variant={notice.variant}>{notice.text}</NoticeBox>}
           {problem && (
-            <NoticeBox variant="warning" action={<Button size="small" onClick={() => load(problem.fixed)}><Icon name="wand" size={16} /> Fix layout</Button>}>
-              {problem.message} Fix layout will {problem.fixDescription}.
+            <NoticeBox variant="warning" action={<Button size="small" onClick={() => load(problem.fixed)}><Icon name="wand" size={16} /> {t('Fix layout')}</Button>}>
+              {problem.message} {t('Fix layout will {fix}.', { fix: problem.fixDescription })}
             </NoticeBox>
           )}
           {validationError && (
-            <NoticeBox variant="error" action={<button type="button" className="ds-icon-btn" aria-label="Dismiss" onClick={() => setValidationError(null)}><Icon name="cross" size={16} /></button>}>
+            <NoticeBox variant="error" action={<button type="button" className="ds-icon-btn" aria-label={t('Dismiss')} onClick={() => setValidationError(null)}><Icon name="cross" size={16} /></button>}>
               {validationError}
             </NoticeBox>
           )}
@@ -473,10 +478,10 @@ export default function DataVisualizer({ storeId, openVizId }) {
       {drawerOpen && (
         <>
           <div className="viz-drawer-backdrop" onClick={() => setDrawerOpen(false)} />
-          <aside className="viz-drawer left" aria-label="Dimensions">
+          <aside className="viz-drawer left" aria-label={t('Dimensions')}>
             <div className="viz-drawer-head">
-              <h2>Dimensions</h2>
-              <button type="button" className="ds-icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close"><Icon name="cross" size={18} /></button>
+              <h2>{t('Dimensions')}</h2>
+              <button type="button" className="ds-icon-btn" onClick={() => setDrawerOpen(false)} aria-label={t('Close')}><Icon name="cross" size={18} /></button>
             </div>
             <div className="viz-drawer-body">{panel}</div>
           </aside>
@@ -511,23 +516,23 @@ export default function DataVisualizer({ storeId, openVizId }) {
       {fileDialog === 'open' && <OpenVisualizationModal currentId={saved?.id} onOpen={openSaved} onClose={() => setFileDialog(null)} />}
       {fileDialog === 'saveAs' && (
         <SaveVisualizationModal
-          title={saved ? 'Save as' : 'Save visualization'}
-          submitLabel="Save"
-          initial={saved ? { name: `${saved.name} (copy)`, description: saved.description } : null}
+          title={saved ? t('Save as') : t('Save visualization')}
+          submitLabel={t('Save')}
+          initial={saved ? { name: `${saved.name} (${t('copy')})`, description: saved.description } : null}
           onSubmit={saveAs}
           onClose={() => setFileDialog(null)}
         />
       )}
       {fileDialog === 'rename' && saved && (
-        <SaveVisualizationModal title="Rename visualization" submitLabel="Rename" initial={saved} onSubmit={rename} onClose={() => setFileDialog(null)} />
+        <SaveVisualizationModal title={t('Rename visualization')} submitLabel={t('Rename')} initial={saved} onSubmit={rename} onClose={() => setFileDialog(null)} />
       )}
       {fileDialog === 'delete' && saved && (
-        <Modal title="Delete visualization" size="sm" onClose={() => setFileDialog(null)}
-          footer={<><Button onClick={() => setFileDialog(null)}>Cancel</Button><Button variant="destructive" onClick={removeSaved}>Delete</Button></>}>
+        <Modal title={t('Delete visualization')} size="sm" onClose={() => setFileDialog(null)}
+          footer={<><Button onClick={() => setFileDialog(null)}>{t('Cancel')}</Button><Button variant="destructive" onClick={removeSaved}>{t('Delete')}</Button></>}>
           <p style={{ margin: 0, fontSize: 14 }}>
-            Delete “{saved.name}”?
-            {saved.shared ? ' It is shared, so your colleagues lose it too, including any dashboard pins.' : ''}
-            {' '}This cannot be undone.
+            {t('Delete “{name}”?', { name: saved.name })}
+            {saved.shared ? ` ${t('It is shared, so your colleagues lose it too, including any dashboard pins.')}` : ''}
+            {' '}{t('This cannot be undone.')}
           </p>
         </Modal>
       )}

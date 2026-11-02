@@ -1,5 +1,6 @@
 import json
 
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from .models import SavedVisualization, VisualizationType
@@ -23,22 +24,22 @@ def validate_config(config):
     Meaning (which metrics exist for this firm) is checked against the
     registry separately."""
     if not isinstance(config, dict):
-        raise serializers.ValidationError('Must be an object.')
+        raise serializers.ValidationError(gettext('Must be an object.'))
     if len(json.dumps(config)) > MAX_CONFIG_BYTES:
-        raise serializers.ValidationError('Too large.')
+        raise serializers.ValidationError(gettext('Too large.'))
     if config.get('type') not in VisualizationType.values:
-        raise serializers.ValidationError('Unknown visualization type.')
+        raise serializers.ValidationError(gettext('Unknown visualization type.'))
     for axis in _AXES:
         if not _is_str_list(config.get(axis)):
-            raise serializers.ValidationError(f'`{axis}` must be a list of dimension ids.')
+            raise serializers.ValidationError(gettext('`{axis}` must be a list of dimension ids.').format(axis=axis))
     placed = [d for axis in _AXES for d in config[axis]]
     if len(placed) != len(set(placed)):
-        raise serializers.ValidationError('A dimension may appear on only one axis.')
+        raise serializers.ValidationError(gettext('A dimension may appear on only one axis.'))
     items = config.get('items')
     if not isinstance(items, dict) or not all(_is_str_list(v) for v in items.values()):
-        raise serializers.ValidationError('`items` must map dimension ids to lists of item ids.')
+        raise serializers.ValidationError(gettext('`items` must map dimension ids to lists of item ids.'))
     if not isinstance(config.get('options', {}), dict):
-        raise serializers.ValidationError('`options` must be an object.')
+        raise serializers.ValidationError(gettext('`options` must be an object.'))
     return config
 
 
@@ -77,7 +78,7 @@ class SavedVisualizationSerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         value = value.strip()
         if not value:
-            raise serializers.ValidationError('Give the visualization a name.')
+            raise serializers.ValidationError(gettext('Give the visualization a name.'))
         return value
 
     def validate_config(self, value):
@@ -85,7 +86,7 @@ class SavedVisualizationSerializer(serializers.ModelSerializer):
         problems = unavailable_references(value, self._ctx())
         if problems:
             names = ', '.join(p['label'] for p in problems)
-            raise serializers.ValidationError(f'Uses data this shop cannot query: {names}.')
+            raise serializers.ValidationError(gettext('Uses data this shop cannot query: {names}.').format(names=names))
         return value
 
     def validate(self, attrs):

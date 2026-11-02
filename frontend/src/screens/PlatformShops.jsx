@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi.js'
 import { addShopOwner, listAllShops, registerShop, updateShop } from '../api/platform.js'
 import { updateUser } from '../api/core.js'
 import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
+import { t, tOptions, useT } from '../i18n/index.js'
 
 const EMPTY_SHOP = {
   name: '', business_type: 'general', tin: '', phone: '', email: '', region: '', district: '', address: '',
@@ -29,13 +30,13 @@ function td(color) {
  * of a registration, into readable lines. */
 function errorLines(err) {
   const body = err?.body
-  if (!body || typeof body !== 'object') return [err?.message || 'Request failed']
+  if (!body || typeof body !== 'object') return [err?.message || t('Request failed')]
   const lines = []
   const walk = (obj, prefix) => {
     for (const [field, msgs] of Object.entries(obj)) {
-      if (msgs && typeof msgs === 'object' && !Array.isArray(msgs)) { walk(msgs, 'Owner — '); continue }
+      if (msgs && typeof msgs === 'object' && !Array.isArray(msgs)) { walk(msgs, `${t('Owner')} — `); continue }
       const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs)
-      lines.push(field === 'detail' || field === 'non_field_errors' ? text : `${prefix}${LABEL[field] || field}: ${text}`)
+      lines.push(field === 'detail' || field === 'non_field_errors' ? text : `${prefix}${LABEL[field] ? t(LABEL[field]) : field}: ${text}`)
     }
   }
   walk(body, '')
@@ -43,15 +44,16 @@ function errorLines(err) {
 }
 
 function ownerProblems(owner, { needsPassword = true } = {}) {
-  const problems = ['first_name', 'last_name', 'username'].filter((f) => !owner[f].trim()).map((f) => `Owner — ${LABEL[f]} is required.`)
-  if (needsPassword && !owner.password) problems.push('Owner — Password is required.')
-  if (owner.password !== owner.confirmPassword) problems.push('Owner — Passwords do not match.')
+  const problems = ['first_name', 'last_name', 'username'].filter((f) => !owner[f].trim()).map((f) => `${t('Owner')} — ${t('{field} is required.', { field: t(LABEL[f]) })}`)
+  if (needsPassword && !owner.password) problems.push(`${t('Owner')} — ${t('{field} is required.', { field: t('Password') })}`)
+  if (owner.password !== owner.confirmPassword) problems.push(`${t('Owner')} — ${t('Passwords do not match.')}`)
   return problems
 }
 
 const ownerPayload = ({ confirmPassword, ...owner }) => owner
 
 export default function PlatformShops() {
+  useT()
   const { data: shops, loading, error: loadError, refetch } = useApi(() => listAllShops(), [])
   const [search, setSearch] = useState('')
   const [notice, setNotice] = useState(null)
@@ -70,13 +72,13 @@ export default function PlatformShops() {
 
   async function toggleActive(shop) {
     const suspending = shop.is_active
-    if (suspending && !window.confirm(`Suspend ${shop.name}? Everyone at this shop is signed out and cannot sign in until you reactivate it. Its data is kept.`)) return
+    if (suspending && !window.confirm(t('Suspend {name}? Everyone at this shop is signed out and cannot sign in until you reactivate it. Its data is kept.', { name: shop.name }))) return
     setBusyId(shop.id)
     setErrors([])
     setNotice(null)
     try {
       await updateShop(shop.id, { is_active: !suspending })
-      setNotice(`${shop.name} ${suspending ? 'suspended' : 'reactivated'}.`)
+      setNotice(t(suspending ? '{name} suspended.' : '{name} reactivated.', { name: shop.name }))
       refetch()
     } catch (err) {
       setErrors(errorLines(err))
@@ -88,42 +90,42 @@ export default function PlatformShops() {
   return (
     <div>
       <PageHeader
-        title="Shops"
-        subtitle="Register shops and their owners. Each owner then adds their own sellers."
-        actions={<Button variant="primary" onClick={() => { setNotice(null); setDialog({ kind: 'register' }) }}><Icon name="add" size={16} /> Register shop</Button>}
+        title={t('Shops')}
+        subtitle={t('Register shops and their owners. Each owner then adds their own sellers.')}
+        actions={<Button variant="primary" onClick={() => { setNotice(null); setDialog({ kind: 'register' }) }}><Icon name="add" size={16} /> {t('Register shop')}</Button>}
       />
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not update the shop" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not update the shop')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
       {notice && <NoticeBox variant="valid" title={notice} style={{ marginBottom: 12 }} />}
       <div style={{ maxWidth: 320, marginBottom: 12 }}>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search shop, place, phone or owner…" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search shop, place, phone or owner…')} />
       </div>
       <div className="ds-table-card">
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
           <thead>
             <tr>
-              <th style={th()}>Shop</th>
-              <th style={th()}>Location</th>
-              <th style={th()}>Owner</th>
+              <th style={th()}>{t('Shop')}</th>
+              <th style={th()}>{t('Location')}</th>
+              <th style={th()}>{t('Owner')}</th>
               <th style={th()}>Stores · Staff</th>
-              <th style={th()}>Status</th>
-              <th style={th()}>Actions</th>
+              <th style={th()}>{t('Status')}</th>
+              <th style={th()}>{t('Actions')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td style={td()} colSpan={6}>Loading shops…</td></tr>}
-            {loadError && <tr><td style={td('var(--red-600)')} colSpan={6}>Could not load shops: {loadError.message}</td></tr>}
+            {loading && <tr><td style={td()} colSpan={6}>{t('Loading shops…')}</td></tr>}
+            {loadError && <tr><td style={td('var(--red-600)')} colSpan={6}>{t('Could not load shops:')} {loadError.message}</td></tr>}
             {!loading && !loadError && rows.length === 0 && (
-              <tr><td style={td()} colSpan={6}>{search ? 'No shop matches.' : 'No shops yet. Register the first one.'}</td></tr>
+              <tr><td style={td()} colSpan={6}>{search ? t('No shop matches.') : t('No shops yet. Register the first one.')}</td></tr>
             )}
             {rows.map((s) => (
               <tr key={s.id}>
                 <td style={td('var(--grey-900)')}>
                   <div style={{ fontWeight: 500 }}>{s.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{s.business_type_label}{s.phone ? ` · ${s.phone}` : ''}</div>
+                  <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{t(s.business_type_label)}{s.phone ? ` · ${s.phone}` : ''}</div>
                 </td>
                 <td style={td()}>
                   {[s.district, s.region].filter(Boolean).join(', ') || '—'}
@@ -135,24 +137,24 @@ export default function PlatformShops() {
                     <div key={o.id} style={{ marginBottom: 6 }}>
                       <div>{[o.first_name, o.last_name].filter(Boolean).join(' ') || o.username}</div>
                       <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
-                        {o.username}{o.phone ? ` · ${o.phone}` : ''}{!o.last_login && ' · never signed in'}
+                        {o.username}{o.phone ? ` · ${o.phone}` : ''}{!o.last_login && ` · ${t('never signed in')}`}
                         {' · '}
                         <button type="button" style={{ background: 'none', border: 0, padding: 0, color: 'var(--blue-700)', cursor: 'pointer', fontSize: 12 }}
                           onClick={() => { setNotice(null); setDialog({ kind: 'password', shop: s, owner: o }) }}>
-                          Reset password
+                          {t('Reset password')}
                         </button>
                       </div>
                     </div>
                   ))}
                 </td>
                 <td style={td()}>{s.store_count} · {s.staff_count}</td>
-                <td style={td()}>{s.is_active ? <Tag variant="positive">Active</Tag> : <Tag variant="negative">Suspended</Tag>}</td>
+                <td style={td()}>{s.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Suspended')}</Tag>}</td>
                 <td style={td()}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'edit', shop: s }) }}>Edit</Button>
-                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'owner', shop: s }) }}>Add owner</Button>
+                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'edit', shop: s }) }}>{t('Edit')}</Button>
+                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'owner', shop: s }) }}>{t('Add owner')}</Button>
                     <Button size="small" variant={s.is_active ? 'destructive' : undefined} disabled={busyId === s.id} onClick={() => toggleActive(s)}>
-                      {s.is_active ? 'Suspend' : 'Reactivate'}
+                      {s.is_active ? t('Suspend') : t('Reactivate')}
                     </Button>
                   </div>
                 </td>
@@ -172,6 +174,7 @@ export default function PlatformShops() {
 
 /** Shop details, plus the first owner when registering a new shop. */
 function ShopDialog({ shop, onClose, onDone }) {
+  useT()
   const registering = !shop
   const [draft, setDraft] = useState(registering ? EMPTY_SHOP : Object.fromEntries(SHOP_FIELDS.map((f) => [f, shop[f] ?? ''])))
   const [owner, setOwner] = useState(EMPTY_OWNER)
@@ -180,7 +183,7 @@ function ShopDialog({ shop, onClose, onDone }) {
   const set = (field) => (e) => setDraft((d) => ({ ...d, [field]: e.target.value }))
 
   async function save() {
-    const problems = draft.name.trim() ? [] : ['Shop name is required.']
+    const problems = draft.name.trim() ? [] : [t('Shop name is required.')]
     if (registering) problems.push(...ownerProblems(owner))
     setErrors(problems)
     if (problems.length) return
@@ -189,10 +192,10 @@ function ShopDialog({ shop, onClose, onDone }) {
       const data = { ...draft, name: draft.name.trim() }
       if (registering) {
         await registerShop({ ...data, owner: ownerPayload(owner) })
-        onDone(`${data.name} registered. ${owner.username} can now sign in and add sellers.`)
+        onDone(t('{name} registered. {user} can now sign in and add sellers.', { name: data.name, user: owner.username }))
       } else {
         await updateShop(shop.id, data)
-        onDone(`${data.name} saved.`)
+        onDone(t('{name} saved.', { name: data.name }))
       }
     } catch (err) {
       setErrors(errorLines(err))
@@ -203,43 +206,43 @@ function ShopDialog({ shop, onClose, onDone }) {
 
   return (
     <Modal
-      title={registering ? 'Register shop' : `Edit ${shop.name}`}
+      title={registering ? t('Register shop') : t('Edit {name}', { name: shop.name })}
       size="lg"
       onClose={onClose}
       footer={(
         <>
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : registering ? 'Register shop' : 'Save changes'}</Button>
+          <Button onClick={onClose} disabled={saving}>{t('Cancel')}</Button>
+          <Button variant="primary" onClick={save} disabled={saving}>{saving ? t('Saving…') : registering ? t('Register shop') : t('Save changes')}</Button>
         </>
       )}
     >
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not save" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not save')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
-      <SectionTitle>Shop</SectionTitle>
+      <SectionTitle>{t('Shop')}</SectionTitle>
       <div style={grid}>
-        <Field label="Shop name" required><Input value={draft.name} onChange={set('name')} autoFocus /></Field>
-        <Field label="Type of shop"><Select value={draft.business_type} onChange={set('business_type')} options={BUSINESS_TYPE_OPTIONS} /></Field>
-        <Field label="TIN"><Input value={draft.tin} onChange={set('tin')} /></Field>
-        <Field label="Phone"><Input value={draft.phone} onChange={set('phone')} placeholder="e.g. 0712 345 678" /></Field>
-        <Field label="Email"><Input type="email" value={draft.email} onChange={set('email')} /></Field>
+        <Field label={t('Shop name')} required><Input value={draft.name} onChange={set('name')} autoFocus /></Field>
+        <Field label={t('Type of shop')}><Select value={draft.business_type} onChange={set('business_type')} options={tOptions(BUSINESS_TYPE_OPTIONS)} /></Field>
+        <Field label={t('TIN')}><Input value={draft.tin} onChange={set('tin')} /></Field>
+        <Field label={t('Phone')}><Input value={draft.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+        <Field label={t('Email')}><Input type="email" value={draft.email} onChange={set('email')} /></Field>
       </div>
-      <SectionTitle>Location</SectionTitle>
+      <SectionTitle>{t('Location')}</SectionTitle>
       <div style={grid}>
-        <Field label="Region"><Input value={draft.region} onChange={set('region')} placeholder="e.g. Dar es Salaam" /></Field>
-        <Field label="District"><Input value={draft.district} onChange={set('district')} placeholder="e.g. Kinondoni" /></Field>
-        <Field label="Street / area"><Input value={draft.address} onChange={set('address')} placeholder="e.g. Sinza, near the market" /></Field>
+        <Field label={t('Region')}><Input value={draft.region} onChange={set('region')} placeholder={t('e.g. Dar es Salaam')} /></Field>
+        <Field label={t('District')}><Input value={draft.district} onChange={set('district')} placeholder={t('e.g. Kinondoni')} /></Field>
+        <Field label={t('Street / area')}><Input value={draft.address} onChange={set('address')} placeholder={t('e.g. Sinza, near the market')} /></Field>
       </div>
       {registering && (
         <>
-          <SectionTitle>Store setup</SectionTitle>
+          <SectionTitle>{t('Store setup')}</SectionTitle>
           <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-            <Radio checked={draft.store_mode === 'single'} onChange={() => setDraft((d) => ({ ...d, store_mode: 'single' }))} label="Single shop" />
-            <Radio checked={draft.store_mode === 'multi'} onChange={() => setDraft((d) => ({ ...d, store_mode: 'multi' }))} label="Shop with multiple branches" />
+            <Radio checked={draft.store_mode === 'single'} onChange={() => setDraft((d) => ({ ...d, store_mode: 'single' }))} label={t('Single shop')} />
+            <Radio checked={draft.store_mode === 'multi'} onChange={() => setDraft((d) => ({ ...d, store_mode: 'multi' }))} label={t('Shop with multiple branches')} />
           </div>
-          <SectionTitle>Owner</SectionTitle>
+          <SectionTitle>{t('Owner')}</SectionTitle>
           <OwnerFields owner={owner} setOwner={setOwner} />
         </>
       )}
@@ -248,6 +251,7 @@ function ShopDialog({ shop, onClose, onDone }) {
 }
 
 function OwnerDialog({ shop, onClose, onDone }) {
+  useT()
   const [owner, setOwner] = useState(EMPTY_OWNER)
   const [errors, setErrors] = useState([])
   const [saving, setSaving] = useState(false)
@@ -259,7 +263,7 @@ function OwnerDialog({ shop, onClose, onDone }) {
     setSaving(true)
     try {
       await addShopOwner(shop.id, ownerPayload(owner))
-      onDone(`${owner.username} added as an owner of ${shop.name}.`)
+      onDone(t('{user} added as an owner of {name}.', { user: owner.username, name: shop.name }))
     } catch (err) {
       setErrors(errorLines(err))
     } finally {
@@ -269,17 +273,17 @@ function OwnerDialog({ shop, onClose, onDone }) {
 
   return (
     <Modal
-      title={`Add owner — ${shop.name}`}
+      title={`${t('Add owner')} — ${shop.name}`}
       onClose={onClose}
       footer={(
         <>
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Adding…' : 'Add owner'}</Button>
+          <Button onClick={onClose} disabled={saving}>{t('Cancel')}</Button>
+          <Button variant="primary" onClick={save} disabled={saving}>{saving ? t('Adding…') : t('Add owner')}</Button>
         </>
       )}
     >
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not add the owner" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not add the owner')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
@@ -289,20 +293,21 @@ function OwnerDialog({ shop, onClose, onDone }) {
 }
 
 function PasswordDialog({ owner, onClose, onDone }) {
+  useT()
   const [draft, setDraft] = useState({ password: '', confirmPassword: '' })
   const [errors, setErrors] = useState([])
   const [saving, setSaving] = useState(false)
 
   async function save() {
     const problems = []
-    if (!draft.password) problems.push('Enter a new password.')
-    else if (draft.password !== draft.confirmPassword) problems.push('Passwords do not match.')
+    if (!draft.password) problems.push(t('Enter a new password.'))
+    else if (draft.password !== draft.confirmPassword) problems.push(t('Passwords do not match.'))
     setErrors(problems)
     if (problems.length) return
     setSaving(true)
     try {
       await updateUser(owner.id, { password: draft.password })
-      onDone(`Password of ${owner.username} reset.`)
+      onDone(t('Password of {user} reset.', { user: owner.username }))
     } catch (err) {
       setErrors(errorLines(err))
     } finally {
@@ -312,48 +317,49 @@ function PasswordDialog({ owner, onClose, onDone }) {
 
   return (
     <Modal
-      title={`Reset password — ${owner.username}`}
+      title={`${t('Reset password')} — ${owner.username}`}
       size="sm"
       onClose={onClose}
       footer={(
         <>
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Reset password'}</Button>
+          <Button onClick={onClose} disabled={saving}>{t('Cancel')}</Button>
+          <Button variant="primary" onClick={save} disabled={saving}>{saving ? t('Saving…') : t('Reset password')}</Button>
         </>
       )}
     >
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not reset the password" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not reset the password')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
       <div style={{ display: 'grid', gap: 12 }}>
-        <Field label="New password" required>
+        <Field label={t('New password')} required>
           <Input type="password" value={draft.password} onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))} autoFocus />
         </Field>
-        <Field label="Confirm new password" required>
+        <Field label={t('Confirm new password')} required>
           <Input type="password" value={draft.confirmPassword} onChange={(e) => setDraft((d) => ({ ...d, confirmPassword: e.target.value }))} />
         </Field>
       </div>
-      <p style={hint}>The owner is signed out everywhere and must choose their own password at their next sign-in.</p>
+      <p style={hint}>{t('The owner is signed out everywhere and must choose their own password at their next sign-in.')}</p>
     </Modal>
   )
 }
 
 function OwnerFields({ owner, setOwner }) {
+  useT()
   const set = (field) => (e) => setOwner((o) => ({ ...o, [field]: e.target.value }))
   return (
     <>
       <div style={grid}>
-        <Field label="First name" required><Input value={owner.first_name} onChange={set('first_name')} /></Field>
-        <Field label="Last name" required><Input value={owner.last_name} onChange={set('last_name')} /></Field>
-        <Field label="Mobile number"><Input value={owner.phone} onChange={set('phone')} placeholder="e.g. 0712 345 678" /></Field>
-        <Field label="Email"><Input type="email" value={owner.email} onChange={set('email')} /></Field>
-        <Field label="Username" required><Input value={owner.username} onChange={set('username')} /></Field>
-        <Field label="Password" required><Input type="password" value={owner.password} onChange={set('password')} /></Field>
-        <Field label="Confirm password" required><Input type="password" value={owner.confirmPassword} onChange={set('confirmPassword')} /></Field>
+        <Field label={t('First name')} required><Input value={owner.first_name} onChange={set('first_name')} /></Field>
+        <Field label={t('Last name')} required><Input value={owner.last_name} onChange={set('last_name')} /></Field>
+        <Field label={t('Mobile number')}><Input value={owner.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+        <Field label={t('Email')}><Input type="email" value={owner.email} onChange={set('email')} /></Field>
+        <Field label={t('Username')} required><Input value={owner.username} onChange={set('username')} /></Field>
+        <Field label={t('Password')} required><Input type="password" value={owner.password} onChange={set('password')} /></Field>
+        <Field label={t('Confirm password')} required><Input type="password" value={owner.confirmPassword} onChange={set('confirmPassword')} /></Field>
       </div>
-      <p style={hint}>This password is temporary: the owner must choose their own the first time they sign in.</p>
+      <p style={hint}>{t('This password is temporary: the owner must choose their own the first time they sign in.')}</p>
     </>
   )
 }

@@ -1,4 +1,5 @@
-import { Icon } from './ds/index.js'
+import { Icon, LanguageSwitch } from './ds/index.js'
+import { useT } from '../i18n/index.js'
 import { BRAND_NAME } from '../appData.js'
 
 const DEFAULT_POINTS = [
@@ -11,6 +12,7 @@ const DEFAULT_POINTS = [
  * left side is a large blue-600 arc with layered circles; `children` is the
  * form on the right. */
 export default function AuthLayout({ headline = 'Welcome', overline = 'Shop management system', text, points = DEFAULT_POINTS, children }) {
+  const t = useT()
   return (
     <div className="login-page">
       <span className="login-page-circle a" aria-hidden="true" />
@@ -27,18 +29,21 @@ export default function AuthLayout({ headline = 'Welcome', overline = 'Shop mana
             <span className="login-brand-tile"><Icon name="brand" size={26} /></span>
             <span>{BRAND_NAME}</span>
           </div>
-          <p className="login-display">{headline}</p>
-          <p className="login-overline">{overline}</p>
+          <p className="login-display">{t(headline)}</p>
+          <p className="login-overline">{t(overline)}</p>
           {text && <p className="login-text">{text}</p>}
           {points.length > 0 && (
             <ul className="login-points">
               {points.map((p) => (
-                <li key={p}><Icon name="checkmark" size={18} /> {p}</li>
+                <li key={p}><Icon name="checkmark" size={18} /> {t(p)}</li>
               ))}
             </ul>
           )}
         </div>
-        <div className="login-form">{children}</div>
+        <div className="login-form">
+          <LanguageSwitch style={{ position: 'absolute', top: 24, right: 24 }} />
+          {children}
+        </div>
       </div>
     </div>
   )

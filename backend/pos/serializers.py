@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product, UnitOfMeasure
@@ -170,7 +171,7 @@ class ShiftSerializer(serializers.ModelSerializer):
 
     def validate_opening_float(self, value):
         if value < 0:
-            raise serializers.ValidationError('Opening float cannot be negative.')
+            raise serializers.ValidationError(gettext('Opening float cannot be negative.'))
         return value
 
 

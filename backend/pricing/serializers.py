@@ -1,3 +1,4 @@
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from core.models import Entity
@@ -25,40 +26,40 @@ class PriceSerializer(serializers.ModelSerializer):
 
         if request and not is_privileged:
             if entity is None or entity.id != request.user.entity_id:
-                raise serializers.ValidationError({'entity': 'Must be your own entity.'})
+                raise serializers.ValidationError({'entity': gettext('Must be your own entity.')})
 
         if entity is not None:
             if entity.price_mode == Entity.PriceMode.STORE:
                 if store is None:
                     raise serializers.ValidationError(
-                        {'store': 'This entity prices per store — store is required.'})
+                        {'store': gettext('This entity prices per store — store is required.')})
                 if store.entity_id != entity.id:
-                    raise serializers.ValidationError({'store': 'Store must belong to the priced entity.'})
+                    raise serializers.ValidationError({'store': gettext('Store must belong to the priced entity.')})
                 if request and not is_privileged:
                     store_ids = accessible_store_ids(request.user)
                     if store_ids is not None and store.id not in list(store_ids):
                         raise serializers.ValidationError(
-                            {'store': 'You do not have access to this store.'})
+                            {'store': gettext('You do not have access to this store.')})
             elif store is not None:
                 raise serializers.ValidationError(
-                    {'store': 'This entity uses one shared price list — leave store empty.'})
+                    {'store': gettext('This entity uses one shared price list — leave store empty.')})
 
         product = attrs.get('product', getattr(self.instance, 'product', None))
         uom = attrs.get('uom', getattr(self.instance, 'uom', None))
         if product is not None:
             if entity is not None and product.entity_id != entity.id:
-                raise serializers.ValidationError({'product': 'Product must belong to the priced entity.'})
+                raise serializers.ValidationError({'product': gettext('Product must belong to the priced entity.')})
             if uom is not None and uom.pk == product.uom_id:
                 uom = None
                 if 'uom' in attrs:
                     attrs['uom'] = None
             if uom is not None and uom.entity_id != product.entity_id:
-                raise serializers.ValidationError({'uom': 'Unit must belong to the same entity as the product.'})
+                raise serializers.ValidationError({'uom': gettext('Unit must belong to the same entity as the product.')})
             clash = Price.objects.filter(entity=entity, store=store, product=product, uom=uom)
             if self.instance is not None:
                 clash = clash.exclude(pk=self.instance.pk)
             if clash.exists():
-                raise serializers.ValidationError('A price for this product and unit already exists — edit it instead.')
+                raise serializers.ValidationError(gettext('A price for this product and unit already exists — edit it instead.'))
         return attrs
 
 
@@ -100,17 +101,17 @@ class PromotionSerializer(serializers.ModelSerializer):
         ends_on = attrs.get('ends_on', getattr(self.instance, 'ends_on', None))
         if entity is not None:
             if product is not None and product.entity_id != entity.id:
-                raise serializers.ValidationError({'product': 'Not a product in your catalog.'})
+                raise serializers.ValidationError({'product': gettext('Not a product in your catalog.')})
             if uom is not None and uom.entity_id != entity.id:
-                raise serializers.ValidationError({'uom': 'Not a unit in your catalog.'})
+                raise serializers.ValidationError({'uom': gettext('Not a unit in your catalog.')})
             if store is not None:
                 if store.entity_id != entity.id:
-                    raise serializers.ValidationError({'store': 'Not one of your stores.'})
+                    raise serializers.ValidationError({'store': gettext('Not one of your stores.')})
                 store_ids = accessible_store_ids(request.user) if request else None
                 if store_ids is not None and store.id not in list(store_ids):
-                    raise serializers.ValidationError({'store': 'You do not have access to this store.'})
+                    raise serializers.ValidationError({'store': gettext('You do not have access to this store.')})
         if starts_on and ends_on and ends_on < starts_on:
-            raise serializers.ValidationError({'ends_on': 'The promotion must end on or after the day it starts.'})
+            raise serializers.ValidationError({'ends_on': gettext('The promotion must end on or after the day it starts.')})
         if attrs.get('promo_price') is not None and attrs['promo_price'] <= 0:
-            raise serializers.ValidationError({'promo_price': 'The promotion price must be more than 0.'})
+            raise serializers.ValidationError({'promo_price': gettext('The promotion price must be more than 0.')})
         return attrs

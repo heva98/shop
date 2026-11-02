@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from catalog.models import Category, Product, UnitConversionError, UnitOfMeasure, convert_qty
 from core.models import Entity
@@ -94,12 +95,12 @@ class Importer:
         raise NotImplementedError
 
     # -- shared lookups -------------------------------------------------------
-    def find_product(self, text, *, field_name='Product'):
+    def find_product(self, text, *, field_name=gettext('Product')):
         """A product cell may hold a barcode, a product name, or
         "name size"; it must match exactly one product."""
         text = text.strip()
         if not text:
-            raise CellError(f'{field_name} is required.')
+            raise CellError(gettext('{field_name} is required.').format(field_name=field_name))
         products = Product.objects.filter(entity=self.entity).select_related('uom')
         by_barcode = products.filter(barcode=text).first()
         if by_barcode:
@@ -111,13 +112,13 @@ class Importer:
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
-            raise CellError(f'"{text}" matches {len(matches)} products. Use the barcode or the full name with size.')
-        raise CellError(f'No product "{text}". Import products first, or check the spelling.')
+            raise CellError(gettext('"{text}" matches {len} products. Use the barcode or the full name with size.').format(text=text, len=len(matches)))
+        raise CellError(gettext('No product "{text}". Import products first, or check the spelling.').format(text=text))
 
-    def find_unit(self, text, *, field_name='Unit'):
+    def find_unit(self, text, *, field_name=gettext('Unit')):
         unit = UnitOfMeasure.objects.filter(entity=self.entity, name__iexact=text.strip()).first()
         if unit is None:
-            raise CellError(f'No unit "{text}". Add it under Settings > Units of measure first.')
+            raise CellError(gettext('No unit "{text}". Add it under Settings > Units of measure first.').format(text=text))
         return unit
 
     def price_store(self):
@@ -126,23 +127,22 @@ class Importer:
 
 class ProductImporter(Importer):
     key = 'products'
-    title = 'Products'
-    description = ('Your product list. Existing products (same barcode, or same name and size) are updated; '
-                   'new ones are added. Units and categories that don\'t exist yet are created.')
+    title = gettext_lazy('Products')
+    description = (gettext_lazy("Your product list. Existing products (same barcode, or same name and size) are updated; new ones are added. Units and categories that don't exist yet are created."))
     columns = [
-        Column('name', 'Product name as it should appear on receipts.', 'Sugar 1kg', required=True,
+        Column('name', gettext_lazy('Product name as it should appear on receipts.'), 'Sugar 1kg', required=True,
                aliases=('product', 'product_name', 'item', 'description')),
-        Column('unit', 'The smallest unit you stock and sell (Piece, Packet, Bottle...).', 'Packet',
+        Column('unit', gettext_lazy('The smallest unit you stock and sell (Piece, Packet, Bottle...).'), 'Packet',
                required=True, aliases=('uom', 'unit_of_measure')),
-        Column('unit_size', 'Only for new units: how many pieces it holds. Default 1.', '1'),
+        Column('unit_size', gettext_lazy('Only for new units: how many pieces it holds. Default 1.'), '1'),
         Column('category', 'Category, e.g. Beverages, Toiletries.', 'Cooking essentials', aliases=('group', 'department')),
-        Column('brand', 'Brand or maker.', 'Kilombero', aliases=('make', 'manufacturer')),
-        Column('size', 'Pack size, e.g. 500 ml, 2 kg.', '1 kg', aliases=('pack_size', 'weight', 'volume')),
-        Column('vat', '"exempt", "zero" or "standard" (18%). Default standard.', 'standard', aliases=('vat_class',)),
-        Column('perishable', 'yes / no: does it have an expiry date? Default no.', 'yes',
+        Column('brand', gettext_lazy('Brand or maker.'), 'Kilombero', aliases=('make', 'manufacturer')),
+        Column('size', gettext_lazy('Pack size, e.g. 500 ml, 2 kg.'), '1 kg', aliases=('pack_size', 'weight', 'volume')),
+        Column('vat', gettext_lazy('"exempt", "zero" or "standard" (18%). Default standard.'), 'standard', aliases=('vat_class',)),
+        Column('perishable', gettext_lazy('yes / no: does it have an expiry date? Default no.'), 'yes',
                aliases=('expires', 'tracks_expiry', 'has_expiry')),
-        Column('barcode', 'Barcode printed on the pack.', '6001234567890', aliases=('ean', 'code')),
-        Column('selling_price', 'Price per unit, VAT included. Optional.', '3200', aliases=('price',)),
+        Column('barcode', gettext_lazy('Barcode printed on the pack.'), '6001234567890', aliases=('ean', 'code')),
+        Column('selling_price', gettext_lazy('Price per unit, VAT included. Optional.'), '3200', aliases=('price',)),
     ]
     _VAT = {'exempt': Product.VatClass.EXEMPT, 'zero': Product.VatClass.ZERO_RATED,
             'zero_rated': Product.VatClass.ZERO_RATED, 'zero-rated': Product.VatClass.ZERO_RATED,
@@ -151,22 +151,22 @@ class ProductImporter(Importer):
     def import_row(self, row):
         name = self.cell(row, 'name')
         if not name:
-            raise CellError('Name is required.')
+            raise CellError(gettext('Name is required.'))
         unit_name = self.cell(row, 'unit')
         if not unit_name:
-            raise CellError('Unit is required.')
+            raise CellError(gettext('Unit is required.'))
         size = self.cell(row, 'size')
         barcode = self.cell(row, 'barcode')
         vat_text = self.cell(row, 'vat').lower()
         if vat_text and vat_text not in self._VAT:
-            raise CellError(f'VAT "{vat_text}" must be exempt, zero or standard.')
-        price = parse_decimal(self.cell(row, 'selling_price'), field='Selling price', minimum=0)
+            raise CellError(gettext('VAT "{vat_text}" must be exempt, zero or standard.').format(vat_text=vat_text))
+        price = parse_decimal(self.cell(row, 'selling_price'), field=gettext('Selling price'), minimum=0)
         if price is not None and self.entity.price_mode == Entity.PriceMode.STORE and self.store is None:
-            raise CellError('Your shop prices each store separately: choose a store to import prices into.')
+            raise CellError(gettext('Your shop prices each store separately: choose a store to import prices into.'))
 
         unit = UnitOfMeasure.objects.filter(entity=self.entity, name__iexact=unit_name).first()
         if unit is None:
-            unit_size = parse_decimal(self.cell(row, 'unit_size'), field='Unit size', minimum=Decimal('0.01')) or 1
+            unit_size = parse_decimal(self.cell(row, 'unit_size'), field=gettext('Unit size'), minimum=Decimal('0.01')) or 1
             unit = UnitOfMeasure.objects.create(entity=self.entity, name=unit_name, unit_value=unit_size)
 
         category = None
@@ -192,11 +192,11 @@ class ProductImporter(Importer):
                 setattr(product, col, self.cell(row, col))
         perishable = self.cell(row, 'perishable')
         if perishable or not existing:
-            product.tracks_expiry = parse_bool(perishable, field='Perishable')
+            product.tracks_expiry = parse_bool(perishable, field=gettext('Perishable'))
         if barcode:
             clash = Product.objects.filter(entity=self.entity, barcode=barcode).exclude(pk=product.pk).first()
             if clash:
-                raise CellError(f'Barcode {barcode} already belongs to {clash.name}.')
+                raise CellError(gettext('Barcode {barcode} already belongs to {name}.').format(barcode=barcode, name=clash.name))
             product.barcode = barcode
         product.save()
 
@@ -212,20 +212,20 @@ class ProductImporter(Importer):
 
 class SupplierImporter(Importer):
     key = 'suppliers'
-    title = 'Suppliers'
-    description = 'Wholesalers and distributors. A supplier with the same name is updated instead of duplicated.'
+    title = gettext_lazy('Suppliers')
+    description = gettext_lazy('Wholesalers and distributors. A supplier with the same name is updated instead of duplicated.')
     columns = [
-        Column('name', 'Supplier name.', 'Bakhresa Group (Azam)', required=True, aliases=('supplier',)),
-        Column('phone', 'Phone number.', '+255 22 286 0890', aliases=('tel', 'telephone', 'mobile')),
-        Column('email', 'Email address.', 'orders@example.co.tz'),
-        Column('location', 'Town or address.', 'Dar es Salaam', aliases=('address', 'town')),
+        Column('name', gettext_lazy('Supplier name.'), 'Bakhresa Group (Azam)', required=True, aliases=('supplier',)),
+        Column('phone', gettext_lazy('Phone number.'), '+255 22 286 0890', aliases=('tel', 'telephone', 'mobile')),
+        Column('email', gettext_lazy('Email address.'), 'orders@example.co.tz'),
+        Column('location', gettext_lazy('Town or address.'), 'Dar es Salaam', aliases=('address', 'town')),
         Column('description', 'Notes.', 'Flour and drinks distributor'),
     ]
 
     def import_row(self, row):
         name = self.cell(row, 'name')
         if not name:
-            raise CellError('Name is required.')
+            raise CellError(gettext('Name is required.'))
         supplier = Supplier.objects.filter(entity=self.entity, name__iexact=name).first()
         existing = supplier is not None
         supplier = supplier or Supplier(entity=self.entity, name=name)
@@ -233,28 +233,27 @@ class SupplierImporter(Importer):
             if self.cell(row, col):
                 setattr(supplier, col, self.cell(row, col))
         if supplier.email and '@' not in supplier.email:
-            raise CellError(f'Email "{supplier.email}" is not valid.')
+            raise CellError(gettext('Email "{email}" is not valid.').format(email=supplier.email))
         supplier.save()
         return ('updated' if existing else 'created'), {'name': supplier.name}
 
 
 class PriceImporter(Importer):
     key = 'prices'
-    title = 'Selling prices'
-    description = ('Shelf prices, VAT included. Leave "unit" empty for the price per product unit, or name another '
-                   'unit (e.g. "Crate of 24") to set the price when selling in that unit.')
+    title = gettext_lazy('Selling prices')
+    description = (gettext_lazy('Shelf prices, VAT included. Leave "unit" empty for the price per product unit, or name another unit (e.g. "Crate of 24") to set the price when selling in that unit.'))
     columns = [
-        Column('product', 'Barcode, product name, or name and size.', 'Sugar 1kg',
+        Column('product', gettext_lazy('Barcode, product name, or name and size.'), 'Sugar 1kg',
                required=True, aliases=('name', 'product_name', 'barcode', 'item')),
-        Column('price', 'Price, VAT included.', '3200', required=True, aliases=('selling_price', 'unit_price')),
-        Column('unit', 'Optional: the unit this price is for.', '', aliases=('uom',)),
+        Column('price', gettext_lazy('Price, VAT included.'), '3200', required=True, aliases=('selling_price', 'unit_price')),
+        Column('unit', gettext_lazy('Optional: the unit this price is for.'), '', aliases=('uom',)),
     ]
 
     def import_row(self, row):
         if self.entity.price_mode == Entity.PriceMode.STORE and self.store is None:
-            raise CellError('Your shop prices each store separately: choose a store to import prices into.')
+            raise CellError(gettext('Your shop prices each store separately: choose a store to import prices into.'))
         product = self.find_product(self.cell(row, 'product'))
-        price = parse_decimal(self.cell(row, 'price'), field='Price', required=True, minimum=0)
+        price = parse_decimal(self.cell(row, 'price'), field=gettext('Price'), required=True, minimum=0)
         unit_text = self.cell(row, 'unit')
         unit = self.find_unit(unit_text) if unit_text else None
         if unit is not None and unit.pk == product.uom_id:
@@ -270,41 +269,40 @@ class PriceImporter(Importer):
 
 class OpeningStockImporter(Importer):
     key = 'opening_stock'
-    title = 'Opening stock'
-    description = ('What is on the shelf when you start using the system, into one store. Give the expiry date '
-                   'for goods that expire; batch numbers are optional. Each batch can be loaded once; correct '
-                   'mistakes afterwards with a stock count.')
+    title = gettext_lazy('Opening stock')
+    description = (gettext_lazy('What is on the shelf when you start using the system, into one store. Give the expiry date for goods that expire; batch numbers are optional. Each batch can be loaded once; correct mistakes afterwards with a stock count.'))
     needs_store = True
     columns = [
-        Column('product', 'Barcode, product name, or name and size.', 'Sugar 1kg',
+        Column('product', gettext_lazy('Barcode, product name, or name and size.'), 'Sugar 1kg',
                required=True, aliases=('name', 'product_name', 'barcode', 'item')),
-        Column('quantity', 'Quantity on the shelf.', '40', required=True, aliases=('qty', 'stock', 'quantity_on_hand')),
-        Column('expiry_date', 'Expiry, e.g. 2027-03-31 or 03/2027. Required for perishable goods.', '03/2027',
+        Column('quantity', gettext_lazy('Quantity on the shelf.'), '40', required=True, aliases=('qty', 'stock', 'quantity_on_hand')),
+        Column('expiry_date', gettext_lazy('Expiry, e.g. 2027-03-31 or 03/2027. Required for perishable goods.'), '03/2027',
                aliases=('expiry', 'exp', 'best_before')),
-        Column('batch_no', 'Optional: batch / lot number on the pack.', '',
+        Column('batch_no', gettext_lazy('Optional: batch / lot number on the pack.'), '',
                aliases=('batch', 'lot', 'lot_no', 'batch_number')),
-        Column('unit', 'Optional: the unit "quantity" is counted in (e.g. "Carton of 12"). Default: the product\'s unit.',
+        Column('unit', gettext_lazy('Optional: the unit "quantity" is counted in (e.g. "Carton of 12"). Default: the product\'s unit.'),
                '', aliases=('uom',)),
-        Column('unit_cost', 'Optional: what you paid per product unit.', '2800', aliases=('cost', 'cost_price', 'buying_price')),
+        Column('unit_cost', gettext_lazy('Optional: what you paid per product unit.'), '2800', aliases=('cost', 'cost_price', 'buying_price')),
     ]
 
     def import_row(self, row):
         product = self.find_product(self.cell(row, 'product'))
         batch_no = self.cell(row, 'batch_no')
-        expiry = parse_date(self.cell(row, 'expiry_date'), field='Expiry date', required=product.tracks_expiry)
+        expiry = parse_date(self.cell(row, 'expiry_date'), field=gettext('Expiry date'), required=product.tracks_expiry)
         if expiry is not None and expiry < timezone.localdate():
-            raise CellError(f'{product.name} expired on {expiry:%d/%m/%Y}. Do not load expired stock as sellable.')
-        qty = parse_decimal(self.cell(row, 'quantity'), field='Quantity', required=True, minimum=Decimal('0.01'))
+            raise CellError(gettext('{name} expired on {expiry:%d/%m/%Y}. Do not load expired stock as sellable.').format(name=product.name, expiry=expiry))
+        qty = parse_decimal(self.cell(row, 'quantity'), field=gettext('Quantity'), required=True, minimum=Decimal('0.01'))
         unit_text = self.cell(row, 'unit')
         unit = self.find_unit(unit_text) if unit_text else None
         base_qty = convert_qty(qty, unit, product.uom).quantize(_TWO_PLACES)
-        cost = parse_decimal(self.cell(row, 'unit_cost'), field='Unit cost', minimum=0) or Decimal('0')
+        cost = parse_decimal(self.cell(row, 'unit_cost'), field=gettext('Unit cost'), minimum=0) or Decimal('0')
         same = StockBatch.objects.filter(store=self.store, product=product, batch_no__iexact=batch_no)
         if not batch_no:
             same = same.filter(expiry_date=expiry)
         if same.exists():
-            what = f'Batch {batch_no} of {product.name}' if batch_no else f'{product.name} stock with this expiry'
-            raise CellError(f'{what} is already in {self.store.name}. Use a stock count to correct it.')
+            what = (gettext('Batch {batch} of {name}').format(batch=batch_no, name=product.name) if batch_no
+                    else gettext('{name} stock with this expiry').format(name=product.name))
+            raise CellError(gettext('{what} is already in {name}. Use a stock count to correct it.').format(what=what, name=self.store.name))
         batch = StockBatch.objects.create(
             store=self.store, product=product, batch_no=batch_no, expiry_date=expiry, unit_cost=cost)
         StockLedger.record(

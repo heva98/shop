@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from core.models import Store
@@ -29,7 +30,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     def validate_name(self, name):
         name = name.strip()
         if not name:
-            raise serializers.ValidationError('Enter the customer\'s name.')
+            raise serializers.ValidationError(gettext("Enter the customer's name."))
         return name
 
     def validate_phone(self, phone):
@@ -39,12 +40,12 @@ class CustomerSerializer(serializers.ModelSerializer):
             if self.instance is not None:
                 clash = clash.exclude(pk=self.instance.pk)
             if clash.exists():
-                raise serializers.ValidationError(f'{clash.first().name} already has this phone number.')
+                raise serializers.ValidationError(gettext('{name} already has this phone number.').format(name=clash.first().name))
         return phone
 
     def validate_credit_limit(self, value):
         if value is not None and value < 0:
-            raise serializers.ValidationError('The credit limit cannot be negative.')
+            raise serializers.ValidationError(gettext('The credit limit cannot be negative.'))
         return value
 
 
@@ -83,7 +84,7 @@ class ReceivePaymentSerializer(serializers.Serializer):
     def validate_customer(self, customer):
         request = self.context.get('request')
         if request and not request.user.is_superuser and customer.entity_id != request.user.entity_id:
-            raise serializers.ValidationError('Not one of your customers.')
+            raise serializers.ValidationError(gettext('Not one of your customers.'))
         return customer
 
 

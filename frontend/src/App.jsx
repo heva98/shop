@@ -17,6 +17,7 @@ import Admin from './screens/Admin.jsx'
 import MyProfile from './screens/MyProfile.jsx'
 import ChangePassword from './screens/ChangePassword.jsx'
 import PlatformShops from './screens/PlatformShops.jsx'
+import { t, useT } from './i18n/index.js'
 
 const ADMIN_NAV = [
   { key: 'profile', label: 'Shop profile' }, { key: 'stores', label: 'Stores' }, { key: 'users', label: 'Users & roles' },
@@ -28,10 +29,11 @@ const PLATFORM_NAV = [{ id: 'shops', label: 'Shops', icon: 'admin', section: 'Sy
 // Phone bottom tabs: the first three of these the role can see, then "More".
 const MOBILE_TABS = ['dashboard', 'pos', 'analytics', 'reports', 'stock']
 // "Owner · Cashier": every role held, most senior first.
-const rolesLabel = (roles) => Object.keys(ROLE_LABEL).reverse().filter((r) => roles.includes(r)).map((r) => ROLE_LABEL[r]).join(' · ')
+const rolesLabel = (roles) => Object.keys(ROLE_LABEL).reverse().filter((r) => roles.includes(r)).map((r) => t(ROLE_LABEL[r])).join(' · ')
 
 export default function App() {
   const auth = useAuth()
+  useT()
   const [state, setStateRaw] = useState({ screen: 'dashboard', sidebarCollapsed: false, adminTab: 'profile', profileReturnTo: null, menuOpen: false })
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const outbox = useOutbox()
@@ -64,9 +66,10 @@ export default function App() {
   const roles = workplace?.roles ?? ['entity_admin']
   const features = workplace?.features ?? {}
   const isPlatform = Boolean(auth.profile?.is_superuser && !auth.entity)
-  const navItems = isPlatform
+  const navItems = (isPlatform
     ? PLATFORM_NAV
-    : NAV_DEFS.filter((n) => n.roles.some((r) => roles.includes(r)) && (!n.feature || features[n.feature] !== false)).map((n) => ({ id: n.id, label: n.label, icon: n.icon, section: n.section }))
+    : NAV_DEFS.filter((n) => n.roles.some((r) => roles.includes(r)) && (!n.feature || features[n.feature] !== false)))
+    .map((n) => ({ id: n.id, label: t(n.label), icon: n.icon, section: t(n.section) }))
   // `params`: what to open on arrival, e.g. { viz } for Analytics.
   const goTo = (screen, params = null) => { if (navItems.some((n) => n.id === screen)) setState({ screen, screenParams: params }) }
   // A screen hidden by switching store (or a feature) falls back to the dashboard.
@@ -74,11 +77,11 @@ export default function App() {
   const storeId = workplace?.store ?? null
   const storeName = workplace?.store_name ?? null
   const roleLabel = workplace ? rolesLabel(workplace.roles) : null
-  const storeLabel = isPlatform ? 'System administration' : workplace
-    ? (workplace.store_name ?? `All stores — ${auth.entity?.name ?? ''}`)
+  const storeLabel = isPlatform ? t('System administration') : workplace
+    ? (workplace.store_name ?? `${t('All stores')} — ${auth.entity?.name ?? ''}`)
     : (auth.entity?.name ?? '')
   const workplaceOptions = auth.workplaces.map((w) => ({
-    label: `${w.store_name ?? 'All stores'} — ${rolesLabel(w.roles)}`, value: w.key, entity: !w.store,
+    label: `${w.store_name ?? t('All stores')} — ${rolesLabel(w.roles)}`, value: w.key, entity: !w.store,
   }))
   const profile = auth.profile
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
@@ -93,16 +96,16 @@ export default function App() {
   const logout = () => {
     const mine = outbox.filter((r) => r.userId === profile?.id).length
     const warnings = [
-      !isOnline && 'You are offline: you will not be able to sign in again until the connection returns.',
-      mine > 0 && `${mine} of your sales are still saved only on this till. They will be sent the next time you sign in here.`,
+      !isOnline && t('You are offline: you will not be able to sign in again until the connection returns.'),
+      mine > 0 && t('{n} of your sales are still saved only on this till. They will be sent the next time you sign in here.', { n: mine }),
     ].filter(Boolean)
-    if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\nLog out anyway?`)) return
+    if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\n${t('Log out anyway?')}`)) return
     auth.logout()
   }
   const mobileTabs = MOBILE_TABS.map((id) => navItems.find((n) => n.id === id)).filter(Boolean).slice(0, 3)
   const openMenu = () => setState({ menuOpen: true })
   const closeMenu = () => setState({ menuOpen: false })
-  const adminNav = ADMIN_NAV.map((n) => ({ ...n, active: state.adminTab === n.key, select: () => setState({ adminTab: n.key }) }))
+  const adminNav = ADMIN_NAV.map((n) => ({ ...n, label: t(n.label), active: state.adminTab === n.key, select: () => setState({ adminTab: n.key }) }))
 
   return (
     <div className="app-shell">
@@ -141,9 +144,9 @@ export default function App() {
             </>
           )}
           menuItems={[
-            { label: 'Edit my details', icon: 'user', onClick: openProfile },
+            { label: t('Edit my details'), icon: 'user', onClick: openProfile },
             'divider',
-            { label: 'Log out', icon: 'log-out', onClick: logout, destructive: true },
+            { label: t('Log out'), icon: 'log-out', onClick: logout, destructive: true },
           ]}
         />
 
@@ -179,8 +182,8 @@ export default function App() {
           active={screen}
           onSelect={goTo}
           accountItems={[
-            { label: 'Edit my details', icon: 'user', onClick: openProfile },
-            { label: 'Log out', icon: 'log-out', onClick: logout },
+            { label: t('Edit my details'), icon: 'user', onClick: openProfile },
+            { label: t('Log out'), icon: 'log-out', onClick: logout },
           ]}
           onClose={closeMenu}
         />

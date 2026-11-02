@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getToken, isTransient, setRememberSession, setToken as persistToken } from '../api/client.js'
 import { login as apiLogin, me as apiMe, updateMe as apiUpdateMe } from '../api/core.js'
+import { getLanguage, hasChosenLanguage, setLanguage, subscribe as onLanguageChange, t } from '../i18n/index.js'
 
 const AuthContext = createContext(null)
 const PROFILE_KEY = 'duka_erp_profile'
@@ -21,6 +22,15 @@ function saveProfile(data) {
     if (data) localStorage.setItem(PROFILE_KEY, JSON.stringify(data))
     else localStorage.removeItem(PROFILE_KEY)
   } catch { /* storage full or blocked: offline sign-in just won't be available */ }
+}
+
+// The language goes with the user: a device that hasn't chosen one yet
+// takes the profile's; otherwise the device's choice is saved to the
+// profile, where it also decides the language of their SMS/email summaries.
+function syncLanguage(profile) {
+  if (!profile.language) return
+  if (!hasChosenLanguage()) setLanguage(profile.language)
+  else if (profile.language !== getLanguage()) apiUpdateMe({ language: getLanguage() }).catch(() => {})
 }
 
 // The places a user can work from, picked in the header: one per store
@@ -66,6 +76,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await apiMe()
       saveProfile(data)
+      syncLanguage(data)
       applyProfile(data)
     } catch (err) {
       // No connection is not a rejected session: the till keeps working
@@ -88,13 +99,19 @@ export function AuthProvider({ children }) {
     if (token) loadProfile()
   }, [token, loadProfile])
 
+  // Switching language while signed in is saved to the profile too.
+  useEffect(() => {
+    if (status !== 'signed-in') return undefined
+    return onLanguageChange(() => { apiUpdateMe({ language: getLanguage() }).catch(() => {}) })
+  }, [status])
+
   useEffect(() => {
     const expired = () => {
       saveProfile(null)
       setToken(null)
       setProfile(null)
       setStatus('signed-out')
-      setNotice('Your session has ended. Please sign in again.')
+      setNotice(t('Your session has ended. Please sign in again.'))
     }
     window.addEventListener('auth:expired', expired)
     return () => window.removeEventListener('auth:expired', expired)

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLanguage } from '../i18n/index.js'
 
 /** Calls `fn()` whenever `deps` change and exposes {data, loading, error, refetch}.
- * `fn` returning `null` (e.g. "no store selected yet") skips the call. */
+ * `fn` returning `null` (e.g. "no store selected yet") skips the call.
+ * Switching the app's language fetches again: the server answers in it. */
 export function useApi(fn, deps) {
+  const lang = useLanguage()
   const [state, setState] = useState({ data: null, loading: true, error: null })
   const fnRef = useRef(fn)
   fnRef.current = fn
@@ -20,7 +23,7 @@ export function useApi(fn, deps) {
       .catch((error) => { if (!cancelled) setState({ data: null, loading: false, error }) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, [...deps, lang])
 
   useEffect(() => run(), [run])
 

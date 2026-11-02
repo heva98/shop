@@ -10,13 +10,14 @@ import csv
 import io
 
 from django.http import HttpResponse
+from django.utils.translation import gettext
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Entity, Role, Store
 from core.permissions import is_store_manager, roles
 from core.serializers import validate_accessible_store
@@ -30,7 +31,7 @@ _MAX_BYTES = 5 * 1024 * 1024
 def _importer_class(kind):
     cls = IMPORTERS.get(kind)
     if cls is None:
-        raise NotFound(f'Unknown import "{kind}".')
+        raise NotFound(gettext('Unknown import "{kind}".').format(kind=kind))
     return cls
 
 
@@ -71,26 +72,26 @@ def run_import(request, kind):
     if request.data.get('store'):
         store = Store.objects.filter(pk=request.data['store']).first()
         if store is None:
-            raise ValidationError({'store': 'Unknown store.'})
+            raise ValidationError({'store': gettext('Unknown store.')})
         validate_accessible_store(store, request)
         entity = store.entity
     if entity is None:
-        raise ValidationError({'store': 'Choose a store.'})
+        raise ValidationError({'store': gettext('Choose a store.')})
     entity = Entity.objects.get(pk=entity.pk)
 
     if cls.needs_store:
         if store is None:
-            raise ValidationError({'store': 'Choose the store this stock is in.'})
+            raise ValidationError({'store': gettext('Choose the store this stock is in.')})
         if not is_store_manager(user, store):
-            raise PermissionDenied('Only a manager of this store can load its stock.')
+            raise PermissionDenied(gettext('Only a manager of this store can load its stock.'))
     elif not (user.is_superuser or user.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
-        raise PermissionDenied('Only an entity admin can import catalog data.')
+        raise PermissionDenied(gettext('Only an entity admin can import catalog data.'))
 
     upload = request.FILES.get('file')
     if upload is None:
-        raise ValidationError({'file': 'Attach a CSV or .xlsx file.'})
+        raise ValidationError({'file': gettext('Attach a CSV or .xlsx file.')})
     if upload.size > _MAX_BYTES:
-        raise ValidationError({'file': 'The file is larger than 5 MB. Split it into smaller files.'})
+        raise ValidationError({'file': gettext('The file is larger than 5 MB. Split it into smaller files.')})
     try:
         headers, rows = read_rows(upload)
     except ImportFileError as e:
@@ -99,13 +100,13 @@ def run_import(request, kind):
     importer = cls(entity=entity, store=store, user=user)
     missing = importer.missing_columns(headers)
     if missing:
-        raise ValidationError({'file': f'Missing column(s): {", ".join(missing)}. Download the template to see the expected headers.'})
+        raise ValidationError({'file': gettext('Missing column(s): {join}. Download the template to see the expected headers.').format(join=", ".join(missing))})
 
     commit = str(request.data.get('commit', '')).lower() in ('1', 'true', 'yes')
     result = importer.run(rows, commit=commit)
     if commit and not result.errors:
         record(Action.DATA_IMPORTED,
-               f'{cls.title} imported from {upload.name}: {result.created} new, {result.updated} updated',
+               Summary('{title} imported from {name}: {created} new, {updated} updated', title=cls.title, name=upload.name, created=result.created, updated=result.updated),
                request=request, store=store, entity=entity, data={'rows': result.rows})
     return Response({
         'committed': commit and not result.errors,

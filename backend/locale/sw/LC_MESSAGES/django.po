@@ -1,0 +1,2778 @@
+# Kiswahili for the backend: our own messages, plus Django REST
+# framework's (it ships no Swahili) and a few of Django's.
+# Edit, then run: python manage.py compile_translations
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: sw\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ── Shop messages
+#: analytics/models.py
+msgid "Bar chart"
+msgstr "Chati ya pau"
+
+#: analytics/models.py
+msgid "Column chart"
+msgstr "Chati ya nguzo"
+
+#: analytics/models.py
+msgid "Line chart"
+msgstr "Chati ya mstari"
+
+#: analytics/models.py
+msgid "Pie chart"
+msgstr "Chati ya duara"
+
+#: analytics/models.py
+msgid "Pivot table"
+msgstr "Jedwali egemeo"
+
+#: analytics/models.py
+msgid "Single value"
+msgstr "Thamani moja"
+
+#: analytics/models.py
+msgid "Stacked column chart"
+msgstr "Chati ya nguzo zilizopangwa"
+
+#: analytics/periods.py
+msgid "Day"
+msgstr "Siku"
+
+#: analytics/periods.py
+msgid "Last 12 months"
+msgstr "Miezi 12 iliyopita"
+
+#: analytics/periods.py
+msgid "Last 12 weeks"
+msgstr "Wiki 12 zilizopita"
+
+#: analytics/periods.py
+msgid "Last 14 days"
+msgstr "Siku 14 zilizopita"
+
+#: analytics/periods.py
+msgid "Last 3 months"
+msgstr "Miezi 3 iliyopita"
+
+#: analytics/periods.py
+msgid "Last 30 days"
+msgstr "Siku 30 zilizopita"
+
+#: analytics/periods.py
+msgid "Last 4 quarters"
+msgstr "Robo 4 zilizopita"
+
+#: analytics/periods.py
+msgid "Last 4 weeks"
+msgstr "Wiki 4 zilizopita"
+
+#: analytics/periods.py
+msgid "Last 5 years"
+msgstr "Miaka 5 iliyopita"
+
+#: analytics/periods.py
+msgid "Last 6 months"
+msgstr "Miezi 6 iliyopita"
+
+#: analytics/periods.py
+msgid "Last 7 days"
+msgstr "Siku 7 zilizopita"
+
+#: analytics/periods.py
+msgid "Last month"
+msgstr "Mwezi uliopita"
+
+#: analytics/periods.py
+msgid "Last quarter"
+msgstr "Robo iliyopita"
+
+#: analytics/periods.py
+msgid "Last week"
+msgstr "Wiki iliyopita"
+
+#: analytics/periods.py
+msgid "Last year"
+msgstr "Mwaka jana"
+
+#: analytics/periods.py
+msgid "Month"
+msgstr "Mwezi"
+
+#: analytics/periods.py
+msgid "Months this year"
+msgstr "Miezi ya mwaka huu"
+
+#: analytics/periods.py
+msgid "Quarter"
+msgstr "Robo mwaka"
+
+#: analytics/periods.py
+msgid "Quarters this year"
+msgstr "Robo za mwaka huu"
+
+#: analytics/periods.py
+msgid "This month"
+msgstr "Mwezi huu"
+
+#: analytics/periods.py
+msgid "This quarter"
+msgstr "Robo hii ya mwaka"
+
+#: analytics/periods.py
+msgid "This week"
+msgstr "Wiki hii"
+
+#: analytics/periods.py
+msgid "This year"
+msgstr "Mwaka huu"
+
+#: analytics/periods.py
+msgid "Today"
+msgstr "Leo"
+
+#: analytics/periods.py
+msgid "Unknown period id: {period_id!r}"
+msgstr "Kipindi kisichojulikana: {period_id!r}"
+
+#: analytics/periods.py
+msgid "Unknown relative period: {code!r}"
+msgstr "Kipindi linganishi kisichojulikana: {code!r}"
+
+#: analytics/periods.py
+msgid "Week"
+msgstr "Wiki"
+
+#: analytics/periods.py
+msgid "Week {n} {year}"
+msgstr "Wiki {n} {year}"
+
+#: analytics/periods.py
+msgid "Year"
+msgstr "Mwaka"
+
+#: analytics/periods.py
+msgid "Yesterday"
+msgstr "Jana"
+
+#: analytics/query.py
+msgid "'{label}' can only be used as a filter."
+msgstr "'{label}' inaweza kutumika kama kichujio tu."
+
+#: analytics/query.py
+msgid "'{label}' can't be a balance: only sums can be carried forward."
+msgstr "'{label}' haiwezi kuwa salio: jumla pekee ndizo zinaweza kubebwa mbele."
+
+#: analytics/query.py
+msgid "'{label}' cannot be {verb} by {lower}."
+msgstr "'{label}' haiwezi {verb} kwa {lower}."
+
+#: analytics/query.py
+msgid "A period is required: add dimension=pe:… or filter=pe:…."
+msgstr "Kipindi kinahitajika: ongeza dimension=pe:… au filter=pe:…."
+
+#: analytics/query.py
+msgid "Data"
+msgstr "Data"
+
+#: analytics/query.py
+msgid "Dimension '{dim_id}' is given more than once."
+msgstr "Kipimo '{dim_id}' kimetolewa zaidi ya mara moja."
+
+#: analytics/query.py
+msgid "Empty {param} parameter."
+msgstr "Kigezo {param} kiko tupu."
+
+#: analytics/query.py
+msgid "Filter '{label}' needs at least one item."
+msgstr "Kichujio '{label}' kinahitaji angalau kipengele kimoja."
+
+#: analytics/query.py
+msgid "Invalid {lower}."
+msgstr "{lower} si sahihi."
+
+#: analytics/query.py
+msgid "Period"
+msgstr "Kipindi"
+
+#: analytics/query.py
+msgid "Store scope"
+msgstr "Wigo wa maduka"
+
+#: analytics/query.py
+msgid "Stores"
+msgstr "Maduka"
+
+#: analytics/query.py
+msgid "This query could return up to {cells:,} values; the limit is {max_cells:,}. Choose fewer items or move a dimension to Filter."
+msgstr "Ombi hili linaweza kurudisha hadi thamani {cells:,}; kikomo ni {max_cells:,}. Chagua vipengele vichache au hamisha kipimo kwenda Kichujio."
+
+#: analytics/query.py
+msgid "Total"
+msgstr "Jumla"
+
+#: analytics/query.py
+msgid "Unknown data item: {join}."
+msgstr "Kipengele cha data kisichojulikana: {join}."
+
+#: analytics/query.py
+msgid "Unknown dimension '{id}'."
+msgstr "Kipimo kisichojulikana '{id}'."
+
+#: analytics/query.py
+msgid "Unknown or inaccessible store: {join}."
+msgstr "Duka lisilojulikana au lisilofikika: {join}."
+
+#: analytics/query.py
+msgid "Unknown {lower}: {join}."
+msgstr "{lower} isiyojulikana: {join}."
+
+#: analytics/query.py
+msgid "Value"
+msgstr "Thamani"
+
+#: analytics/query.py
+msgid "broken down"
+msgstr "kuchambuliwa"
+
+#: analytics/query.py
+msgid "dx must be given as a dimension, e.g. dimension=dx:sales.net."
+msgstr "dx lazima itolewe kama kipimo, mf. dimension=dx:sales.net."
+
+#: analytics/query.py
+msgid "dx needs at least one metric."
+msgstr "dx inahitaji angalau kipimo kimoja cha data."
+
+#: analytics/query.py
+msgid "ou needs at least one store, e.g. ou:FIRM."
+msgstr "ou inahitaji angalau duka moja, mf. ou:FIRM."
+
+#: analytics/query.py
+msgid "pe needs at least one period, e.g. pe:LAST_30_DAYS."
+msgstr "pe inahitaji angalau kipindi kimoja, mf. pe:LAST_30_DAYS."
+
+#: analytics/query.py
+msgid "total can only name dimensions that are broken down (not dx): {raw}."
+msgstr "total inaweza kutaja vipimo vinavyochambuliwa tu (si dx): {raw}."
+
+#: analytics/registry.py
+msgid "All my stores"
+msgstr "Maduka yangu yote"
+
+#: analytics/registry.py
+msgid "All stores"
+msgstr "Maduka yote"
+
+#: analytics/registry.py
+msgid "Average sale value"
+msgstr "Wastani wa thamani ya mauzo"
+
+#: analytics/registry.py
+msgid "Brand"
+msgstr "Chapa"
+
+#: analytics/registry.py
+msgid "Cash over / short"
+msgstr "Fedha ziada / upungufu"
+
+#: analytics/registry.py
+msgid "Cash short"
+msgstr "Upungufu wa fedha"
+
+#: analytics/registry.py
+msgid "Cashier"
+msgstr "Mhudumu wa malipo"
+
+#: analytics/registry.py
+msgid "Category"
+msgstr "Kundi"
+
+#: analytics/registry.py
+msgid "Closed shifts whose drawer was short."
+msgstr "Zamu zilizofungwa ambazo droo ilikuwa na upungufu."
+
+#: analytics/registry.py
+msgid "Completed receipts."
+msgstr "Risiti zilizokamilika."
+
+#: analytics/registry.py
+msgid "Completed sales later voided, counted when voided."
+msgstr "Mauzo yaliyokamilika na baadaye kubatilishwa, huhesabiwa yanapobatilishwa."
+
+#: analytics/registry.py
+msgid "Cost of goods sold"
+msgstr "Gharama ya bidhaa zilizouzwa"
+
+#: analytics/registry.py
+msgid "Counted cash less expected cash; negative means short."
+msgstr "Fedha iliyohesabiwa ukiondoa inayotarajiwa; hasi inamaanisha upungufu."
+
+#: analytics/registry.py
+msgid "Credit repaid"
+msgstr "Mkopo uliorejeshwa"
+
+#: analytics/registry.py
+msgid "Credit repayments"
+msgstr "Marejesho ya mikopo"
+
+#: analytics/registry.py
+msgid "Customer"
+msgstr "Mteja"
+
+#: analytics/registry.py
+msgid "Customer credit"
+msgstr "Mikopo ya wateja"
+
+#: analytics/registry.py
+msgid "Customers buying on credit"
+msgstr "Wateja wanaonunua kwa mkopo"
+
+#: analytics/registry.py
+msgid "Day of week"
+msgstr "Siku ya wiki"
+
+#: analytics/registry.py
+msgid "Different products sold"
+msgstr "Bidhaa tofauti zilizouzwa"
+
+#: analytics/registry.py
+msgid "Discount rate (%)"
+msgstr "Kiwango cha punguzo (%)"
+
+#: analytics/registry.py
+msgid "Discounts as a share of sales before discounts."
+msgstr "Punguzo kama sehemu ya mauzo kabla ya punguzo."
+
+#: analytics/registry.py
+msgid "Discounts given"
+msgstr "Punguzo zilizotolewa"
+
+#: analytics/registry.py
+msgid "Discounts on items and on whole sales."
+msgstr "Punguzo kwenye bidhaa na kwenye mauzo yote."
+
+#: analytics/registry.py
+msgid "Distinct customers with a credit sale."
+msgstr "Wateja tofauti wenye mauzo ya mkopo."
+
+#: analytics/registry.py
+msgid "Distinct products with at least one sale."
+msgstr "Bidhaa tofauti zenye angalau mauzo moja."
+
+#: analytics/registry.py
+msgid "Distinct registered customers who bought."
+msgstr "Wateja tofauti waliosajiliwa walionunua."
+
+#: analytics/registry.py
+msgid "Distinct suppliers with a received invoice."
+msgstr "Wasambazaji tofauti wenye ankara iliyopokelewa."
+
+#: analytics/registry.py
+msgid "Does not expire"
+msgstr "Haiishi muda"
+
+#: analytics/registry.py
+msgid "Expected cash missing from drawers that came up short."
+msgstr "Fedha inayotarajiwa iliyokosekana kwenye droo zenye upungufu."
+
+#: analytics/registry.py
+msgid "Expired"
+msgstr "Imeisha muda"
+
+#: analytics/registry.py
+msgid "Expires in 31–90 days"
+msgstr "Inaisha muda ndani ya siku 31–90"
+
+#: analytics/registry.py
+msgid "Expires later"
+msgstr "Inaisha muda baadaye"
+
+#: analytics/registry.py
+msgid "Expires within 30 days"
+msgstr "Inaisha muda ndani ya siku 30"
+
+#: analytics/registry.py
+msgid "Expiry (as of today)"
+msgstr "Mwisho wa muda (kufikia leo)"
+
+#: analytics/registry.py
+msgid "Friday"
+msgstr "Ijumaa"
+
+#: analytics/registry.py
+msgid "Gross margin (%)"
+msgstr "Faida ghafi (%)"
+
+#: analytics/registry.py
+msgid "Gross profit"
+msgstr "Faida ghafi"
+
+#: analytics/registry.py
+msgid "Gross profit as a share of net sales."
+msgstr "Faida ghafi kama sehemu ya mauzo halisi."
+
+#: analytics/registry.py
+msgid "Gross profit as a share of the cost of the goods sold."
+msgstr "Faida ghafi kama sehemu ya gharama ya bidhaa zilizouzwa."
+
+#: analytics/registry.py
+msgid "Hour of day"
+msgstr "Saa ya siku"
+
+#: analytics/registry.py
+msgid "Internal use"
+msgstr "Matumizi ya ndani"
+
+#: analytics/registry.py
+msgid "Ledger entry type"
+msgstr "Aina ya ingizo la leja"
+
+#: analytics/registry.py
+msgid "Lost, damaged, expired or spoiled"
+msgstr "Imepotea, kuharibika, kuisha muda au kuoza"
+
+#: analytics/registry.py
+msgid "Monday"
+msgstr "Jumatatu"
+
+#: analytics/registry.py
+msgid "Net sales"
+msgstr "Mauzo halisi"
+
+#: analytics/registry.py
+msgid "Net sales divided by the number of sales."
+msgstr "Mauzo halisi yakigawanywa kwa idadi ya mauzo."
+
+#: analytics/registry.py
+msgid "Net sales less the cost of the goods sold."
+msgstr "Mauzo halisi ukiondoa gharama ya bidhaa zilizouzwa."
+
+#: analytics/registry.py
+msgid "Net stock change"
+msgstr "Mabadiliko halisi ya stoku"
+
+#: analytics/registry.py
+msgid "No brand"
+msgstr "Hakuna chapa"
+
+#: analytics/registry.py
+msgid "No category"
+msgstr "Hakuna kundi"
+
+#: analytics/registry.py
+msgid "Number of repayments"
+msgstr "Idadi ya marejesho"
+
+#: analytics/registry.py
+msgid "Number of sales"
+msgstr "Idadi ya mauzo"
+
+#: analytics/registry.py
+msgid "Opening stock"
+msgstr "Stoku ya kuanzia"
+
+#: analytics/registry.py
+msgid "Paid in full"
+msgstr "Imelipwa yote"
+
+#: analytics/registry.py
+msgid "Paid or on credit"
+msgstr "Imelipwa au kwa mkopo"
+
+#: analytics/registry.py
+msgid "Paid to suppliers"
+msgstr "Kilicholipwa kwa wasambazaji"
+
+#: analytics/registry.py
+msgid "Part or all on credit"
+msgstr "Sehemu au yote kwa mkopo"
+
+#: analytics/registry.py
+msgid "Payment method"
+msgstr "Njia ya malipo"
+
+#: analytics/registry.py
+msgid "Payments recorded against supplier invoices."
+msgstr "Malipo yaliyorekodiwa dhidi ya ankara za wasambazaji."
+
+#: analytics/registry.py
+msgid "Product"
+msgstr "Bidhaa"
+
+#: analytics/registry.py
+msgid "Profit"
+msgstr "Faida"
+
+#: analytics/registry.py
+msgid "Purchases"
+msgstr "Manunuzi"
+
+#: analytics/registry.py
+msgid "Quantity received"
+msgstr "Idadi iliyopokelewa"
+
+#: analytics/registry.py
+msgid "Quantity sold"
+msgstr "Idadi iliyouzwa"
+
+#: analytics/registry.py
+msgid "Quantity sold times the cost of the batch it came from."
+msgstr "Idadi iliyouzwa mara gharama ya fungu ilikotoka."
+
+#: analytics/registry.py
+msgid "Received from suppliers"
+msgstr "Imepokelewa kutoka kwa wasambazaji"
+
+#: analytics/registry.py
+msgid "Received supplier invoices."
+msgstr "Ankara za wasambazaji zilizopokelewa."
+
+#: analytics/registry.py
+msgid "Received supplier invoices: quantity times pack price."
+msgstr "Ankara za wasambazaji zilizopokelewa: idadi mara bei ya pakiti."
+
+#: analytics/registry.py
+msgid "Registered customers served"
+msgstr "Wateja waliosajiliwa waliohudumiwa"
+
+#: analytics/registry.py
+msgid "Repayments received from customers (voided ones excluded)."
+msgstr "Marejesho yaliyopokelewa kutoka kwa wateja (yaliyobatilishwa hayajumuishwi)."
+
+#: analytics/registry.py
+msgid "Repayments received from customers."
+msgstr "Marejesho yaliyopokelewa kutoka kwa wateja."
+
+#: analytics/registry.py
+msgid "Returned by a voided sale"
+msgstr "Imerudishwa kwa mauzo yaliyobatilishwa"
+
+#: analytics/registry.py
+msgid "Sales"
+msgstr "Mauzo"
+
+#: analytics/registry.py
+msgid "Sales (items sold)"
+msgstr "Mauzo (bidhaa zilizouzwa)"
+
+#: analytics/registry.py
+msgid "Sales before discounts"
+msgstr "Mauzo kabla ya punguzo"
+
+#: analytics/registry.py
+msgid "Saturday"
+msgstr "Jumamosi"
+
+#: analytics/registry.py
+msgid "Shelf price times quantity, before any discount."
+msgstr "Bei ya rafu mara idadi, kabla ya punguzo lolote."
+
+#: analytics/registry.py
+msgid "Shifts"
+msgstr "Zamu"
+
+#: analytics/registry.py
+msgid "Shifts closed"
+msgstr "Zamu zilizofungwa"
+
+#: analytics/registry.py
+msgid "Shifts short of cash"
+msgstr "Zamu zenye upungufu wa fedha"
+
+#: analytics/registry.py
+msgid "Sold"
+msgstr "Imeuzwa"
+
+#: analytics/registry.py
+msgid "Sold on credit"
+msgstr "Imeuzwa kwa mkopo"
+
+#: analytics/registry.py
+msgid "Stock"
+msgstr "Stock"
+
+#: analytics/registry.py
+msgid "Stock at the end of the period, at batch cost."
+msgstr "Stoku mwishoni mwa kipindi, kwa gharama ya fungu."
+
+#: analytics/registry.py
+msgid "Stock count correction"
+msgstr "Marekebisho ya hesabu ya stoku"
+
+#: analytics/registry.py
+msgid "Stock in"
+msgstr "Stoku iliyoingia"
+
+#: analytics/registry.py
+msgid "Stock in less stock out."
+msgstr "Stoku iliyoingia ukiondoa iliyotoka."
+
+#: analytics/registry.py
+msgid "Stock lost or wasted"
+msgstr "Stoku iliyopotea au kuharibika"
+
+#: analytics/registry.py
+msgid "Stock movement"
+msgstr "Mwenendo wa stoku"
+
+#: analytics/registry.py
+msgid "Stock movements"
+msgstr "Mienendo ya stoku"
+
+#: analytics/registry.py
+msgid "Stock on hand"
+msgstr "Stoku iliyopo"
+
+#: analytics/registry.py
+msgid "Stock on hand (closing)"
+msgstr "Stoku iliyopo (mwisho)"
+
+#: analytics/registry.py
+msgid "Stock out"
+msgstr "Stoku iliyotoka"
+
+#: analytics/registry.py
+msgid "Stock value at cost (closing)"
+msgstr "Thamani ya stoku kwa gharama (mwisho)"
+
+#: analytics/registry.py
+msgid "Sunday"
+msgstr "Jumapili"
+
+#: analytics/registry.py
+msgid "Supplier"
+msgstr "Msambazaji"
+
+#: analytics/registry.py
+msgid "Supplier invoices"
+msgstr "Ankara za wasambazaji"
+
+#: analytics/registry.py
+msgid "Supplier payment method"
+msgstr "Njia ya malipo kwa msambazaji"
+
+#: analytics/registry.py
+msgid "Supplier payments"
+msgstr "Malipo kwa wasambazaji"
+
+#: analytics/registry.py
+msgid "Suppliers bought from"
+msgstr "Wasambazaji walionunuliwa kutoka"
+
+#: analytics/registry.py
+msgid "The 18/118 share of standard-rated sales."
+msgstr "Sehemu ya 18/118 ya mauzo ya kiwango cha kawaida."
+
+#: analytics/registry.py
+msgid "The share of sales put on customers' accounts."
+msgstr "Sehemu ya mauzo iliyowekwa kwenye akaunti za wateja."
+
+#: analytics/registry.py
+msgid "Thursday"
+msgstr "Alhamisi"
+
+#: analytics/registry.py
+msgid "Till shifts closed with a counted drawer."
+msgstr "Zamu zilizofungwa na droo iliyohesabiwa."
+
+#: analytics/registry.py
+msgid "Transferred in"
+msgstr "Imehamishiwa"
+
+#: analytics/registry.py
+msgid "Transferred out"
+msgstr "Imehamishwa"
+
+#: analytics/registry.py
+msgid "Tuesday"
+msgstr "Jumanne"
+
+#: analytics/registry.py
+msgid "Units added: received, transferred in, counted up, voids returned."
+msgstr "Vipande vilivyoongezwa: vilivyopokelewa, vilivyohamishiwa, vilivyoongezeka kwa hesabu, vilivyorudishwa kwa ubatilishaji."
+
+#: analytics/registry.py
+msgid "Units in stock at the end of the period, expired included."
+msgstr "Vipande vilivyopo stoku mwishoni mwa kipindi, pamoja na vilivyoisha muda."
+
+#: analytics/registry.py
+msgid "Units received, in each product's own stock unit."
+msgstr "Vipande vilivyopokelewa, kwa kipimo cha stoku cha kila bidhaa."
+
+#: analytics/registry.py
+msgid "Units removed: sold, transferred out, written off, counted down."
+msgstr "Vipande vilivyoondolewa: vilivyouzwa, vilivyohamishwa, vilivyofutwa, vilivyopungua kwa hesabu."
+
+#: analytics/registry.py
+msgid "Units sold, each product counted in its own stock unit."
+msgstr "Vipande vilivyouzwa, kila bidhaa ikihesabiwa kwa kipimo chake cha stoku."
+
+#: analytics/registry.py
+msgid "Units written off as lost, stolen, damaged, expired or spoiled."
+msgstr "Vipande vilivyofutwa kama vilivyopotea, kuibiwa, kuharibika, kuisha muda au kuoza."
+
+#: analytics/registry.py
+msgid "VAT class"
+msgstr "Daraja la VAT"
+
+#: analytics/registry.py
+msgid "VAT in sales"
+msgstr "VAT kwenye mauzo"
+
+#: analytics/registry.py
+msgid "Value lost or wasted"
+msgstr "Thamani iliyopotea au kuharibika"
+
+#: analytics/registry.py
+msgid "Value of voided sales"
+msgstr "Thamani ya mauzo yaliyobatilishwa"
+
+#: analytics/registry.py
+msgid "Voided sales"
+msgstr "Mauzo yaliyobatilishwa"
+
+#: analytics/registry.py
+msgid "Walk-in (not registered)"
+msgstr "Wa papo hapo (hajasajiliwa)"
+
+#: analytics/registry.py
+msgid "Wednesday"
+msgstr "Jumatano"
+
+#: analytics/registry.py
+msgid "What customers were charged, after discounts, VAT included."
+msgstr "Kilichotozwa kwa wateja, baada ya punguzo, pamoja na VAT."
+
+#: analytics/registry.py
+msgid "What the voided sales had been charged."
+msgstr "Kilichotozwa kwa mauzo yaliyobatilishwa."
+
+#: analytics/registry.py
+msgid "Write-offs at batch cost."
+msgstr "Ufutaji kwa gharama ya fungu."
+
+#: analytics/registry.py
+msgid "Wrong entry corrected"
+msgstr "Uingizaji usio sahihi umesahihishwa"
+
+#: analytics/registry.py
+msgid "You are not assigned to a shop."
+msgstr "Hujapangiwa duka lolote."
+
+#: analytics/registry.py
+msgid "ledger entry"
+msgstr "ingizo la leja"
+
+#: analytics/registry.py
+msgid "sale line"
+msgstr "mstari wa mauzo"
+
+#: analytics/registry.py
+msgid "supplier invoice line"
+msgstr "mstari wa ankara ya msambazaji"
+
+#: analytics/serializers.py
+msgid "A dimension may appear on only one axis."
+msgstr "Kipimo kinaweza kuwa kwenye mhimili mmoja tu."
+
+#: analytics/serializers.py
+msgid "Give the visualization a name."
+msgstr "Upe mchoro jina."
+
+#: analytics/serializers.py
+msgid "Must be an object."
+msgstr "Lazima kiwe kitu (object)."
+
+#: analytics/serializers.py
+msgid "Too large."
+msgstr "Kubwa mno."
+
+#: analytics/serializers.py
+msgid "Unknown visualization type."
+msgstr "Aina ya mchoro isiyojulikana."
+
+#: analytics/serializers.py
+msgid "Uses data this shop cannot query: {names}."
+msgstr "Unatumia data ambayo duka hili haliwezi kuuliza: {names}."
+
+#: analytics/serializers.py
+msgid "`items` must map dimension ids to lists of item ids."
+msgstr "`items` lazima ihusishe vitambulisho vya vipimo na orodha za vitambulisho vya vipengele."
+
+#: analytics/serializers.py
+msgid "`options` must be an object."
+msgstr "`options` lazima iwe kitu (object)."
+
+#: analytics/serializers.py
+msgid "`{axis}` must be a list of dimension ids."
+msgstr "`{axis}` lazima iwe orodha ya vitambulisho vya vipimo."
+
+#: analytics/views.py
+msgid "Invalid id."
+msgstr "Kitambulisho si sahihi."
+
+#: analytics/views.py
+msgid "Only the person who saved this visualization can change it."
+msgstr "Aliyehifadhi mchoro huu pekee ndiye anayeweza kuubadilisha."
+
+#: analytics/views.py
+msgid "Unknown dimension."
+msgstr "Kipimo kisichojulikana."
+
+#: audit/models.py
+msgid "Branch payment recorded"
+msgstr "Malipo ya tawi yamerekodiwa"
+
+#: audit/models.py
+msgid "Customer added or changed"
+msgstr "Mteja ameongezwa au kubadilishwa"
+
+#: audit/models.py
+msgid "Customer credit payment received"
+msgstr "Malipo ya mkopo wa mteja yamepokelewa"
+
+#: audit/models.py
+msgid "Customer credit payment voided"
+msgstr "Malipo ya mkopo wa mteja yamebatilishwa"
+
+#: audit/models.py
+msgid "Data imported"
+msgstr "Data imeingizwa"
+
+#: audit/models.py
+msgid "Discount over the cashier limit"
+msgstr "Punguzo zaidi ya kikomo cha mhudumu"
+
+#: audit/models.py
+msgid "Failed sign-in"
+msgstr "Kuingia kumeshindikana"
+
+#: audit/models.py
+msgid "Offline sale at an old price"
+msgstr "Mauzo nje ya mtandao kwa bei ya zamani"
+
+#: audit/models.py
+msgid "Password changed"
+msgstr "Nenosiri limebadilishwa"
+
+#: audit/models.py
+msgid "Password reset by admin"
+msgstr "Nenosiri limewekwa upya na msimamizi"
+
+#: audit/models.py
+msgid "Payment method switched on/off"
+msgstr "Njia ya malipo imewashwa/imezimwa"
+
+#: audit/models.py
+msgid "Price removed"
+msgstr "Bei imeondolewa"
+
+#: audit/models.py
+msgid "Price set"
+msgstr "Bei imewekwa"
+
+#: audit/models.py
+msgid "Product added"
+msgstr "Bidhaa imeongezwa"
+
+#: audit/models.py
+msgid "Product changed"
+msgstr "Bidhaa imebadilishwa"
+
+#: audit/models.py
+msgid "Promotion added or changed"
+msgstr "Ofa imeongezwa au kubadilishwa"
+
+#: audit/models.py
+msgid "Role granted"
+msgstr "Jukumu limetolewa"
+
+#: audit/models.py
+msgid "Role removed"
+msgstr "Jukumu limeondolewa"
+
+#: audit/models.py
+msgid "Sale voided"
+msgstr "Mauzo yamebatilishwa"
+
+#: audit/models.py
+msgid "Settings changed"
+msgstr "Mipangilio imebadilishwa"
+
+#: audit/models.py
+msgid "Shift closed"
+msgstr "Zamu imefungwa"
+
+#: audit/models.py
+msgid "Shop reactivated"
+msgstr "Duka limerejeshwa"
+
+#: audit/models.py
+msgid "Shop registered"
+msgstr "Duka limesajiliwa"
+
+#: audit/models.py
+msgid "Shop suspended"
+msgstr "Duka limesimamishwa"
+
+#: audit/models.py
+msgid "Short delivery resolved"
+msgstr "Upungufu wa mzigo umetatuliwa"
+
+#: audit/models.py
+msgid "Sign-in locked out"
+msgstr "Kuingia kumefungwa"
+
+#: audit/models.py
+msgid "Signed in"
+msgstr "Ameingia"
+
+#: audit/models.py
+msgid "Stock count approved"
+msgstr "Hesabu ya stoku imeidhinishwa"
+
+#: audit/models.py
+msgid "Stock received from another store"
+msgstr "Stoku imepokelewa kutoka duka jingine"
+
+#: audit/models.py
+msgid "Stock sent to another store"
+msgstr "Stoku imetumwa duka jingine"
+
+#: audit/models.py
+msgid "Stock written off"
+msgstr "Stoku imefutwa"
+
+#: audit/models.py
+msgid "Supplier invoice received"
+msgstr "Ankara ya msambazaji imepokelewa"
+
+#: audit/models.py
+msgid "Supplier payment recorded"
+msgstr "Malipo kwa msambazaji yamerekodiwa"
+
+#: audit/models.py
+msgid "Transfer cancelled"
+msgstr "Uhamisho umesitishwa"
+
+#: audit/models.py
+msgid "User changed"
+msgstr "Mtumiaji amebadilishwa"
+
+#: audit/models.py
+msgid "User created"
+msgstr "Mtumiaji ameundwa"
+
+#: audit/models.py
+msgid "User disabled"
+msgstr "Mtumiaji amezimwa"
+
+#: audit/models.py
+msgid "User enabled"
+msgstr "Mtumiaji amewashwa"
+
+#: catalog/models.py
+msgid "Category must belong to the same entity as the product."
+msgstr "Kundi lazima liwe la biashara ileile ya bidhaa."
+
+#: catalog/models.py
+msgid "Exempt"
+msgstr "Msamaha"
+
+#: catalog/models.py
+msgid "Standard"
+msgstr "Kawaida"
+
+#: catalog/models.py
+msgid "Unit of measure must belong to the same entity as the product."
+msgstr "Kipimo lazima kiwe cha biashara ileile ya bidhaa."
+
+#: catalog/models.py
+msgid "Zero-rated"
+msgstr "Kiwango sifuri"
+
+#: catalog/models.py
+msgid "{qty} {name} is not a whole number of {name2} ({converted:.4f})."
+msgstr "{qty} {name} si idadi kamili ya {name2} ({converted:.4f})."
+
+#: catalog/serializers.py
+msgid "Barcode {barcode} is already used by {name}."
+msgstr "Msimbopau {barcode} tayari unatumiwa na {name}."
+
+#: catalog/views.py
+msgid "Product {name} added"
+msgstr "Bidhaa {name} imeongezwa"
+
+#: catalog/views.py
+msgid "Product {name} changed: {join}"
+msgstr "Bidhaa {name} imebadilishwa: {join}"
+
+#: core/auth_views.py
+msgid "Enter your username and password."
+msgstr "Weka jina la mtumiaji na nenosiri lako."
+
+#: core/auth_views.py
+msgid "Sign-in refused for \"{username}\": too many wrong passwords"
+msgstr "Kuingia kumekataliwa kwa \"{username}\": manenosiri mengi yasiyo sahihi"
+
+#: core/auth_views.py
+msgid "Too many wrong passwords. Try again in {login_lockout_minutes} minutes, or ask your administrator to reset your password."
+msgstr "Manenosiri mengi yasiyo sahihi. Jaribu tena baada ya dakika {login_lockout_minutes}, au mwombe msimamizi wako akuwekee nenosiri jipya."
+
+#: core/auth_views.py
+msgid "Unable to log in with provided credentials."
+msgstr "Imeshindwa kuingia kwa taarifa ulizotoa."
+
+#: core/auth_views.py
+msgid "Wrong password for \"{username}\""
+msgstr "Nenosiri si sahihi kwa \"{username}\""
+
+#: core/auth_views.py
+msgid "{username} signed in"
+msgstr "{username} ameingia"
+
+#: core/authentication.py
+msgid "This shop has been suspended. Contact the system administrator."
+msgstr "Duka hili limesimamishwa. Wasiliana na msimamizi wa mfumo."
+
+#: core/authentication.py
+msgid "Your session has expired. Sign in again."
+msgstr "Muda wako wa kuingia umeisha. Ingia tena."
+
+#: core/features.py
+msgid "Analytics"
+msgstr "Uchambuzi"
+
+#: core/features.py
+msgid "Enquiries between stores and sending stock from one store to another."
+msgstr "Maulizo kati ya maduka na kutuma stoku kutoka duka moja kwenda jingine."
+
+#: core/features.py
+msgid "Entering supplier invoices. Switch off for a branch that only gets stock from the main store."
+msgstr "Kuingiza ankara za wasambazaji. Zima kwa tawi linalopata stoku kutoka duka kuu tu."
+
+#: core/features.py
+msgid "Not available for a single shop. Switch to multiple stores under Admin > Shop profile."
+msgstr "Haipatikani kwa duka moja. Badilisha kuwa maduka mengi kwenye Utawala > Wasifu wa duka."
+
+#: core/features.py
+msgid "Point of sale"
+msgstr "Mauzo (POS)"
+
+#: core/features.py
+msgid "Putting sales on a registered customer's account (madeni) and taking their repayments. Set each customer's credit limit under Customers."
+msgstr "Kuweka mauzo kwenye akaunti ya mteja aliyesajiliwa (madeni) na kupokea marejesho yake. Weka kikomo cha mkopo cha kila mteja kwenye Wateja."
+
+#: core/features.py
+msgid "Receiving from suppliers"
+msgstr "Kupokea kutoka kwa wasambazaji"
+
+#: core/features.py
+msgid "Sales on credit"
+msgstr "Mauzo kwa mkopo"
+
+#: core/features.py
+msgid "Selling to customers at the till. Switch off for a store that only holds stock, such as a warehouse."
+msgstr "Kuuza kwa wateja kwenye kituo cha malipo. Zima kwa duka linalohifadhi stoku tu, kama ghala."
+
+#: core/features.py
+msgid "The Analytics screen: the data visualizer, saved visualizations and dashboard pins."
+msgstr "Skrini ya Uchambuzi: kionyeshi cha data, michoro iliyohifadhiwa na vibandiko vya dashibodi."
+
+#: core/features.py
+msgid "Transfers between stores"
+msgstr "Uhamisho kati ya maduka"
+
+#: core/features.py
+msgid "{label} is switched off at {store}. An admin can switch it on under Settings > Features."
+msgstr "{label} imezimwa katika {store}. Msimamizi anaweza kuiwasha kwenye Mipangilio > Vipengele."
+
+#: core/features.py
+msgid "{label} is switched off. An admin can switch it on under Settings > Features."
+msgstr "{label} imezimwa. Msimamizi anaweza kuiwasha kwenye Mipangilio > Vipengele."
+
+#: core/features.py
+msgid "{label}: {single_store_reason}"
+msgstr "{label}: {single_store_reason}"
+
+#: core/models.py
+msgid "Each store sets its own prices"
+msgstr "Kila duka huweka bei zake"
+
+#: core/models.py
+msgid "Entity"
+msgstr "Biashara"
+
+#: core/models.py
+msgid "Entity admin"
+msgstr "Msimamizi wa biashara"
+
+#: core/models.py
+msgid "Female"
+msgstr "Mwanamke"
+
+#: core/models.py
+msgid "General shop (duka)"
+msgstr "Duka la jumla"
+
+#: core/models.py
+msgid "Hardware"
+msgstr "Vifaa vya ujenzi"
+
+#: core/models.py
+msgid "Male"
+msgstr "Mwanaume"
+
+#: core/models.py
+msgid "Other"
+msgstr "Nyingine"
+
+#: core/models.py
+msgid "Pharmacy / chemist"
+msgstr "Duka la dawa"
+
+#: core/models.py
+msgid "Shared price list for all stores"
+msgstr "Orodha moja ya bei kwa maduka yote"
+
+#: core/models.py
+msgid "Shop with multiple branches"
+msgstr "Duka lenye matawi mengi"
+
+#: core/models.py
+msgid "Single shop"
+msgstr "Duka moja"
+
+#: core/models.py
+msgid "Store"
+msgstr "Duka"
+
+#: core/models.py
+msgid "Store manager"
+msgstr "Meneja wa duka"
+
+#: core/models.py
+msgid "Storekeeper"
+msgstr "Mtunza stoo"
+
+#: core/models.py
+msgid "Supermarket / minimarket"
+msgstr "Supamaketi / minimaketi"
+
+#: core/models.py
+msgid "Wholesale"
+msgstr "Jumla (wholesale)"
+
+#: core/platform.py
+msgid "A new shop needs its owner."
+msgstr "Duka jipya linahitaji mmiliki wake."
+
+#: core/platform.py
+msgid "Add owners to an existing shop with its owners action."
+msgstr "Ongeza wamiliki kwenye duka lililopo kupitia sehemu ya wamiliki wake."
+
+#: core/platform.py
+msgid "Owner {username} added to {name}"
+msgstr "Mmiliki {username} ameongezwa kwenye {name}"
+
+#: core/platform.py
+msgid "Shop {name} reactivated"
+msgstr "Duka {name} limerejeshwa"
+
+#: core/platform.py
+msgid "Shop {name} registered"
+msgstr "Duka {name} limesajiliwa"
+
+#: core/platform.py
+msgid "Shop {name} suspended"
+msgstr "Duka {name} limesimamishwa"
+
+#: core/platform.py
+msgid "That username is taken."
+msgstr "Jina hilo la mtumiaji tayari linatumika."
+
+#: core/serializers.py
+msgid "Current password is incorrect."
+msgstr "Nenosiri la sasa si sahihi."
+
+#: core/serializers.py
+msgid "Date of birth must be in the past."
+msgstr "Tarehe ya kuzaliwa lazima iwe iliyopita."
+
+#: core/serializers.py
+msgid "Enter a full mobile number, e.g. 0712 345 678."
+msgstr "Weka namba kamili ya simu, mf. 0712 345 678."
+
+#: core/serializers.py
+msgid "Logo must be 2MB or smaller."
+msgstr "Nembo lazima iwe MB 2 au chini."
+
+#: core/serializers.py
+msgid "Must be a store in your own entity."
+msgstr "Lazima liwe duka la biashara yako."
+
+#: core/serializers.py
+msgid "Must be a user in your own entity."
+msgstr "Lazima awe mtumiaji wa biashara yako."
+
+#: core/serializers.py
+msgid "Must be your own entity."
+msgstr "Lazima iwe biashara yako."
+
+#: core/serializers.py
+msgid "Must belong to your own shop."
+msgstr "Lazima kiwe cha duka lako."
+
+#: core/serializers.py
+msgid "Only the platform administrator can make someone a shop owner."
+msgstr "Msimamizi wa mfumo pekee ndiye anayeweza kumfanya mtu kuwa mmiliki wa duka."
+
+#: core/serializers.py
+msgid "Store must belong to the enablement's entity."
+msgstr "Duka lazima liwe la biashara husika."
+
+#: core/serializers.py
+msgid "This field is required."
+msgstr "Sehemu hii inahitajika."
+
+#: core/serializers.py
+msgid "This shop has more than one active store. Deactivate or remove the others first."
+msgstr "Biashara hii ina zaidi ya duka moja linalotumika. Zima au ondoa mengine kwanza."
+
+#: core/serializers.py
+msgid "Use digits only, e.g. 0712 345 678."
+msgstr "Tumia tarakimu tu, mf. 0712 345 678."
+
+#: core/serializers.py
+msgid "You cannot disable your own account."
+msgstr "Huwezi kuzima akaunti yako mwenyewe."
+
+#: core/serializers.py
+msgid "You do not have access to this store."
+msgstr "Huna ruhusa ya duka hili."
+
+#: core/serializers.py
+msgid "main_store must belong to this entity."
+msgstr "main_store lazima liwe la biashara hii."
+
+#: core/views.py
+msgid "\"{name}\" has sales, stock movements, transfers or controlled-substance records, so it cannot be removed. Deactivate it instead."
+msgstr "\"{name}\" lina mauzo, mienendo ya stoku, uhamisho au kumbukumbu za dawa zinazodhibitiwa, kwa hiyo haliwezi kuondolewa. Lizime badala yake."
+
+#: core/views.py
+msgid "Not a store in your shop."
+msgstr "Si duka la biashara yako."
+
+#: core/views.py
+msgid "Only a superuser can create a new entity."
+msgstr "Msimamizi mkuu pekee ndiye anayeweza kuunda biashara mpya."
+
+#: core/views.py
+msgid "Only the platform administrator can change another shop owner's account."
+msgstr "Msimamizi wa mfumo pekee ndiye anayeweza kubadilisha akaunti ya mmiliki mwingine wa duka."
+
+#: core/views.py
+msgid "Only the platform administrator can remove a shop owner."
+msgstr "Msimamizi wa mfumo pekee ndiye anayeweza kuondoa mmiliki wa duka."
+
+#: core/views.py
+msgid "Password of {username} reset"
+msgstr "Nenosiri la {username} limewekwa upya"
+
+#: core/views.py
+msgid "Shop profile changed: {join}"
+msgstr "Wasifu wa duka umebadilishwa: {join}"
+
+#: core/views.py
+msgid "This is the main store. Switch the network topology to peer mode or choose another main store before removing it."
+msgstr "Hili ni duka kuu. Badilisha mtandao kuwa hali ya rika au chagua duka kuu jingine kabla ya kuliondoa."
+
+#: core/views.py
+msgid "This is your shop's only store, so it cannot be deactivated."
+msgstr "Hili ndilo duka pekee la biashara yako, kwa hiyo haliwezi kuzimwa."
+
+#: core/views.py
+msgid "This is your shop's only store, so it cannot be removed."
+msgstr "Hili ndilo duka pekee la biashara yako, kwa hiyo haliwezi kuondolewa."
+
+#: core/views.py
+msgid "Unknown feature."
+msgstr "Kipengele kisichojulikana."
+
+#: core/views.py
+msgid "User {username} changed: {join}"
+msgstr "Mtumiaji {username} amebadilishwa: {join}"
+
+#: core/views.py
+msgid "User {username} created"
+msgstr "Mtumiaji {username} ameundwa"
+
+#: core/views.py
+msgid "User {username} disabled"
+msgstr "Mtumiaji {username} amezimwa"
+
+#: core/views.py
+msgid "User {username} enabled"
+msgstr "Mtumiaji {username} amewashwa"
+
+#: core/views.py
+msgid "Your account is not linked to a shop."
+msgstr "Akaunti yako haijaunganishwa na duka."
+
+#: core/views.py
+msgid "Your shop is set up as a single shop. To add another store, switch to \"Shop with multiple branches\" under Admin > Shop profile."
+msgstr "Biashara yako imewekwa kama duka moja. Kuongeza duka jingine, badilisha kuwa \"Duka lenye matawi mengi\" kwenye Utawala > Wasifu wa duka."
+
+#: core/views.py
+msgid "{label} switched {value}{where}"
+msgstr "{label} {value}{where}"
+
+#: core/views.py
+msgid "{label}: {reason}"
+msgstr "{label}: {reason}"
+
+#: core/views.py
+msgid "{role} at {where} for {user}"
+msgstr "{role} katika {where} kwa {user}"
+
+#: core/views.py
+msgid "{username} changed their password"
+msgstr "{username} amebadilisha nenosiri lake"
+
+#: credit/models.py
+msgid "Enter the {name} transaction reference."
+msgstr "Weka namba ya muamala ya {name}."
+
+#: credit/models.py
+msgid "Give a reason for voiding this payment."
+msgstr "Toa sababu ya kubatilisha malipo haya."
+
+#: credit/models.py
+msgid "Open a shift to take a cash payment, so it is counted in your drawer."
+msgstr "Fungua zamu kupokea malipo ya fedha taslimu, ili yahesabiwe kwenye droo yako."
+
+#: credit/models.py
+msgid "That customer is not one of this shop's customers."
+msgstr "Mteja huyo si mmoja wa wateja wa duka hili."
+
+#: credit/models.py
+msgid "The amount paid must be more than 0."
+msgstr "Kiasi kilicholipwa lazima kiwe zaidi ya 0."
+
+#: credit/models.py
+msgid "This payment is already voided."
+msgstr "Malipo haya tayari yamebatilishwa."
+
+#: credit/models.py
+msgid "{name} is not enabled."
+msgstr "{name} haijawashwa."
+
+#: credit/serializers.py
+msgid "Enter the customer's name."
+msgstr "Weka jina la mteja."
+
+#: credit/serializers.py
+msgid "Not one of your customers."
+msgstr "Si mmoja wa wateja wako."
+
+#: credit/serializers.py
+msgid "The credit limit cannot be negative."
+msgstr "Kikomo cha mkopo hakiwezi kuwa hasi."
+
+#: credit/serializers.py
+msgid "{name} already has this phone number."
+msgstr "{name} tayari ana namba hii ya simu."
+
+#: credit/views.py
+msgid "Customer {name} added"
+msgstr "Mteja {name} ameongezwa"
+
+#: credit/views.py
+msgid "Customer {name} changed"
+msgstr "Mteja {name} amebadilishwa"
+
+#: credit/views.py
+msgid "Customer {name} removed"
+msgstr "Mteja {name} ameondolewa"
+
+#: credit/views.py
+msgid "Only a manager can change a customer's credit limit."
+msgstr "Meneja pekee ndiye anayeweza kubadilisha kikomo cha mkopo cha mteja."
+
+#: credit/views.py
+msgid "Only a manager can remove a customer."
+msgstr "Meneja pekee ndiye anayeweza kuondoa mteja."
+
+#: credit/views.py
+msgid "Only a manager of {name} can void a payment."
+msgstr "Meneja wa {name} pekee ndiye anayeweza kubatilisha malipo."
+
+#: credit/views.py
+msgid "Paid by {method}"
+msgstr "Imelipwa kwa {method}"
+
+#: credit/views.py
+msgid "Payment of {amount:,.0f} from {name} voided: {void_reason}"
+msgstr "Malipo ya {amount:,.0f} kutoka kwa {name} yamebatilishwa: {void_reason}"
+
+#: credit/views.py
+msgid "Receipt #{number}"
+msgstr "Risiti #{number}"
+
+#: credit/views.py
+msgid "{name} has sales or payments, so they cannot be removed. Deactivate them instead."
+msgstr "{name} ana mauzo au malipo, kwa hiyo hawezi kuondolewa. Mzime badala yake."
+
+#: credit/views.py
+msgid "{name} paid {amount:,.0f} by {name2}"
+msgstr "{name} amelipa {amount:,.0f} kwa {name2}"
+
+#: enquiry/models.py
+msgid "Add at least one product to send."
+msgstr "Ongeza angalau bidhaa moja ya kutuma."
+
+#: enquiry/models.py
+msgid "Back in stock at the sending store"
+msgstr "Imerudi stoku kwenye duka lililotuma"
+
+#: enquiry/models.py
+msgid "Batch {batch_no} has expired and cannot be sent."
+msgstr "Fungu {batch_no} limeisha muda na haliwezi kutumwa."
+
+#: enquiry/models.py
+msgid "Batch {batch_no} is not at {name}."
+msgstr "Fungu {batch_no} halipo katika {name}."
+
+#: enquiry/models.py
+msgid "Broadcast"
+msgstr "Kwa wote"
+
+#: enquiry/models.py
+msgid "Cancelled"
+msgstr "Imesitishwa"
+
+#: enquiry/models.py
+msgid "Choose a different store to send to."
+msgstr "Chagua duka jingine la kutuma."
+
+#: enquiry/models.py
+msgid "Choose what happened to the missing stock."
+msgstr "Chagua kilichotokea kwa stoku inayokosekana."
+
+#: enquiry/models.py
+msgid "Every line needs a quantity."
+msgstr "Kila mstari unahitaji idadi."
+
+#: enquiry/models.py
+msgid "Found, added to the receiving store"
+msgstr "Imepatikana, imeongezwa kwenye duka linalopokea"
+
+#: enquiry/models.py
+msgid "Fulfilled"
+msgstr "Limetimizwa"
+
+#: enquiry/models.py
+msgid "Give a reason for cancelling this transfer."
+msgstr "Toa sababu ya kusitisha uhamisho huu."
+
+#: enquiry/models.py
+msgid "Hub"
+msgstr "Kitovu"
+
+#: enquiry/models.py
+msgid "In transit"
+msgstr "Njiani"
+
+#: enquiry/models.py
+msgid "Less arrived than was sent: add a note saying what is missing."
+msgstr "Kilichowasili ni pungufu ya kilichotumwa: ongeza maelezo ya kinachokosekana."
+
+#: enquiry/models.py
+msgid "Lost in transit, written off"
+msgstr "Imepotea njiani, imefutwa"
+
+#: enquiry/models.py
+msgid "Only stock sent from the main store is paid for."
+msgstr "Stoku iliyotumwa kutoka duka kuu pekee ndiyo hulipiwa."
+
+#: enquiry/models.py
+msgid "Open"
+msgstr "Fungua"
+
+#: enquiry/models.py
+msgid "Peer"
+msgstr "Rika"
+
+#: enquiry/models.py
+msgid "Product is not in this shop's catalog."
+msgstr "Bidhaa haipo kwenye orodha ya duka hili."
+
+#: enquiry/models.py
+msgid "Quantities must be more than zero."
+msgstr "Idadi lazima ziwe zaidi ya sifuri."
+
+#: enquiry/models.py
+msgid "Received"
+msgstr "Imepokelewa"
+
+#: enquiry/models.py
+msgid "Received quantities cannot be negative."
+msgstr "Idadi zilizopokelewa haziwezi kuwa hasi."
+
+#: enquiry/models.py
+msgid "Received quantities must be numbers."
+msgstr "Idadi zilizopokelewa lazima ziwe namba."
+
+#: enquiry/models.py
+msgid "Rejected"
+msgstr "Limekataliwa"
+
+#: enquiry/models.py
+msgid "Short delivery"
+msgstr "Mzigo pungufu"
+
+#: enquiry/models.py
+msgid "Stock can only move between stores of the same shop."
+msgstr "Stoku inaweza kuhamishwa kati ya maduka ya biashara moja tu."
+
+#: enquiry/models.py
+msgid "There is nothing to pay on this transfer."
+msgstr "Hakuna cha kulipa kwenye uhamisho huu."
+
+#: enquiry/models.py
+msgid "This transfer is already paid."
+msgstr "Uhamisho huu tayari umelipwa."
+
+#: enquiry/models.py
+msgid "This transfer is {lower}."
+msgstr "Uhamisho huu ni {lower}."
+
+#: enquiry/models.py
+msgid "{name} is deactivated."
+msgstr "{name} limezimwa."
+
+#: enquiry/models.py
+msgid "{name}: {qty} received but only {qty2} were sent. Count again."
+msgstr "{name}: {qty} zimepokelewa lakini {qty2} tu ndizo zilitumwa. Hesabu tena."
+
+#: enquiry/serializers.py
+msgid "Add at least one product."
+msgstr "Ongeza angalau bidhaa moja."
+
+#: enquiry/serializers.py
+msgid "Choose a product."
+msgstr "Chagua bidhaa."
+
+#: enquiry/serializers.py
+msgid "Must be more than zero."
+msgstr "Lazima iwe zaidi ya sifuri."
+
+#: enquiry/views.py
+msgid "A manager of either store must resolve a short delivery."
+msgstr "Meneja wa mojawapo ya maduka lazima atatue upungufu wa mzigo."
+
+#: enquiry/views.py
+msgid "A manager of the main store records branch payments."
+msgstr "Meneja wa duka kuu hurekodi malipo ya matawi."
+
+#: enquiry/views.py
+msgid "Only the main store can turn down this enquiry."
+msgstr "Duka kuu pekee ndilo linaloweza kukataa ulizo hili."
+
+#: enquiry/views.py
+msgid "Only the store that asked can cancel this enquiry."
+msgstr "Duka lililoomba pekee ndilo linaloweza kusitisha ulizo hili."
+
+#: enquiry/views.py
+msgid "Only {name} can cancel a transfer it sent."
+msgstr "{name} pekee ndilo linaloweza kusitisha uhamisho lililotuma."
+
+#: enquiry/views.py
+msgid "Only {name} can confirm what it received."
+msgstr "{name} pekee ndilo linaloweza kuthibitisha lilichopokea."
+
+#: enquiry/views.py
+msgid "Short delivery on transfer #{number} resolved: {get_resolution_display}"
+msgstr "Upungufu wa mzigo kwenye uhamisho #{number} umetatuliwa: {get_resolution_display}"
+
+#: enquiry/views.py
+msgid "This enquiry is already {lower}."
+msgstr "Ulizo hili tayari {lower}."
+
+#: enquiry/views.py
+msgid "This enquiry is for the main store to fulfil."
+msgstr "Ulizo hili ni la duka kuu kutimiza."
+
+#: enquiry/views.py
+msgid "Transfer #{number} from {name} received in full"
+msgstr "Uhamisho #{number} kutoka {name} umepokelewa wote"
+
+#: enquiry/views.py
+msgid "Transfer #{number} from {name} received short: {note}"
+msgstr "Uhamisho #{number} kutoka {name} umepokelewa pungufu: {note}"
+
+#: enquiry/views.py
+msgid "Transfer #{number} to {name} (for their enquiry): {lines}"
+msgstr "Uhamisho #{number} kwenda {name} (kwa ulizo lao): {lines}"
+
+#: enquiry/views.py
+msgid "Transfer #{number} to {name} cancelled"
+msgstr "Uhamisho #{number} kwenda {name} umesitishwa"
+
+#: enquiry/views.py
+msgid "Transfer #{number} to {name}: {lines}"
+msgstr "Uhamisho #{number} kwenda {name}: {lines}"
+
+#: enquiry/views.py
+msgid "{name} paid {amount:,.0f} for transfer #{number} ({name2})"
+msgstr "{name} imelipa {amount:,.0f} kwa uhamisho #{number} ({name2})"
+
+#: fiscal/drivers/manual_efd.py
+msgid "Issue the receipt on the EFD machine, then enter its receipt number."
+msgstr "Toa risiti kwenye mashine ya EFD, kisha weka namba yake ya risiti."
+
+#: fiscal/models.py
+msgid "Entered by cashier"
+msgstr "Imewekwa na mhudumu"
+
+#: fiscal/models.py
+msgid "Failed"
+msgstr "Imeshindikana"
+
+#: fiscal/models.py
+msgid "Submitted"
+msgstr "Imewasilishwa"
+
+#: imports/importers.py
+msgid "\"exempt\", \"zero\" or \"standard\" (18%). Default standard."
+msgstr "\"exempt\", \"zero\" au \"standard\" (18%). Chaguo-msingi standard."
+
+#: imports/importers.py
+msgid "\"{text}\" matches {len} products. Use the barcode or the full name with size."
+msgstr "\"{text}\" inalingana na bidhaa {len}. Tumia msimbopau au jina kamili pamoja na ukubwa."
+
+#: imports/importers.py
+msgid "Barcode printed on the pack."
+msgstr "Msimbopau uliochapishwa kwenye pakiti."
+
+#: imports/importers.py
+msgid "Barcode {barcode} already belongs to {name}."
+msgstr "Msimbopau {barcode} tayari ni wa {name}."
+
+#: imports/importers.py
+msgid "Barcode, product name, or name and size."
+msgstr "Msimbopau, jina la bidhaa, au jina na ukubwa."
+
+#: imports/importers.py
+msgid "Batch {batch} of {name}"
+msgstr "Fungu {batch} la {name}"
+
+#: imports/importers.py
+msgid "Brand or maker."
+msgstr "Chapa au mtengenezaji."
+
+#: imports/importers.py
+msgid "Email \"{email}\" is not valid."
+msgstr "Barua pepe \"{email}\" si sahihi."
+
+#: imports/importers.py
+msgid "Email address."
+msgstr "Barua pepe."
+
+#: imports/importers.py
+msgid "Expiry date"
+msgstr "Tarehe ya kuisha muda"
+
+#: imports/importers.py
+msgid "Expiry, e.g. 2027-03-31 or 03/2027. Required for perishable goods."
+msgstr "Mwisho wa muda, mf. 2027-03-31 au 03/2027. Inahitajika kwa bidhaa zinazoharibika."
+
+#: imports/importers.py
+msgid "Name is required."
+msgstr "Jina linahitajika."
+
+#: imports/importers.py
+msgid "No product \"{text}\". Import products first, or check the spelling."
+msgstr "Hakuna bidhaa \"{text}\". Ingiza bidhaa kwanza, au angalia tahajia."
+
+#: imports/importers.py
+msgid "No unit \"{text}\". Add it under Settings > Units of measure first."
+msgstr "Hakuna kipimo \"{text}\". Kiongeze kwenye Mipangilio > Vipimo kwanza."
+
+#: imports/importers.py
+msgid "Only for new units: how many pieces it holds. Default 1."
+msgstr "Kwa vipimo vipya tu: kina vipande vingapi. Chaguo-msingi 1."
+
+#: imports/importers.py
+msgid "Optional: batch / lot number on the pack."
+msgstr "Si lazima: namba ya fungu kwenye pakiti."
+
+#: imports/importers.py
+msgid "Optional: the unit \"quantity\" is counted in (e.g. \"Carton of 12\"). Default: the product's unit."
+msgstr "Si lazima: kipimo ambacho \"quantity\" inahesabiwa (mf. \"Katoni ya 12\"). Chaguo-msingi: kipimo cha bidhaa."
+
+#: imports/importers.py
+msgid "Optional: the unit this price is for."
+msgstr "Si lazima: kipimo ambacho bei hii ni yake."
+
+#: imports/importers.py
+msgid "Optional: what you paid per product unit."
+msgstr "Si lazima: ulicholipa kwa kila kipimo cha bidhaa."
+
+#: imports/importers.py
+msgid "Pack size, e.g. 500 ml, 2 kg."
+msgstr "Ukubwa wa pakiti, mf. ml 500, kilo 2."
+
+#: imports/importers.py
+msgid "Perishable"
+msgstr "Inaharibika"
+
+#: imports/importers.py
+msgid "Phone number."
+msgstr "Namba ya simu."
+
+#: imports/importers.py
+msgid "Price"
+msgstr "Bei"
+
+#: imports/importers.py
+msgid "Price per unit, VAT included. Optional."
+msgstr "Bei kwa kipimo, pamoja na VAT. Si lazima."
+
+#: imports/importers.py
+msgid "Price, VAT included."
+msgstr "Bei, pamoja na VAT."
+
+#: imports/importers.py
+msgid "Product name as it should appear on receipts."
+msgstr "Jina la bidhaa kama linavyopaswa kuonekana kwenye risiti."
+
+#: imports/importers.py
+msgid "Products"
+msgstr "Bidhaa"
+
+#: imports/importers.py
+msgid "Quantity"
+msgstr "Idadi"
+
+#: imports/importers.py
+msgid "Quantity on the shelf."
+msgstr "Idadi iliyopo rafuni."
+
+#: imports/importers.py
+msgid "Selling price"
+msgstr "Bei ya kuuza"
+
+#: imports/importers.py
+msgid "Selling prices"
+msgstr "Bei za kuuza"
+
+#: imports/importers.py
+msgid "Shelf prices, VAT included. Leave \"unit\" empty for the price per product unit, or name another unit (e.g. \"Crate of 24\") to set the price when selling in that unit."
+msgstr "Bei za rafuni, pamoja na VAT. Acha \"unit\" wazi kwa bei ya kipimo cha bidhaa, au taja kipimo kingine (mf. \"Kreti ya 24\") kuweka bei ya kuuza kwa kipimo hicho."
+
+#: imports/importers.py
+msgid "Supplier name."
+msgstr "Jina la msambazaji."
+
+#: imports/importers.py
+msgid "Suppliers"
+msgstr "Wasambazaji"
+
+#: imports/importers.py
+msgid "The smallest unit you stock and sell (Piece, Packet, Bottle...)."
+msgstr "Kipimo kidogo kabisa unachohifadhi na kuuza (Kipande, Pakiti, Chupa...)."
+
+#: imports/importers.py
+msgid "Town or address."
+msgstr "Mji au anwani."
+
+#: imports/importers.py
+msgid "Unit"
+msgstr "Kipimo"
+
+#: imports/importers.py
+msgid "Unit cost"
+msgstr "Gharama kwa kipimo"
+
+#: imports/importers.py
+msgid "Unit is required."
+msgstr "Kipimo kinahitajika."
+
+#: imports/importers.py
+msgid "Unit size"
+msgstr "Ukubwa wa kipimo"
+
+#: imports/importers.py
+msgid "VAT \"{vat_text}\" must be exempt, zero or standard."
+msgstr "VAT \"{vat_text}\" lazima iwe exempt, zero au standard."
+
+#: imports/importers.py
+msgid "What is on the shelf when you start using the system, into one store. Give the expiry date for goods that expire; batch numbers are optional. Each batch can be loaded once; correct mistakes afterwards with a stock count."
+msgstr "Kilichopo rafuni unapoanza kutumia mfumo, kwenye duka moja. Weka tarehe ya kuisha muda kwa bidhaa zinazoisha muda; namba za mafungu si lazima. Kila fungu linaweza kuingizwa mara moja; sahihisha makosa baadaye kwa hesabu ya stoku."
+
+#: imports/importers.py
+msgid "Wholesalers and distributors. A supplier with the same name is updated instead of duplicated."
+msgstr "Wauzaji wa jumla na wasambazaji. Msambazaji mwenye jina lilelile anasasishwa badala ya kurudiwa."
+
+#: imports/importers.py
+msgid "Your product list. Existing products (same barcode, or same name and size) are updated; new ones are added. Units and categories that don't exist yet are created."
+msgstr "Orodha ya bidhaa zako. Bidhaa zilizopo (msimbopau uleule, au jina na ukubwa uleule) zinasasishwa; mpya zinaongezwa. Vipimo na makundi ambayo bado hayapo yanaundwa."
+
+#: imports/importers.py
+msgid "Your shop prices each store separately: choose a store to import prices into."
+msgstr "Biashara yako huweka bei kwa kila duka: chagua duka la kuingizia bei."
+
+#: imports/importers.py
+msgid "yes / no: does it have an expiry date? Default no."
+msgstr "yes / no: ina tarehe ya kuisha muda? Chaguo-msingi no."
+
+#: imports/importers.py
+msgid "{field_name} is required."
+msgstr "{field_name} kinahitajika."
+
+#: imports/importers.py
+msgid "{name} expired on {expiry:%d/%m/%Y}. Do not load expired stock as sellable."
+msgstr "{name} iliisha muda tarehe {expiry:%d/%m/%Y}. Usiingize stoku iliyoisha muda kama inayouzika."
+
+#: imports/importers.py
+msgid "{name} stock with this expiry"
+msgstr "Stoku ya {name} yenye mwisho huu wa muda"
+
+#: imports/importers.py
+msgid "{what} is already in {name}. Use a stock count to correct it."
+msgstr "{what} tayari iko katika {name}. Tumia hesabu ya stoku kusahihisha."
+
+#: imports/parsing.py
+msgid "Could not read the file. Save it as CSV (UTF-8) or .xlsx."
+msgstr "Imeshindwa kusoma faili. Lihifadhi kama CSV (UTF-8) au .xlsx."
+
+#: imports/parsing.py
+msgid "Could not read the first worksheet of this .xlsx file."
+msgstr "Imeshindwa kusoma karatasi ya kwanza ya faili hili la .xlsx."
+
+#: imports/parsing.py
+msgid "Old .xls files are not supported. In Excel use \"Save as\" and choose .xlsx or CSV."
+msgstr "Faili za zamani za .xls hazitumiki. Kwenye Excel tumia \"Save as\" na uchague .xlsx au CSV."
+
+#: imports/parsing.py
+msgid "The file has no rows."
+msgstr "Faili halina safu."
+
+#: imports/parsing.py
+msgid "The file has {len} rows; import at most {max_rows} at a time."
+msgstr "Faili lina safu {len}; ingiza zisizozidi {max_rows} kwa wakati mmoja."
+
+#: imports/parsing.py
+msgid "The file is empty."
+msgstr "Faili liko tupu."
+
+#: imports/parsing.py
+msgid "This is not a valid .xlsx file."
+msgstr "Hili si faili sahihi la .xlsx."
+
+#: imports/parsing.py
+msgid "{field} \"{text}\" is not a number."
+msgstr "{field} \"{text}\" si namba."
+
+#: imports/parsing.py
+msgid "{field} \"{value}\" has no month {month}."
+msgstr "{field} \"{value}\" haina mwezi {month}."
+
+#: imports/parsing.py
+msgid "{field} \"{value}\" is not a date. Use e.g. 2027-03-31 or 03/2027."
+msgstr "{field} \"{value}\" si tarehe. Tumia mf. 2027-03-31 au 03/2027."
+
+#: imports/parsing.py
+msgid "{field} is required."
+msgstr "{field} kinahitajika."
+
+#: imports/parsing.py
+msgid "{field} must be at least {minimum}."
+msgstr "{field} lazima iwe angalau {minimum}."
+
+#: imports/parsing.py
+msgid "{field} must be yes or no, not \"{text}\"."
+msgstr "{field} lazima iwe yes au no, si \"{text}\"."
+
+#: imports/views.py
+msgid "Attach a CSV or .xlsx file."
+msgstr "Ambatisha faili la CSV au .xlsx."
+
+#: imports/views.py
+msgid "Choose a store."
+msgstr "Chagua duka."
+
+#: imports/views.py
+msgid "Choose the store this stock is in."
+msgstr "Chagua duka lenye stoku hii."
+
+#: imports/views.py
+msgid "Missing column(s): {join}. Download the template to see the expected headers."
+msgstr "Safu wima zinazokosekana: {join}. Pakua kiolezo kuona vichwa vinavyotarajiwa."
+
+#: imports/views.py
+msgid "Only a manager of this store can load its stock."
+msgstr "Meneja wa duka hili pekee ndiye anayeweza kuingiza stoku yake."
+
+#: imports/views.py
+msgid "Only an entity admin can import catalog data."
+msgstr "Msimamizi wa biashara pekee ndiye anayeweza kuingiza data ya orodha ya bidhaa."
+
+#: imports/views.py
+msgid "The file is larger than 5 MB. Split it into smaller files."
+msgstr "Faili ni kubwa kuliko MB 5. Ligawanye kuwa faili ndogo."
+
+#: imports/views.py
+msgid "Unknown import \"{kind}\"."
+msgstr "Uingizaji usiojulikana \"{kind}\"."
+
+#: imports/views.py
+msgid "Unknown store."
+msgstr "Duka lisilojulikana."
+
+#: imports/views.py
+msgid "{title} imported from {name}: {created} new, {updated} updated"
+msgstr "{title} zimeingizwa kutoka {name}: {created} mpya, {updated} zimesasishwa"
+
+#: inventory/models.py
+msgid "Approved"
+msgstr "Imeidhinishwa"
+
+#: inventory/models.py
+msgid "Awaiting approval"
+msgstr "Inasubiri idhini"
+
+#: inventory/models.py
+msgid "Consumption"
+msgstr "Matumizi"
+
+#: inventory/models.py
+msgid "Correcting a wrong entry"
+msgstr "Kusahihisha uingizaji usio sahihi"
+
+#: inventory/models.py
+msgid "Counting"
+msgstr "Inahesabiwa"
+
+#: inventory/models.py
+msgid "Damaged"
+msgstr "Imeharibika"
+
+#: inventory/models.py
+msgid "Damaged / broken"
+msgstr "Imeharibika / imevunjika"
+
+#: inventory/models.py
+msgid "Discard"
+msgstr "Imetupwa"
+
+#: inventory/models.py
+msgid "Dispose"
+msgstr "Imeteketezwa"
+
+#: inventory/models.py
+msgid "Lost"
+msgstr "Imepotea"
+
+#: inventory/models.py
+msgid "Not enough unexpired stock of {product} at {store}: short by {remaining}."
+msgstr "Hakuna stoku ya kutosha isiyoisha muda ya {product} katika {store}: pungufu kwa {remaining}."
+
+#: inventory/models.py
+msgid "Only \"Correcting a wrong entry\" can add stock; use Receiving for new stock."
+msgstr "\"Kusahihisha uingizaji usio sahihi\" pekee ndio unaoweza kuongeza stoku; tumia Kupokea mzigo kwa stoku mpya."
+
+#: inventory/models.py
+msgid "Quantity must not be zero."
+msgstr "Idadi isiwe sifuri."
+
+#: inventory/models.py
+msgid "Spoiled (fridge / freezer failure)"
+msgstr "Imeoza (hitilafu ya friji / jokofu)"
+
+#: inventory/models.py
+msgid "Stolen"
+msgstr "Imeibiwa"
+
+#: inventory/models.py
+msgid "There is nothing to count."
+msgstr "Hakuna cha kuhesabu."
+
+#: inventory/models.py
+msgid "This count is {lower}."
+msgstr "Hesabu hii ni {lower}."
+
+#: inventory/models.py
+msgid "Transfer In"
+msgstr "Uhamisho ndani"
+
+#: inventory/models.py
+msgid "Transfer Out"
+msgstr "Uhamisho nje"
+
+#: inventory/models.py
+msgid "Wrong Entry"
+msgstr "Uingizaji usio sahihi"
+
+#: inventory/models.py
+msgid "{locked} has {qty_on_hand} on hand; cannot apply {qty_delta}."
+msgstr "{locked} ina {qty_on_hand} zilizopo; haiwezi kutumia {qty_delta}."
+
+#: inventory/models.py
+msgid "{uncounted} line(s) are not counted yet. Enter 0 for anything not on the shelf."
+msgstr "Mistari {uncounted} bado haijahesabiwa. Weka 0 kwa chochote kisichokuwa rafuni."
+
+#: inventory/serializers.py
+msgid "Unknown product."
+msgstr "Bidhaa isiyojulikana."
+
+#: inventory/views.py
+msgid "All expired stock written off: {len} batch(es)"
+msgstr "Stoku yote iliyoisha muda imefutwa: mafungu {len}"
+
+#: inventory/views.py
+msgid "Batch {batch}"
+msgstr "Fungu {batch}"
+
+#: inventory/views.py
+msgid "Line {id} is not part of this count."
+msgstr "Mstari {id} si sehemu ya hesabu hii."
+
+#: inventory/views.py
+msgid "Only a manager of this store can adjust its stock."
+msgstr "Meneja wa duka hili pekee ndiye anayeweza kurekebisha stoku yake."
+
+#: inventory/views.py
+msgid "Only a manager of this store can do this."
+msgstr "Meneja wa duka hili pekee ndiye anayeweza kufanya hivi."
+
+#: inventory/views.py
+msgid "Only a manager of this store can write off stock."
+msgstr "Meneja wa duka hili pekee ndiye anayeweza kufuta stoku."
+
+#: inventory/views.py
+msgid "Stock count approved: {len} correction(s), value at cost {value:,.0f}"
+msgstr "Hesabu ya stoku imeidhinishwa: marekebisho {len}, thamani kwa gharama {value:,.0f}"
+
+#: inventory/views.py
+msgid "This store already has a stock count in progress. Finish or cancel it first."
+msgstr "Duka hili tayari lina hesabu ya stoku inayoendelea. Ikamilishe au isitishe kwanza."
+
+#: inventory/views.py
+msgid "{get_reason_display}: {qty_delta:+} {name} (batch {batch_no})"
+msgstr "{get_reason_display}: {qty_delta:+} {name} (fungu {batch_no})"
+
+#: inventory/views.py
+msgid "{label} is already on this count sheet."
+msgstr "{label} tayari iko kwenye karatasi hii ya kuhesabu."
+
+#: inventory/views.py
+msgid "{name} expires: enter the expiry date on the pack."
+msgstr "{name} huisha muda: weka tarehe ya kuisha muda iliyo kwenye pakiti."
+
+#: inventory/views.py
+msgid "{name} stock like this"
+msgstr "Stoku ya {name} kama hii"
+
+#: notifications/channels/sms_channel.py
+msgid "Beem did not accept the message: {value}"
+msgstr "Beem haikukubali ujumbe: {value}"
+
+#: notifications/channels/sms_channel.py
+msgid "Beem refused the message (HTTP {code}): {detail}"
+msgstr "Beem imekataa ujumbe (HTTP {code}): {detail}"
+
+#: notifications/channels/sms_channel.py
+msgid "Beem rejected the number {recipient} as invalid."
+msgstr "Beem imekataa namba {recipient} kuwa si sahihi."
+
+#: notifications/channels/sms_channel.py
+msgid "Could not reach Beem: {exc}"
+msgstr "Imeshindwa kufikia Beem: {exc}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Batches expiring within 30 days: {n}"
+msgstr "Mafungu yanayoisha muda ndani ya siku 30: {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Cash diff {amount:+,.0f}"
+msgstr "Tofauti ya fedha {amount:+,.0f}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Cash difference at shift close: TZS {amount:+,.0f}"
+msgstr "Tofauti ya fedha wakati wa kufunga zamu: TZS {amount:+,.0f}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Low stock {low}, expiring 30d {expiring}"
+msgstr "Zinazoisha {low}, zinaisha muda siku 30 {expiring}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "NO EFD no: {n}"
+msgstr "HAKUNA namba ya EFD: {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Products low or out of stock: {n}"
+msgstr "Bidhaa zinazoisha au zilizoisha: {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Purchases {amount:,.0f}"
+msgstr "Manunuzi {amount:,.0f}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Sales without an EFD receipt number: {n}"
+msgstr "Mauzo yasiyo na namba ya risiti ya EFD: {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Sales: TZS {total:,.0f} from {count} sale(s)"
+msgstr "Mauzo: TZS {total:,.0f} kutoka mauzo {count}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Supplier invoices received: TZS {amount:,.0f}"
+msgstr "Ankara za wasambazaji zilizopokelewa: TZS {amount:,.0f}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Voided sales: {n}"
+msgstr "Mauzo yaliyobatilishwa: {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "Voids {n}"
+msgstr "Ubatilishaji {n}"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "{store} {day}: Sales TZS {total:,.0f} ({count})"
+msgstr "{store} {day}: Mauzo TZS {total:,.0f} ({count})"
+
+#: notifications/management/commands/send_daily_summaries.py
+msgid "{store} — end of day {day}"
+msgstr "{store} — mwisho wa siku {day}"
+
+#: notifications/models.py
+msgid "Daily purchases summary"
+msgstr "Muhtasari wa manunuzi ya siku"
+
+#: notifications/models.py
+msgid "Daily sales summary"
+msgstr "Muhtasari wa mauzo ya siku"
+
+#: notifications/models.py
+msgid "Email"
+msgstr "Barua pepe"
+
+#: notifications/views.py
+msgid "Add your mobile number under \"Edit my details\" first."
+msgstr "Ongeza namba yako ya simu kwenye \"Hariri taarifa zangu\" kwanza."
+
+#: notifications/views.py
+msgid "Daily summary by {channel} switched {value}"
+msgstr "Muhtasari wa siku kwa {channel} {value}"
+
+#: notifications/views.py
+msgid "SMS is not configured on the server. Set SMS_PROVIDER and the Beem keys in .env."
+msgstr "SMS haijawekwa kwenye seva. Weka SMS_PROVIDER na funguo za Beem kwenye .env."
+
+#: notifications/views.py
+msgid "Test SMS sent to {phone}."
+msgstr "SMS ya majaribio imetumwa kwa {phone}."
+
+#: notifications/views.py
+msgid "Test message from {name}. SMS is working."
+msgstr "Ujumbe wa majaribio kutoka {name}. SMS inafanya kazi."
+
+#: payments/models.py
+msgid "Bank Transfer"
+msgstr "Uhamisho wa benki"
+
+#: payments/models.py
+msgid "Cash"
+msgstr "Fedha taslimu"
+
+#: payments/models.py
+msgid "Mobile Money"
+msgstr "Pesa kwa simu"
+
+#: payments/views.py
+msgid "{name} switched {value}"
+msgstr "{name} {value}"
+
+#: payments/views.py
+msgid "{name} switched {value} by default for all shops"
+msgstr "{name} {value} kwa chaguo-msingi kwa maduka yote"
+
+#: pos/models.py
+msgid "A discount of TZS {discount:,.0f} is more than the {normalize:f}% a cashier may give. A manager must approve it."
+msgstr "Punguzo la TZS {discount:,.0f} ni zaidi ya {normalize:f}% ambayo mhudumu anaweza kutoa. Meneja lazima aliidhinishe."
+
+#: pos/models.py
+msgid "Amount tendered must cover the total of TZS {payable:,.0f}."
+msgstr "Kiasi kilichotolewa lazima kitoshe jumla ya TZS {payable:,.0f}."
+
+#: pos/models.py
+msgid "Cannot {action} a sale that is {lower}."
+msgstr "Haiwezekani {action} mauzo ambayo ni {lower}."
+
+#: pos/models.py
+msgid "Choose one of the shop's active customers."
+msgstr "Chagua mmoja wa wateja hai wa duka."
+
+#: pos/models.py
+msgid "Choose the customer this sale is on credit to."
+msgstr "Chagua mteja ambaye mauzo haya ni mkopo kwake."
+
+#: pos/models.py
+msgid "Complete the sale before recording its EFD receipt."
+msgstr "Kamilisha mauzo kabla ya kurekodi risiti yake ya EFD."
+
+#: pos/models.py
+msgid "Completed"
+msgstr "Imekamilika"
+
+#: pos/models.py
+msgid "EFD receipt {efd_receipt_no} is already recorded for this sale."
+msgstr "Risiti ya EFD {efd_receipt_no} tayari imerekodiwa kwa mauzo haya."
+
+#: pos/models.py
+msgid "EFD receipt {receipt_number} is already recorded on another sale. Check the number."
+msgstr "Risiti ya EFD {receipt_number} tayari imerekodiwa kwenye mauzo mengine. Angalia namba."
+
+#: pos/models.py
+msgid "Enter the EFD receipt number."
+msgstr "Weka namba ya risiti ya EFD."
+
+#: pos/models.py
+msgid "Give a reason for voiding this sale."
+msgstr "Toa sababu ya kubatilisha mauzo haya."
+
+#: pos/models.py
+msgid "On credit"
+msgstr "Kwa mkopo"
+
+#: pos/models.py
+msgid "Open a shift before selling."
+msgstr "Fungua zamu kabla ya kuuza."
+
+#: pos/models.py
+msgid "The amount on credit must be between 0 and the total of TZS {total:,.0f}."
+msgstr "Kiasi cha mkopo lazima kiwe kati ya 0 na jumla ya TZS {total:,.0f}."
+
+#: pos/models.py
+msgid "The cart is empty."
+msgstr "Kikapu kiko tupu."
+
+#: pos/models.py
+msgid "The discount must be between 0 and TZS {total:,.0f}."
+msgstr "Punguzo lazima liwe kati ya 0 na TZS {total:,.0f}."
+
+#: pos/models.py
+msgid "The discount on {name} must be between 0 and TZS {gross:,.0f}."
+msgstr "Punguzo kwenye {name} lazima liwe kati ya 0 na TZS {gross:,.0f}."
+
+#: pos/models.py
+msgid "The price of {name} has changed to TZS {price:,.0f}. The cart now shows the new price: check the total with the customer."
+msgstr "Bei ya {name} imebadilika kuwa TZS {price:,.0f}. Kikapu sasa kinaonyesha bei mpya: hakiki jumla na mteja."
+
+#: pos/models.py
+msgid "This shift is already closed."
+msgstr "Zamu hii tayari imefungwa."
+
+#: pos/models.py
+msgid "Unit is not in this shop's catalog."
+msgstr "Kipimo hakipo kwenye orodha ya duka hili."
+
+#: pos/models.py
+msgid "Voided"
+msgstr "Imebatilishwa"
+
+#: pos/models.py
+msgid "add items to"
+msgstr "kuongeza bidhaa kwenye"
+
+#: pos/models.py
+msgid "remove items from"
+msgstr "kuondoa bidhaa kwenye"
+
+#: pos/models.py
+msgid "{name} already owes TZS {owing:,.0f}; their credit limit is TZS {credit_limit:,.0f}. Take at most TZS {max:,.0f} on credit."
+msgstr "{name} tayari anadaiwa TZS {owing:,.0f}; kikomo chake cha mkopo ni TZS {credit_limit:,.0f}. Chukua kwa mkopo kisichozidi TZS {max:,.0f}."
+
+#: pos/models.py
+msgid "{name} does not sell on credit. An admin can switch it on under Settings > Features."
+msgstr "{name} haliuzi kwa mkopo. Msimamizi anaweza kuwasha kwenye Mipangilio > Vipengele."
+
+#: pos/models.py
+msgid "{name} has no selling price{unit} set. Ask a manager to set one under Settings > Selling prices."
+msgstr "{name} haina bei ya kuuza{unit}. Mwombe meneja aiweke kwenye Mipangilio > Bei za kuuza."
+
+#: pos/serializers.py
+msgid "Opening float cannot be negative."
+msgstr "Fedha ya kuanzia haiwezi kuwa hasi."
+
+#: pos/views.py
+msgid "A store manager must approve this void."
+msgstr "Meneja wa duka lazima aidhinishe ubatilishaji huu."
+
+#: pos/views.py
+msgid "Approval failed: wrong username/password, or that user is not a manager at this store."
+msgstr "Idhini imeshindikana: jina la mtumiaji/nenosiri si sahihi, au mtumiaji huyo si meneja wa duka hili."
+
+#: pos/views.py
+msgid "Only an unfinished sale can be cancelled. Void a completed sale instead."
+msgstr "Mauzo yasiyokamilika pekee ndiyo yanayoweza kusitishwa. Batilisha mauzo yaliyokamilika badala yake."
+
+#: pos/views.py
+msgid "Only the shift's own cashier or a store manager can close it."
+msgstr "Mhudumu wa zamu hiyo au meneja wa duka pekee ndiye anayeweza kuifunga."
+
+#: pos/views.py
+msgid "Sale #{number} ({total:,.0f}) voided: {reason}"
+msgstr "Mauzo #{number} ({total:,.0f}) yamebatilishwa: {reason}"
+
+#: pos/views.py
+msgid "Sale #{number} was made offline at old prices: {changes}"
+msgstr "Mauzo #{number} yalifanywa nje ya mtandao kwa bei za zamani: {changes}"
+
+#: pos/views.py
+msgid "Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} (approved by {name})"
+msgstr "Mauzo #{number}: punguzo TZS {discount:,.0f} kati ya {gross:,.0f} (limeidhinishwa na {name})"
+
+#: pos/views.py
+msgid "Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} ({who})"
+msgstr "Mauzo #{number}: punguzo TZS {discount:,.0f} kati ya {gross:,.0f} ({who})"
+
+#: pos/views.py
+msgid "Shift of {username} closed: {sales_count} sales, difference {variance:,.0f}"
+msgstr "Zamu ya {username} imefungwa: mauzo {sales_count}, tofauti {variance:,.0f}"
+
+#: pos/views.py
+msgid "Store not found."
+msgstr "Duka halikupatikana."
+
+#: pos/views.py
+msgid "This sale id is already in use."
+msgstr "Kitambulisho hiki cha mauzo tayari kinatumika."
+
+#: pos/views.py
+msgid "You already have an open shift at this store."
+msgstr "Tayari una zamu iliyo wazi katika duka hili."
+
+#: pricing/models.py
+msgid "Store must belong to the priced entity."
+msgstr "Duka lazima liwe la biashara inayowekewa bei."
+
+#: pricing/models.py
+msgid "This entity prices per store — store is required."
+msgstr "Biashara hii huweka bei kwa kila duka — duka linahitajika."
+
+#: pricing/models.py
+msgid "This entity uses one shared price list — leave store empty."
+msgstr "Biashara hii inatumia orodha moja ya bei — acha duka wazi."
+
+#: pricing/serializers.py
+msgid "A price for this product and unit already exists — edit it instead."
+msgstr "Bei ya bidhaa na kipimo hiki tayari ipo — ihariri badala yake."
+
+#: pricing/serializers.py
+msgid "Not a product in your catalog."
+msgstr "Si bidhaa iliyo kwenye orodha yako."
+
+#: pricing/serializers.py
+msgid "Not a unit in your catalog."
+msgstr "Si kipimo kilicho kwenye orodha yako."
+
+#: pricing/serializers.py
+msgid "Not one of your stores."
+msgstr "Si mojawapo ya maduka yako."
+
+#: pricing/serializers.py
+msgid "Product must belong to the priced entity."
+msgstr "Bidhaa lazima iwe ya biashara inayowekewa bei."
+
+#: pricing/serializers.py
+msgid "The promotion must end on or after the day it starts."
+msgstr "Ofa lazima iishe siku inayoanza au baadaye."
+
+#: pricing/serializers.py
+msgid "The promotion price must be more than 0."
+msgstr "Bei ya ofa lazima iwe zaidi ya 0."
+
+#: pricing/serializers.py
+msgid "Unit must belong to the same entity as the product."
+msgstr "Kipimo lazima kiwe cha biashara ileile ya bidhaa."
+
+#: pricing/views.py
+msgid "Promotion added — {label}"
+msgstr "Ofa imeongezwa — {label}"
+
+#: pricing/views.py
+msgid "Promotion changed — {label}{state}"
+msgstr "Ofa imebadilishwa — {label}{state}"
+
+#: pricing/views.py
+msgid "Promotion removed — {label}"
+msgstr "Ofa imeondolewa — {label}"
+
+#: pricing/views.py
+msgid "{label}: price {old:,.0f} removed"
+msgstr "{label}: bei {old:,.0f} imeondolewa"
+
+#: pricing/views.py
+msgid "{label}: set to {unit_price:,.0f}"
+msgstr "{label}: imewekwa {unit_price:,.0f}"
+
+#: pricing/views.py
+msgid "{label}: {old:,.0f} -> {unit_price:,.0f}"
+msgstr "{label}: {old:,.0f} -> {unit_price:,.0f}"
+
+#: receiving/models.py
+msgid "Add at least one line before receiving the invoice."
+msgstr "Ongeza angalau mstari mmoja kabla ya kupokea ankara."
+
+#: receiving/models.py
+msgid "Bank transfer"
+msgstr "Uhamisho wa benki"
+
+#: receiving/models.py
+msgid "Cheque"
+msgstr "Hundi"
+
+#: receiving/models.py
+msgid "Draft"
+msgstr "Rasimu"
+
+#: receiving/models.py
+msgid "Mobile money"
+msgstr "Pesa kwa simu"
+
+#: receiving/models.py
+msgid "Payment amount must be above zero."
+msgstr "Kiasi cha malipo lazima kiwe zaidi ya sifuri."
+
+#: receiving/models.py
+msgid "Receive the invoice before recording a payment against it."
+msgstr "Pokea ankara kabla ya kurekodi malipo dhidi yake."
+
+#: receiving/models.py
+msgid "That is more than the {balance:,.0f} still owed on this invoice."
+msgstr "Hiyo ni zaidi ya {balance:,.0f} inayodaiwa bado kwenye ankara hii."
+
+#: receiving/models.py
+msgid "These goods expire, so the expiry date is required for: {join}."
+msgstr "Bidhaa hizi huisha muda, kwa hiyo tarehe ya kuisha muda inahitajika kwa: {join}."
+
+#: receiving/serializers.py
+msgid "A received invoice can no longer be changed."
+msgstr "Ankara iliyopokelewa haiwezi kubadilishwa tena."
+
+#: receiving/serializers.py
+msgid "Supplier must belong to the invoice's entity."
+msgstr "Msambazaji lazima awe wa biashara ya ankara."
+
+#: receiving/serializers.py
+msgid "Unknown unit of measure."
+msgstr "Kipimo kisichojulikana."
+
+#: receiving/views.py
+msgid "Cannot add lines to an invoice that has already been received."
+msgstr "Haiwezekani kuongeza mistari kwenye ankara iliyokwisha pokelewa."
+
+#: receiving/views.py
+msgid "Cannot edit lines on an invoice that has already been received."
+msgstr "Haiwezekani kuhariri mistari kwenye ankara iliyokwisha pokelewa."
+
+#: receiving/views.py
+msgid "Cannot remove lines from an invoice that has already been received."
+msgstr "Haiwezekani kuondoa mistari kwenye ankara iliyokwisha pokelewa."
+
+#: receiving/views.py
+msgid "Invoice {invoice_number} from {name} received"
+msgstr "Ankara {invoice_number} kutoka {name} imepokelewa"
+
+#: receiving/views.py
+msgid "Only a manager of this store can record supplier payments."
+msgstr "Meneja wa duka hili pekee ndiye anayeweza kurekodi malipo kwa wasambazaji."
+
+#: receiving/views.py
+msgid "Paid {amount:,.0f} to {name} for invoice {invoice_number} ({get_method_display})"
+msgstr "Imelipwa {amount:,.0f} kwa {name} kwa ankara {invoice_number} ({get_method_display})"
+
+#: reports/finance.py
+msgid "Must be a number."
+msgstr "Lazima iwe namba."
+
+#: reports/views.py
+msgid "Dates must be YYYY-MM-DD."
+msgstr "Tarehe lazima ziwe YYYY-MM-DD."
+
+#: reports/views.py
+msgid "End date is before start date."
+msgstr "Tarehe ya mwisho iko kabla ya tarehe ya kuanza."
+
+#: reports/views.py
+msgid "Lost in transit between stores"
+msgstr "Imepotea njiani kati ya maduka"
+
+#: reports/views.py
+msgid "Not a valid store id."
+msgstr "Kitambulisho cha duka si sahihi."
+
+#: sync/models.py
+msgid "Pending"
+msgstr "Inasubiri"
+
+#: sync/models.py
+msgid "Synced"
+msgstr "Imesawazishwa"
+
+# ── Read-time audit fragments, month and day names, payment methods
+msgid "given by a manager"
+msgstr "limetolewa na meneja"
+
+msgid "made offline, not approved"
+msgstr "limefanywa nje ya mtandao, halijaidhinishwa"
+
+msgid " (switched off)"
+msgstr " (imezimwa)"
+
+msgid "all stores"
+msgstr "maduka yote"
+
+msgid "on"
+msgstr "imewashwa"
+
+msgid "off"
+msgstr "imezimwa"
+
+msgid "Shop ERP"
+msgstr "Shop ERP"
+
+msgid "January"
+msgstr "Januari"
+
+msgid "February"
+msgstr "Februari"
+
+msgid "March"
+msgstr "Machi"
+
+msgid "April"
+msgstr "Aprili"
+
+msgid "May"
+msgstr "Mei"
+
+msgid "June"
+msgstr "Juni"
+
+msgid "July"
+msgstr "Julai"
+
+msgid "August"
+msgstr "Agosti"
+
+msgid "September"
+msgstr "Septemba"
+
+msgid "October"
+msgstr "Oktoba"
+
+msgid "November"
+msgstr "Novemba"
+
+msgid "December"
+msgstr "Desemba"
+
+msgid "Jan"
+msgstr "Jan"
+
+msgid "Feb"
+msgstr "Feb"
+
+msgid "Mar"
+msgstr "Mac"
+
+msgid "Apr"
+msgstr "Apr"
+
+msgid "Jun"
+msgstr "Jun"
+
+msgid "Jul"
+msgstr "Jul"
+
+msgid "Aug"
+msgstr "Ago"
+
+msgid "Sep"
+msgstr "Sep"
+
+msgid "Oct"
+msgstr "Okt"
+
+msgid "Nov"
+msgstr "Nov"
+
+msgid "Dec"
+msgstr "Des"
+
+# ── Django REST framework
+msgid "\"{input}\" is not a valid choice."
+msgstr "\"{input}\" si chaguo sahihi."
+
+msgid "A server error occurred."
+msgstr "Hitilafu imetokea kwenye seva."
+
+msgid "A valid integer is required."
+msgstr "Namba kamili sahihi inahitajika."
+
+msgid "A valid number is required."
+msgstr "Namba sahihi inahitajika."
+
+msgid "Authentication credentials were not provided."
+msgstr "Taarifa za kuingia hazikutolewa."
+
+msgid "Date has wrong format. Use one of these formats instead: {format}."
+msgstr "Tarehe ina muundo usio sahihi. Tumia mojawapo ya miundo hii: {format}."
+
+msgid "Datetime has wrong format. Use one of these formats instead: {format}."
+msgstr "Tarehe na saa vina muundo usio sahihi. Tumia mojawapo ya miundo hii: {format}."
+
+msgid "Ensure that there are no more than {max_decimal_places} decimal places."
+msgstr "Hakikisha hakuna zaidi ya nafasi {max_decimal_places} za desimali."
+
+msgid "Ensure that there are no more than {max_digits} digits in total."
+msgstr "Hakikisha hakuna zaidi ya tarakimu {max_digits} kwa jumla."
+
+msgid "Ensure that there are no more than {max_whole_digits} digits before the decimal point."
+msgstr "Hakikisha hakuna zaidi ya tarakimu {max_whole_digits} kabla ya nukta ya desimali."
+
+msgid "Ensure this field has at least {min_length} characters."
+msgstr "Hakikisha sehemu hii ina angalau herufi {min_length}."
+
+msgid "Ensure this field has no more than {max_length} characters."
+msgstr "Hakikisha sehemu hii haina zaidi ya herufi {max_length}."
+
+msgid "Ensure this value is greater than or equal to {min_value}."
+msgstr "Hakikisha thamani hii ni kubwa kuliko au sawa na {min_value}."
+
+msgid "Ensure this value is less than or equal to {max_value}."
+msgstr "Hakikisha thamani hii ni ndogo kuliko au sawa na {max_value}."
+
+msgid "Enter a valid email address."
+msgstr "Weka barua pepe sahihi."
+
+msgid "Enter a valid URL."
+msgstr "Weka URL sahihi."
+
+msgid "Expected a list of items but got type \"{input_type}\"."
+msgstr "Ilitarajiwa orodha ya vipengele lakini imepata aina \"{input_type}\"."
+
+msgid "Expected available in {wait} second."
+msgstr "Itapatikana baada ya sekunde {wait}."
+
+msgid "Expected available in {wait} seconds."
+msgstr "Itapatikana baada ya sekunde {wait}."
+
+msgid "Incorrect authentication credentials."
+msgstr "Taarifa za kuingia si sahihi."
+
+msgid "Incorrect type. Expected pk value, received {data_type}."
+msgstr "Aina si sahihi. Ilitarajiwa kitambulisho, imepokea {data_type}."
+
+msgid "Invalid data. Expected a dictionary, but got {datatype}."
+msgstr "Data si sahihi. Ilitarajiwa kamusi (dictionary), lakini imepata {datatype}."
+
+msgid "Invalid input."
+msgstr "Ingizo si sahihi."
+
+msgid "Invalid page."
+msgstr "Ukurasa si sahihi."
+
+msgid "Invalid pk \"{pk_value}\" - object does not exist."
+msgstr "Kitambulisho \"{pk_value}\" si sahihi - kitu hakipo."
+
+msgid "Invalid token."
+msgstr "Tokeni si sahihi."
+
+msgid "Invalid token header. No credentials provided."
+msgstr "Kichwa cha tokeni si sahihi. Hakuna taarifa za kuingia."
+
+msgid "Invalid username/password."
+msgstr "Jina la mtumiaji/nenosiri si sahihi."
+
+msgid "Invalid value."
+msgstr "Thamani si sahihi."
+
+msgid "Malformed request."
+msgstr "Ombi lina hitilafu."
+
+msgid "Method \"{method}\" not allowed."
+msgstr "Njia \"{method}\" hairuhusiwi."
+
+msgid "Must be a valid UUID."
+msgstr "Lazima iwe UUID sahihi."
+
+msgid "Must be a valid boolean."
+msgstr "Lazima iwe kweli au si kweli."
+
+msgid "Must include \"username\" and \"password\"."
+msgstr "Lazima ijumuishe \"username\" na \"password\"."
+
+msgid "No file was submitted."
+msgstr "Hakuna faili lililowasilishwa."
+
+msgid "Not a valid string."
+msgstr "Si maandishi sahihi."
+
+msgid "Not found."
+msgstr "Haikupatikana."
+
+msgid "Request was throttled."
+msgstr "Maombi ni mengi mno."
+
+msgid "The submitted data was not a file. Check the encoding type on the form."
+msgstr "Data iliyowasilishwa si faili. Angalia aina ya usimbaji kwenye fomu."
+
+msgid "The submitted file is empty."
+msgstr "Faili lililowasilishwa liko tupu."
+
+msgid "This field may not be blank."
+msgstr "Sehemu hii haiwezi kuwa tupu."
+
+msgid "This field may not be null."
+msgstr "Sehemu hii haiwezi kuwa tupu."
+
+msgid "This field must be unique."
+msgstr "Thamani ya sehemu hii lazima isijirudie."
+
+msgid "The fields {field_names} must make a unique set."
+msgstr "Sehemu {field_names} lazima ziwe na mchanganyiko usiojirudia."
+
+msgid "This list may not be empty."
+msgstr "Orodha hii haiwezi kuwa tupu."
+
+msgid "Unsupported media type \"{media_type}\" in request."
+msgstr "Aina ya maudhui \"{media_type}\" haitumiki kwenye ombi."
+
+msgid "Upload a valid image. The file you uploaded was either not an image or a corrupted image."
+msgstr "Pakia picha sahihi. Faili ulilopakia si picha au ni picha iliyoharibika."
+
+msgid "User inactive or deleted."
+msgstr "Mtumiaji amezimwa au amefutwa."
+
+msgid "You do not have permission to perform this action."
+msgstr "Huna ruhusa ya kufanya kitendo hiki."
+
+msgid "Value must be valid JSON."
+msgstr "Thamani lazima iwe JSON sahihi."
+
+# ── Django (missing from its own Swahili catalogue)
+msgid "This password is too short. It must contain at least %d character."
+msgid_plural "This password is too short. It must contain at least %d characters."
+msgstr[0] "Nenosiri hili ni fupi mno. Lazima liwe na angalau herufi %d."
+msgstr[1] "Nenosiri hili ni fupi mno. Lazima liwe na angalau herufi %d."
+
+msgid "Your password must contain at least %(min_length)d character."
+msgid_plural "Your password must contain at least %(min_length)d characters."
+msgstr[0] "Nenosiri lako lazima liwe na angalau herufi %(min_length)d."
+msgstr[1] "Nenosiri lako lazima liwe na angalau herufi %(min_length)d."

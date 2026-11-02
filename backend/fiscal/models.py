@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 
 class FiscalReceipt(models.Model):
@@ -9,9 +10,9 @@ class FiscalReceipt(models.Model):
     which is what the POS's failed/retry UI state is backed by."""
 
     class Status(models.TextChoices):
-        SUBMITTED = 'submitted', 'Submitted'
-        FAILED = 'failed', 'Failed'
-        RECORDED = 'recorded', 'Entered by cashier'
+        SUBMITTED = 'submitted', gettext_lazy('Submitted')
+        FAILED = 'failed', gettext_lazy('Failed')
+        RECORDED = 'recorded', gettext_lazy('Entered by cashier')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sale_id = models.UUIDField()

@@ -3,6 +3,7 @@ import uuid
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from catalog.models import Product, UnitOfMeasure
 from core.models import Entity, Store
@@ -67,11 +68,11 @@ class Price(models.Model):
 
     def clean(self):
         if self.store_id and self.store.entity_id != self.entity_id:
-            raise ValidationError({'store': 'Store must belong to the priced entity.'})
+            raise ValidationError({'store': gettext('Store must belong to the priced entity.')})
         if self.entity.price_mode == Entity.PriceMode.STORE and self.store_id is None:
-            raise ValidationError({'store': 'This entity prices per store — store is required.'})
+            raise ValidationError({'store': gettext('This entity prices per store — store is required.')})
         if self.entity.price_mode == Entity.PriceMode.ENTITY and self.store_id is not None:
-            raise ValidationError({'store': 'This entity uses one shared price list — leave store empty.'})
+            raise ValidationError({'store': gettext('This entity uses one shared price list — leave store empty.')})
 
     @classmethod
     def get_price(cls, *, entity, product, store=None, uom=None):

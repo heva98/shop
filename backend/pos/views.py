@@ -1,13 +1,14 @@
 from django.contrib.auth import authenticate
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from catalog.models import Product, UnitOfMeasure
 from catalog.serializers import UnitOfMeasureSerializer
 from core import features
@@ -37,7 +38,7 @@ def _manager_override(request, username, password, store):
         return None
     approver = authenticate(request, username=username, password=password)
     if approver is None or not is_store_manager(approver, store):
-        raise PermissionDenied('Approval failed: wrong username/password, or that user is not a manager at this store.')
+        raise PermissionDenied(gettext('Approval failed: wrong username/password, or that user is not a manager at this store.'))
     return approver
 
 
@@ -61,9 +62,15 @@ def _audit_discount(request, sale):
     if discount * 100 <= gross * limit:
         return
     by = sale.discount_approved_by
-    who = f'approved by {by.username}' if by else (
-        'given by a manager' if is_store_manager(sale.cashier, sale.store) else 'made offline, not approved')
-    record(Action.DISCOUNT_GIVEN, f'Sale #{sale.number}: discount TZS {discount:,.0f} of {gross:,.0f} ({who})',
+    if by:
+        summary = Summary('Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} (approved by {name})',
+                          number=sale.number, discount=discount, gross=gross, name=by.username)
+    else:
+        # English: translated when the activity log is read.
+        who = 'given by a manager' if is_store_manager(sale.cashier, sale.store) else 'made offline, not approved'
+        summary = Summary('Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} ({who})',
+                          number=sale.number, discount=discount, gross=gross, who=who)
+    record(Action.DISCOUNT_GIVEN, summary,
            request=request, store=sale.store,
            data={'sale': str(sale.id), 'discount': discount, 'gross': gross,
                  'approved_by': by.username if by else ''})
@@ -127,7 +134,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         sale = self.get_object()
         product = Product.objects.filter(pk=request.data.get('product')).first()
         if product is None:
-            raise SaleError('Unknown product.')
+            raise SaleError(gettext('Unknown product.'))
         sale.remove_product(product)
         return Response(self._respond(sale))
 
@@ -137,7 +144,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         from stock yet, so there's nothing to reverse."""
         sale = self.get_object()
         if sale.status != Sale.Status.OPEN:
-            raise SaleError('Only an unfinished sale can be cancelled. Void a completed sale instead.')
+            raise SaleError(gettext('Only an unfinished sale can be cancelled. Void a completed sale instead.'))
         sale.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -177,7 +184,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         if price_changes:
             changes = '; '.join(f'{c["product"]} charged {c["charged"]:,.0f}, price now {c["current"]:,.0f}'
                                 for c in price_changes)
-            record(Action.OFFLINE_SALE_PRICE, f'Sale #{sale.number} was made offline at old prices: {changes}',
+            record(Action.OFFLINE_SALE_PRICE, Summary('Sale #{number} was made offline at old prices: {changes}', number=sale.number, changes=changes),
                    request=request, store=sale.store, data={'sale': str(sale.id), 'changes': price_changes})
         _audit_discount(request, sale)
         return Response(self._respond(sale, result), status=status.HTTP_201_CREATED)
@@ -189,7 +196,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         if sale is None:
             return None
         if not self.get_queryset().filter(pk=sale_id).exists() or sale.status == Sale.Status.OPEN:
-            raise SaleError('This sale id is already in use.')
+            raise SaleError(gettext('This sale id is already in use.'))
         return self.get_queryset().get(pk=sale_id)
 
     @action(detail=True, methods=['post'])
@@ -223,9 +230,9 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         else:
             approver = _manager_override(request, data['approver_username'], data['approver_password'], sale.store)
             if approver is None:
-                raise PermissionDenied('A store manager must approve this void.')
+                raise PermissionDenied(gettext('A store manager must approve this void.'))
         sale.void(user=request.user, approver=approver, reason=data['reason'])
-        record(Action.SALE_VOIDED, f'Sale #{sale.number} ({sale.total:,.0f}) voided: {data["reason"]}',
+        record(Action.SALE_VOIDED, Summary('Sale #{number} ({total:,.0f}) voided: {reason}', number=sale.number, total=sale.total, reason=data["reason"]),
                request=request, store=sale.store,
                data={'sale': str(sale.id), 'approved_by': approver.username, 'efd_receipt_no': sale.efd_receipt_no})
         return Response(self._respond(sale))
@@ -244,7 +251,7 @@ class TillSnapshotView(APIView):
         allowed = accessible_store_ids(request.user)
         if store is None or (not request.user.is_superuser and store.entity_id != request.user.entity_id) \
                 or (allowed is not None and store.pk not in set(allowed)):
-            raise NotFound('Store not found.')
+            raise NotFound(gettext('Store not found.'))
         entity = store.entity
         products = Product.objects.filter(entity=entity).select_related('uom', 'category')
         price_store = store if entity.price_mode == Entity.PriceMode.STORE else None
@@ -302,7 +309,7 @@ class ShiftViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         store = serializer.validated_data['store']
         features.require('pos_sale', store=store)
         if Shift.objects.filter(store=store, cashier=self.request.user, closed_at__isnull=True).exists():
-            raise SaleError('You already have an open shift at this store.')
+            raise SaleError(gettext('You already have an open shift at this store.'))
         serializer.save(cashier=self.request.user)
 
     def _with_summary(self, shift):
@@ -324,13 +331,13 @@ class ShiftViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def close(self, request, pk=None):
         shift = self.get_object()
         if shift.cashier_id != request.user.id and not is_store_manager(request.user, shift.store):
-            raise PermissionDenied('Only the shift\'s own cashier or a store manager can close it.')
+            raise PermissionDenied(gettext("Only the shift's own cashier or a store manager can close it."))
         serializer = CloseShiftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         shift.close(counted_cash=serializer.validated_data['counted_cash'], note=serializer.validated_data['note'])
         z = shift.summary()
         record(Action.SHIFT_CLOSED,
-               f'Shift of {shift.cashier.username} closed: {z["sales_count"]} sales, difference {z["variance"]:,.0f}',
+               Summary('Shift of {username} closed: {sales_count} sales, difference {variance:,.0f}', username=shift.cashier.username, sales_count=z["sales_count"], variance=z["variance"]),
                request=request, store=shift.store,
                data={'shift': str(shift.id), 'expected_cash': z['expected_cash'], 'counted_cash': z['counted_cash'],
                      'variance': z['variance']})

@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 from core.models import Store
 
@@ -11,11 +12,11 @@ class NotificationLog(models.Model):
 
     class Channel(models.TextChoices):
         SMS = 'sms', 'SMS'
-        EMAIL = 'email', 'Email'
+        EMAIL = 'email', gettext_lazy('Email')
 
     class Kind(models.TextChoices):
-        DAILY_SALES = 'daily_sales', 'Daily sales summary'
-        DAILY_PURCHASES = 'daily_purchases', 'Daily purchases summary'
+        DAILY_SALES = 'daily_sales', gettext_lazy('Daily sales summary')
+        DAILY_PURCHASES = 'daily_purchases', gettext_lazy('Daily purchases summary')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='notification_logs')

@@ -1,9 +1,10 @@
+from django.utils.translation import gettext
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core import features
 from core.models import Role
 from core.permissions import is_store_manager, write_roles
@@ -52,7 +53,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def _open(self):
         enquiry = self.get_object()
         if enquiry.status != Enquiry.Status.OPEN:
-            raise ValidationError(f'This enquiry is already {enquiry.get_status_display().lower()}.')
+            raise ValidationError(gettext('This enquiry is already {lower}.').format(lower=enquiry.get_status_display().lower()))
         return enquiry
 
     @action(detail=True, methods=['post'])
@@ -62,7 +63,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         help; it stays open until fulfilled or cancelled."""
         enquiry = self._open()
         if enquiry.mode != Enquiry.Mode.HUB or not _acts_for(request.user, enquiry.target_store):
-            raise PermissionDenied('Only the main store can turn down this enquiry.')
+            raise PermissionDenied(gettext('Only the main store can turn down this enquiry.'))
         enquiry.status = Enquiry.Status.REJECTED
         enquiry.save(update_fields=['status'])
         return Response(self.get_serializer(enquiry).data)
@@ -72,7 +73,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         """The requesting store withdrawing its own open enquiry."""
         enquiry = self._open()
         if not _acts_for(request.user, enquiry.requesting_store):
-            raise PermissionDenied('Only the store that asked can cancel this enquiry.')
+            raise PermissionDenied(gettext('Only the store that asked can cancel this enquiry.'))
         enquiry.status = Enquiry.Status.CANCELLED
         enquiry.save(update_fields=['status'])
         return Response(self.get_serializer(enquiry).data)
@@ -92,7 +93,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         if enquiry.mode == Enquiry.Mode.HUB and data['from_store'].id != enquiry.target_store_id:
-            raise ValidationError('This enquiry is for the main store to fulfil.')
+            raise ValidationError(gettext('This enquiry is for the main store to fulfil.'))
         transfer = Transfer.send(
             from_store=data['from_store'], to_store=enquiry.requesting_store, items=data['lines'],
             user=request.user, enquiry=enquiry, note=data['note'],
@@ -100,7 +101,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         enquiry.status = Enquiry.Status.FULFILLED
         enquiry.save(update_fields=['status'])
         record(Action.TRANSFER_SENT,
-               f'Transfer #{transfer.number} to {transfer.to_store.name} (for their enquiry): {_lines(transfer)}',
+               Summary('Transfer #{number} to {name} (for their enquiry): {lines}', number=transfer.number, name=transfer.to_store.name, lines=_lines(transfer)),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
         return Response({
             'enquiry': self.get_serializer(enquiry).data,
@@ -132,7 +133,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
             from_store=data['from_store'], to_store=data['to_store'], items=data['lines'],
             user=request.user, note=data['note'],
         )
-        record(Action.TRANSFER_SENT, f'Transfer #{transfer.number} to {transfer.to_store.name}: {_lines(transfer)}',
+        record(Action.TRANSFER_SENT, Summary('Transfer #{number} to {name}: {lines}', number=transfer.number, name=transfer.to_store.name, lines=_lines(transfer)),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
         return Response(self._fresh(transfer), status=status.HTTP_201_CREATED)
 
@@ -143,14 +144,16 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     def confirm_receipt(self, request, pk=None):
         transfer = self.get_object()
         if not _acts_for(request.user, transfer.to_store):
-            raise PermissionDenied(f'Only {transfer.to_store.name} can confirm what it received.')
+            raise PermissionDenied(gettext('Only {name} can confirm what it received.').format(name=transfer.to_store.name))
         serializer = ConfirmReceiptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         transfer.confirm_receipt(user=request.user, **serializer.validated_data)
         short = transfer.status == Transfer.Status.DISCREPANCY
         record(Action.TRANSFER_RECEIVED,
-               f'Transfer #{transfer.number} from {transfer.from_store.name} received'
-               + (f' short: {transfer.discrepancy_note}' if short else ' in full'),
+               Summary('Transfer #{number} from {name} received short: {note}', number=transfer.number,
+                       name=transfer.from_store.name, note=transfer.discrepancy_note) if short else
+               Summary('Transfer #{number} from {name} received in full', number=transfer.number,
+                       name=transfer.from_store.name),
                request=request, store=transfer.to_store, data={'transfer': str(transfer.id), 'short': short})
         return Response(self._fresh(transfer))
 
@@ -158,12 +161,12 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     def resolve(self, request, pk=None):
         transfer = self.get_object()
         if not (is_store_manager(request.user, transfer.from_store) or is_store_manager(request.user, transfer.to_store)):
-            raise PermissionDenied('A manager of either store must resolve a short delivery.')
+            raise PermissionDenied(gettext('A manager of either store must resolve a short delivery.'))
         serializer = ResolveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         transfer.resolve(user=request.user, **serializer.validated_data)
         record(Action.TRANSFER_RESOLVED,
-               f'Short delivery on transfer #{transfer.number} resolved: {transfer.get_resolution_display()}',
+               Summary('Short delivery on transfer #{number} resolved: {get_resolution_display}', number=transfer.number, get_resolution_display=transfer.get_resolution_display()),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
         return Response(self._fresh(transfer))
 
@@ -171,11 +174,11 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     def cancel(self, request, pk=None):
         transfer = self.get_object()
         if not _acts_for(request.user, transfer.from_store):
-            raise PermissionDenied(f'Only {transfer.from_store.name} can cancel a transfer it sent.')
+            raise PermissionDenied(gettext('Only {name} can cancel a transfer it sent.').format(name=transfer.from_store.name))
         serializer = CancelTransferSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         transfer.cancel(user=request.user, reason=serializer.validated_data['reason'])
-        record(Action.TRANSFER_CANCELLED, f'Transfer #{transfer.number} to {transfer.to_store.name} cancelled',
+        record(Action.TRANSFER_CANCELLED, Summary('Transfer #{number} to {name} cancelled', number=transfer.number, name=transfer.to_store.name),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
         return Response(self._fresh(transfer))
 
@@ -183,13 +186,12 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     def pay(self, request, pk=None):
         transfer = self.get_object()
         if not is_store_manager(request.user, transfer.from_store):
-            raise PermissionDenied('A manager of the main store records branch payments.')
+            raise PermissionDenied(gettext('A manager of the main store records branch payments.'))
         serializer = TransferPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         transfer.record_payment(**serializer.validated_data)
         record(Action.TRANSFER_PAID,
-               f'{transfer.to_store.name} paid {transfer.amount:,.0f} for transfer #{transfer.number} '
-               f'({transfer.payment_method.name})',
+               Summary('{name} paid {amount:,.0f} for transfer #{number} ({name2})', name=transfer.to_store.name, amount=transfer.amount, number=transfer.number, name2=transfer.payment_method.name),
                request=request, store=transfer.from_store,
                data={'transfer': str(transfer.id), 'amount': transfer.amount, 'reference': transfer.payment_reference})
         return Response(self._fresh(transfer))

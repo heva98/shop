@@ -16,6 +16,7 @@ from django.db import models, transaction
 from django.db.models import DecimalField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from core.models import Entity, Store
 from payments.models import PaymentMethod
@@ -112,18 +113,18 @@ class CustomerPayment(models.Model):
         from pos.models import Shift
 
         if customer.entity_id != store.entity_id:
-            raise CreditError('That customer is not one of this shop\'s customers.')
+            raise CreditError(gettext("That customer is not one of this shop's customers."))
         if amount <= 0:
-            raise CreditError('The amount paid must be more than 0.')
+            raise CreditError(gettext('The amount paid must be more than 0.'))
         if not payment_method.is_active_for(store.entity_id):
-            raise CreditError(f'{payment_method.name} is not enabled.')
+            raise CreditError(gettext('{name} is not enabled.').format(name=payment_method.name))
         reference = (reference or '').strip()
         if payment_method.requires_reference and not reference:
-            raise CreditError(f'Enter the {payment_method.name} transaction reference.')
+            raise CreditError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
         shift = Shift.objects.filter(store=store, cashier=user, closed_at__isnull=True).first()
         if payment_method.implementation == PaymentMethod.Implementation.CASH and shift is None \
                 and not _is_manager(user, store):
-            raise CreditError('Open a shift to take a cash payment, so it is counted in your drawer.')
+            raise CreditError(gettext('Open a shift to take a cash payment, so it is counted in your drawer.'))
         return cls.objects.create(
             customer=customer, store=store, shift=shift, amount=amount, payment_method=payment_method,
             reference=reference[:64], note=(note or '').strip()[:255], received_by=user,
@@ -133,10 +134,10 @@ class CustomerPayment(models.Model):
     def void(self, *, user, reason):
         locked = CustomerPayment.objects.select_for_update().get(pk=self.pk)
         if locked.voided_at is not None:
-            raise CreditError('This payment is already voided.')
+            raise CreditError(gettext('This payment is already voided.'))
         reason = (reason or '').strip()
         if not reason:
-            raise CreditError('Give a reason for voiding this payment.')
+            raise CreditError(gettext('Give a reason for voiding this payment.'))
         locked.voided_at, locked.voided_by, locked.void_reason = timezone.now(), user, reason[:255]
         locked.save(update_fields=['voided_at', 'voided_by', 'void_reason'])
         self.refresh_from_db()

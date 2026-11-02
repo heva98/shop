@@ -14,6 +14,7 @@ import { isTransient } from '../api/client.js'
 import { recordSale } from '../api/pos.js'
 import { apiErrorText } from '../lib/apiError.js'
 import { outboxAll, outboxDelete, outboxPut } from './db.js'
+import { t } from '../i18n/index.js'
 
 const listeners = new Set()
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('duka-erp-outbox')
@@ -79,7 +80,7 @@ export function syncOutbox(userId) {
         emit({ synced: sale })
       } catch (err) {
         if (isTransient(err)) return
-        await outboxPut({ ...record, status: 'rejected', error: apiErrorText(err, 'The server refused this sale.') })
+        await outboxPut({ ...record, status: 'rejected', error: apiErrorText(err, t('The server refused this sale.')) })
         emit()
       }
     }

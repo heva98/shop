@@ -48,6 +48,7 @@ from django.db import models
 from django.db.models import CharField, DateField, F, Q, Value
 from django.db.models.functions import Trunc, TruncDate
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from .engine import Cell, Row, evaluate_many
 from .periods import PeriodType, parse_period, period_id, period_label, resolve_periods
@@ -92,9 +93,9 @@ def parse_specs(params) -> list[Spec]:
             dim_id, _, items = raw.partition(':')
             dim_id = dim_id.strip()
             if not dim_id:
-                raise QueryError(f'Empty {param} parameter.')
+                raise QueryError(gettext('Empty {param} parameter.').format(param=param))
             if dim_id in seen:
-                raise QueryError(f"Dimension '{dim_id}' is given more than once.")
+                raise QueryError(gettext("Dimension '{dim_id}' is given more than once.").format(dim_id=dim_id))
             seen.add(dim_id)
             ids = list(dict.fromkeys(i.strip() for i in items.split(';') if i.strip()))
             specs.append(Spec(dim_id, ids, is_filter))
@@ -166,8 +167,8 @@ class Axis:
         return max(len(self.item_ids), 1)
 
     def _not_applicable(self, metric: Metric):
-        verb = 'filtered' if self.is_filter else 'broken down'
-        raise QueryError(f"'{metric.label}' cannot be {verb} by {self.label.lower()}.",
+        verb = 'filtered' if self.is_filter else gettext('broken down')
+        raise QueryError(gettext("'{label}' cannot be {verb} by {lower}.").format(label=metric.label, verb=verb, lower=self.label.lower()),
                          code='dimension_not_applicable')
 
 
@@ -187,11 +188,11 @@ _TRUNC_KIND = {PeriodType.WEEK: 'week', PeriodType.MONTH: 'month',
 
 
 class PeriodAxis(Axis):
-    dim_id, label = 'pe', 'Period'
+    dim_id, label = 'pe', gettext_lazy('Period')
 
     def __init__(self, spec: Spec):
         if not spec.items:
-            raise QueryError('pe needs at least one period, e.g. pe:LAST_30_DAYS.')
+            raise QueryError(gettext('pe needs at least one period, e.g. pe:LAST_30_DAYS.'))
         try:
             ids = resolve_periods(spec.items)
         except ValueError as exc:
@@ -212,7 +213,7 @@ class PeriodAxis(Axis):
 
     def check(self, metric):
         if SOURCES[metric.source].cumulative and metric.denominator is not None:
-            raise QueryError(f"'{metric.label}' can't be a balance: only sums can be carried forward.")
+            raise QueryError(gettext("'{label}' can't be a balance: only sums can be carried forward.").format(label=metric.label))
 
     def _trunc(self, source, ptype):
         tz = timezone.get_current_timezone()
@@ -262,17 +263,17 @@ class PeriodAxis(Axis):
 
 
 class OrgUnitAxis(Axis):
-    dim_id, label = 'ou', 'Stores'
+    dim_id, label = 'ou', gettext_lazy('Stores')
 
     def __init__(self, spec: Spec, ctx: Context):
         if not spec.items:
-            raise QueryError('ou needs at least one store, e.g. ou:FIRM.')
+            raise QueryError(gettext('ou needs at least one store, e.g. ou:FIRM.'))
         units = org_units(ctx)
         self.is_filter = spec.is_filter
         self.item_ids = [i.upper() if i.upper() == FIRM else i for i in spec.items]
         unknown = [i for i in self.item_ids if i not in units]
         if unknown:
-            raise QueryError(f"Unknown or inaccessible store: {', '.join(unknown)}.", code='unknown_item')
+            raise QueryError(gettext('Unknown or inaccessible store: {join}.').format(join=', '.join(unknown)), code='unknown_item')
         self.names = {i: units[i]['label'] for i in self.item_ids}
         self.stores = [i for i in self.item_ids if i != FIRM]
 
@@ -294,15 +295,15 @@ class DynamicAxis(Axis):
         self.dim_id, self.label, self.dim, self.ctx = dim.id, dim.label, dim, ctx
         self.is_filter = spec.is_filter
         if dim.filter_only and not spec.is_filter:
-            raise QueryError(f"'{dim.label}' can only be used as a filter.")
+            raise QueryError(gettext("'{label}' can only be used as a filter.").format(label=dim.label))
         self.all_items = dim.all_items(ctx)
         if dim.items is not None:
             known = set(self.all_items) | {''}
             unknown = [i for i in spec.items if i not in known]
             if unknown:
-                raise QueryError(f"Unknown {dim.label.lower()}: {', '.join(unknown)}.", code='unknown_item')
+                raise QueryError(gettext('Unknown {lower}: {join}.').format(lower=dim.label.lower(), join=', '.join(unknown)), code='unknown_item')
         if spec.is_filter and not spec.items:
-            raise QueryError(f"Filter '{dim.label}' needs at least one item.")
+            raise QueryError(gettext("Filter '{label}' needs at least one item.").format(label=dim.label))
         self.item_ids = list(spec.items)
         self.names = {}
         self.alias = f'd{index}'
@@ -331,7 +332,7 @@ class DynamicAxis(Axis):
             try:
                 values = [fld.to_python(i) for i in values]
             except ValidationError:
-                raise QueryError(f'Invalid {self.dim.label.lower()}.', code='unknown_item') from None
+                raise QueryError(gettext('Invalid {lower}.').format(lower=self.dim.label.lower()), code='unknown_item') from None
         cond = Q(**{f'{self.alias}__in': values})
         if '' in self.item_ids:   # "none": a walk-in customer, no category
             cond |= Q(**{f'{self.alias}__isnull': True})
@@ -354,7 +355,7 @@ class DynamicAxis(Axis):
 class StoreScope(Axis):
     """The caller's firm and the stores they hold a role at. Applied as a
     filter no caller can drop."""
-    dim_id, label, is_filter, item_ids = 'store_scope', 'Store scope', True, []
+    dim_id, label, is_filter, item_ids = 'store_scope', gettext_lazy('Store scope'), True, []
 
     def __init__(self, ctx: Context):
         # The firm has a handful of stores: filter on their ids rather than
@@ -379,13 +380,13 @@ class AnalyticsQuery:
 
         dx = specs.get('dx')
         if dx is None or dx.is_filter:
-            raise QueryError('dx must be given as a dimension, e.g. dimension=dx:sales.net.')
+            raise QueryError(gettext('dx must be given as a dimension, e.g. dimension=dx:sales.net.'))
         if not dx.items:
-            raise QueryError('dx needs at least one metric.')
+            raise QueryError(gettext('dx needs at least one metric.'))
         self.metrics = self._metrics(dx.items)
 
         if 'pe' not in specs:
-            raise QueryError('A period is required: add dimension=pe:… or filter=pe:….')
+            raise QueryError(gettext('A period is required: add dimension=pe:… or filter=pe:….'))
 
         visible = {d.id: d for d, _ in visible_dimensions(ctx)}
         self.axes: list[Axis] = []
@@ -399,7 +400,7 @@ class AnalyticsQuery:
             elif spec.id in visible:
                 self.axes.append(DynamicAxis(spec, visible[spec.id], i, ctx))
             else:
-                raise QueryError(f"Unknown dimension '{spec.id}'.", code='unknown_dimension')
+                raise QueryError(gettext("Unknown dimension '{id}'.").format(id=spec.id), code='unknown_dimension')
         self.axes.append(StoreScope(ctx))
 
         for metric in self.metrics:
@@ -412,7 +413,7 @@ class AnalyticsQuery:
             dims = frozenset(d.strip() for d in raw.split(';') if d.strip())
             bad = dims - grouped
             if not dims or bad:
-                raise QueryError(f"total can only name dimensions that are broken down (not dx): {raw}.")
+                raise QueryError(gettext('total can only name dimensions that are broken down (not dx): {raw}.').format(raw=raw))
             if dims not in self.totals:
                 self.totals.append(dims)
 
@@ -421,8 +422,7 @@ class AnalyticsQuery:
             self.cells *= axis.cell_count()
         if self.cells > _max_cells():
             raise QueryError(
-                f'This query could return up to {self.cells:,} values; the limit is '
-                f'{_max_cells():,}. Choose fewer items or move a dimension to Filter.',
+                gettext('This query could return up to {cells:,} values; the limit is {max_cells:,}. Choose fewer items or move a dimension to Filter.').format(cells=self.cells, max_cells=_max_cells()),
                 code='too_many_cells', cells=self.cells, max_cells=_max_cells(),
             )
         self.queries = 0
@@ -432,7 +432,7 @@ class AnalyticsQuery:
         unknown = [i for i in ids if i not in enabled]
         if unknown:
             # A metric of a switched-off feature doesn't exist here.
-            raise QueryError(f"Unknown data item: {', '.join(unknown)}.", code='unknown_item')
+            raise QueryError(gettext('Unknown data item: {join}.').format(join=', '.join(unknown)), code='unknown_item')
         return [METRICS[i] for i in ids]
 
     @property
@@ -552,7 +552,7 @@ def run_query(params, ctx: Context) -> dict:
     rows.sort(key=lambda r: [order[c].get(r[i], len(order[c])) for i, c in enumerate(columns)])
 
     # Item names are keyed by dimension: ids are only unique within one.
-    items = {'dx': {'name': 'Data', 'items': {
+    items = {'dx': {'name': gettext('Data'), 'items': {
         m.id: {'name': m.label, 'unit': m.unit} for m in query.metrics
     }}}
     totalled = set().union(*query.totals) if query.totals else set()
@@ -561,13 +561,13 @@ def run_query(params, ctx: Context) -> dict:
         for item in dimensions[dim_id]:
             names[item] = {'name': axis.name(item) if isinstance(axis, DynamicAxis) else axis.names.get(item, item)}
         if dim_id in totalled:
-            names[TOTAL] = {'name': 'Total'}
+            names[TOTAL] = {'name': gettext('Total')}
         items[dim_id] = {'name': axis.label, 'items': names}
 
     headers = [
-        {'name': c, 'column': 'Data' if c == 'dx' else axes[c].label, 'valueType': 'TEXT', 'meta': True}
+        {'name': c, 'column': gettext('Data') if c == 'dx' else axes[c].label, 'valueType': 'TEXT', 'meta': True}
         for c in columns
-    ] + [{'name': 'value', 'column': 'Value', 'valueType': 'NUMBER', 'meta': False}]
+    ] + [{'name': 'value', 'column': gettext('Value'), 'valueType': 'NUMBER', 'meta': False}]
     elapsed_ms = (time.perf_counter() - started) * 1000
     log = logger.warning if elapsed_ms > _slow_query_ms() else logger.info
     log('analytics query user=%s dx=%s dimensions=%s filters=%s totals=%s sql_queries=%d rows=%d time_ms=%.1f',

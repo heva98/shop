@@ -22,6 +22,7 @@ import re
 from dataclasses import dataclass
 
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 
 class PeriodType:
@@ -33,39 +34,39 @@ class PeriodType:
 
 
 PERIOD_TYPES = [
-    (PeriodType.DAY, 'Day'),
-    (PeriodType.WEEK, 'Week'),
-    (PeriodType.MONTH, 'Month'),
-    (PeriodType.QUARTER, 'Quarter'),
-    (PeriodType.YEAR, 'Year'),
+    (PeriodType.DAY, gettext_lazy('Day')),
+    (PeriodType.WEEK, gettext_lazy('Week')),
+    (PeriodType.MONTH, gettext_lazy('Month')),
+    (PeriodType.QUARTER, gettext_lazy('Quarter')),
+    (PeriodType.YEAR, gettext_lazy('Year')),
 ]
 
 # (code, label, period type of the ids it resolves to, (last offset, count))
 # An offset of 0 ends on the current period, -1 on the one before it. A
 # count of None means "from the start of this year".
 _RELATIVE = [
-    ('TODAY', 'Today', PeriodType.DAY, (0, 1)),
-    ('YESTERDAY', 'Yesterday', PeriodType.DAY, (-1, 1)),
-    ('LAST_7_DAYS', 'Last 7 days', PeriodType.DAY, (-1, 7)),
-    ('LAST_14_DAYS', 'Last 14 days', PeriodType.DAY, (-1, 14)),
-    ('LAST_30_DAYS', 'Last 30 days', PeriodType.DAY, (-1, 30)),
-    ('THIS_WEEK', 'This week', PeriodType.WEEK, (0, 1)),
-    ('LAST_WEEK', 'Last week', PeriodType.WEEK, (-1, 1)),
-    ('LAST_4_WEEKS', 'Last 4 weeks', PeriodType.WEEK, (-1, 4)),
-    ('LAST_12_WEEKS', 'Last 12 weeks', PeriodType.WEEK, (-1, 12)),
-    ('THIS_MONTH', 'This month', PeriodType.MONTH, (0, 1)),
-    ('LAST_MONTH', 'Last month', PeriodType.MONTH, (-1, 1)),
-    ('LAST_3_MONTHS', 'Last 3 months', PeriodType.MONTH, (-1, 3)),
-    ('LAST_6_MONTHS', 'Last 6 months', PeriodType.MONTH, (-1, 6)),
-    ('LAST_12_MONTHS', 'Last 12 months', PeriodType.MONTH, (-1, 12)),
-    ('MONTHS_THIS_YEAR', 'Months this year', PeriodType.MONTH, (0, None)),
-    ('THIS_QUARTER', 'This quarter', PeriodType.QUARTER, (0, 1)),
-    ('LAST_QUARTER', 'Last quarter', PeriodType.QUARTER, (-1, 1)),
-    ('LAST_4_QUARTERS', 'Last 4 quarters', PeriodType.QUARTER, (-1, 4)),
-    ('QUARTERS_THIS_YEAR', 'Quarters this year', PeriodType.QUARTER, (0, None)),
-    ('THIS_YEAR', 'This year', PeriodType.YEAR, (0, 1)),
-    ('LAST_YEAR', 'Last year', PeriodType.YEAR, (-1, 1)),
-    ('LAST_5_YEARS', 'Last 5 years', PeriodType.YEAR, (-1, 5)),
+    ('TODAY', gettext_lazy('Today'), PeriodType.DAY, (0, 1)),
+    ('YESTERDAY', gettext_lazy('Yesterday'), PeriodType.DAY, (-1, 1)),
+    ('LAST_7_DAYS', gettext_lazy('Last 7 days'), PeriodType.DAY, (-1, 7)),
+    ('LAST_14_DAYS', gettext_lazy('Last 14 days'), PeriodType.DAY, (-1, 14)),
+    ('LAST_30_DAYS', gettext_lazy('Last 30 days'), PeriodType.DAY, (-1, 30)),
+    ('THIS_WEEK', gettext_lazy('This week'), PeriodType.WEEK, (0, 1)),
+    ('LAST_WEEK', gettext_lazy('Last week'), PeriodType.WEEK, (-1, 1)),
+    ('LAST_4_WEEKS', gettext_lazy('Last 4 weeks'), PeriodType.WEEK, (-1, 4)),
+    ('LAST_12_WEEKS', gettext_lazy('Last 12 weeks'), PeriodType.WEEK, (-1, 12)),
+    ('THIS_MONTH', gettext_lazy('This month'), PeriodType.MONTH, (0, 1)),
+    ('LAST_MONTH', gettext_lazy('Last month'), PeriodType.MONTH, (-1, 1)),
+    ('LAST_3_MONTHS', gettext_lazy('Last 3 months'), PeriodType.MONTH, (-1, 3)),
+    ('LAST_6_MONTHS', gettext_lazy('Last 6 months'), PeriodType.MONTH, (-1, 6)),
+    ('LAST_12_MONTHS', gettext_lazy('Last 12 months'), PeriodType.MONTH, (-1, 12)),
+    ('MONTHS_THIS_YEAR', gettext_lazy('Months this year'), PeriodType.MONTH, (0, None)),
+    ('THIS_QUARTER', gettext_lazy('This quarter'), PeriodType.QUARTER, (0, 1)),
+    ('LAST_QUARTER', gettext_lazy('Last quarter'), PeriodType.QUARTER, (-1, 1)),
+    ('LAST_4_QUARTERS', gettext_lazy('Last 4 quarters'), PeriodType.QUARTER, (-1, 4)),
+    ('QUARTERS_THIS_YEAR', gettext_lazy('Quarters this year'), PeriodType.QUARTER, (0, None)),
+    ('THIS_YEAR', gettext_lazy('This year'), PeriodType.YEAR, (0, 1)),
+    ('LAST_YEAR', gettext_lazy('Last year'), PeriodType.YEAR, (-1, 1)),
+    ('LAST_5_YEARS', gettext_lazy('Last 5 years'), PeriodType.YEAR, (-1, 5)),
 ]
 RELATIVE_PERIODS = [(code, label, ptype) for code, label, ptype, _ in _RELATIVE]
 _RELATIVE_BY_CODE = {code: (ptype, span) for code, _, ptype, span in _RELATIVE}
@@ -96,7 +97,7 @@ def parse_period(period_id: str) -> Period:
     """Parse a concrete period id. Raises ValueError if it isn't one."""
     m = _PERIOD_RE.match(period_id or '')
     if not m:
-        raise ValueError(f'Unknown period id: {period_id!r}')
+        raise ValueError(gettext('Unknown period id: {period_id!r}').format(period_id=period_id))
     if m['year']:
         year = int(m['year'])
         return Period(period_id, PeriodType.YEAR, datetime.date(year, 1, 1), datetime.date(year + 1, 1, 1))
@@ -161,7 +162,7 @@ def _from_ordinal(ptype: str, n: int) -> str:
 def resolve_relative_period(code: str, today: datetime.date | None = None) -> list[str]:
     """Resolve one relative period code to concrete period ids."""
     if code not in RELATIVE_PERIOD_CODES:
-        raise ValueError(f'Unknown relative period: {code!r}')
+        raise ValueError(gettext('Unknown relative period: {code!r}').format(code=code))
     today = today or timezone.localdate()
     ptype, (offset, count) = _RELATIVE_BY_CODE[code]
     last = _ordinal(ptype, today) + offset
@@ -185,16 +186,21 @@ def resolve_periods(items, today: datetime.date | None = None) -> list[str]:
 
 # ── labels ─────────────────────────────────────────────────────────────────
 
+# Month names come from `calendar` in English and are translated here
+# (the catalogue has January…December and Jan…Dec).
+def _mon(month):
+    return gettext(calendar.month_abbr[month])
+
+
 def period_label(period: Period) -> str:
     if period.type == PeriodType.DAY:
-        return f'{period.start.day} {calendar.month_abbr[period.start.month]} {period.start.year}'
+        return f'{period.start.day} {_mon(period.start.month)} {period.start.year}'
     if period.type == PeriodType.WEEK:
         last = period.end - datetime.timedelta(days=1)
-        return (f'Week {period.id[-2:].lstrip("0")} {period.id[:4]} '
-                f'({period.start.day} {calendar.month_abbr[period.start.month]} – '
-                f'{last.day} {calendar.month_abbr[last.month]})')
+        week = gettext('Week {n} {year}').format(n=period.id[-2:].lstrip('0'), year=period.id[:4])
+        return f'{week} ({period.start.day} {_mon(period.start.month)} – {last.day} {_mon(last.month)})'
     if period.type == PeriodType.MONTH:
-        return f'{calendar.month_name[period.start.month]} {period.start.year}'
+        return f'{gettext(calendar.month_name[period.start.month])} {period.start.year}'
     if period.type == PeriodType.QUARTER:
         return f'Q{period.id[-1]} {period.start.year}'
     return str(period.start.year)

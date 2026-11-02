@@ -1,6 +1,7 @@
 // Turns an /api/analytics/query/ response (DHIS2 shape: meta columns, then
 // value) into a pivot-table model for a given layout.
 import { TOTAL } from './visualizationConfig.js'
+import { t } from '../../i18n/index.js'
 
 // Stands in for an empty Columns or Rows axis, so the table still has one
 // header column / row to hang the values on.
@@ -76,7 +77,7 @@ export function buildPivot(response, layout, options, labelFor) {
   if (options.hideEmptyColumns) colCombos = colCombos.filter((c) => rowCombos.some((r) => has(c, r)))
   if (options.hideEmptyRows) rowCombos = rowCombos.filter((r) => colCombos.some((c) => has(c, r)))
 
-  const label = (dim, id) => (dim === NONE ? 'Value' : id === TOTAL ? 'Total' : labelFor(dim, id))
+  const label = (dim, id) => (dim === NONE ? t('Value') : id === TOTAL ? t('Total') : labelFor(dim, id))
   const isTotal = (combo) => combo.includes(TOTAL)
 
   return {

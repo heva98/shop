@@ -15,6 +15,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from xml.etree import ElementTree
 
+from django.utils.translation import gettext
+
 MAX_ROWS = 5000
 _NS = {'m': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 _REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
@@ -38,15 +40,15 @@ def read_rows(upload):
     name = (getattr(upload, 'name', '') or '').lower()
     data = upload.read()
     if not data:
-        raise ImportFileError('The file is empty.')
+        raise ImportFileError(gettext('The file is empty.'))
     if name.endswith('.xlsx') or data[:2] == b'PK':
         table = _read_xlsx(data)
     elif name.endswith('.xls'):
-        raise ImportFileError('Old .xls files are not supported. In Excel use "Save as" and choose .xlsx or CSV.')
+        raise ImportFileError(gettext('Old .xls files are not supported. In Excel use "Save as" and choose .xlsx or CSV.'))
     else:
         table = _read_csv(data)
     if not table:
-        raise ImportFileError('The file has no rows.')
+        raise ImportFileError(gettext('The file has no rows.'))
     headers = [normalize_header(h) for h in table[0]]
     rows = []
     for offset, values in enumerate(table[1:], start=2):
@@ -55,7 +57,7 @@ def read_rows(upload):
         if any(cells.values()):
             rows.append((offset, cells))
     if len(rows) > MAX_ROWS:
-        raise ImportFileError(f'The file has {len(rows)} rows; import at most {MAX_ROWS} at a time.')
+        raise ImportFileError(gettext('The file has {len} rows; import at most {max_rows} at a time.').format(len=len(rows), max_rows=MAX_ROWS))
     return headers, rows
 
 
@@ -67,7 +69,7 @@ def _read_csv(data):
         except UnicodeDecodeError:
             continue
     else:
-        raise ImportFileError('Could not read the file. Save it as CSV (UTF-8) or .xlsx.')
+        raise ImportFileError(gettext('Could not read the file. Save it as CSV (UTF-8) or .xlsx.'))
     sample = text[:4096]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
@@ -80,7 +82,7 @@ def _read_xlsx(data):
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
-        raise ImportFileError('This is not a valid .xlsx file.')
+        raise ImportFileError(gettext('This is not a valid .xlsx file.'))
     try:
         shared = []
         if 'xl/sharedStrings.xml' in archive.namelist():
@@ -90,7 +92,7 @@ def _read_xlsx(data):
         sheet_path = _first_sheet_path(archive)
         root = ElementTree.fromstring(archive.read(sheet_path))
     except (KeyError, ElementTree.ParseError):
-        raise ImportFileError('Could not read the first worksheet of this .xlsx file.')
+        raise ImportFileError(gettext('Could not read the first worksheet of this .xlsx file.'))
 
     table = []
     for row in root.iter(f'{{{_NS["m"]}}}row'):
@@ -143,14 +145,14 @@ def parse_decimal(text, *, field, required=False, minimum=None):
     text = (text or '').replace(',', '').replace(' ', '').replace('TZS', '').replace('Tsh', '')
     if not text:
         if required:
-            raise CellError(f'{field} is required.')
+            raise CellError(gettext('{field} is required.').format(field=field))
         return None
     try:
         value = Decimal(text)
     except InvalidOperation:
-        raise CellError(f'{field} "{text}" is not a number.')
+        raise CellError(gettext('{field} "{text}" is not a number.').format(field=field, text=text))
     if minimum is not None and value < minimum:
-        raise CellError(f'{field} must be at least {minimum}.')
+        raise CellError(gettext('{field} must be at least {minimum}.').format(field=field, minimum=minimum))
     return value
 
 
@@ -164,7 +166,7 @@ def parse_bool(text, *, field):
         return True
     if value in _FALSE:
         return False
-    raise CellError(f'{field} must be yes or no, not "{text}".')
+    raise CellError(gettext('{field} must be yes or no, not "{text}".').format(field=field, text=text))
 
 
 _MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_abbr) if m}
@@ -177,7 +179,7 @@ def parse_date(text, *, field, required=False):
     value = (text or '').strip()
     if not value:
         if required:
-            raise CellError(f'{field} is required.')
+            raise CellError(gettext('{field} is required.').format(field=field))
         return None
     if re.fullmatch(r'\d{4,5}(\.\d+)?', value):  # Excel serial day number
         return date(1899, 12, 30) + timedelta(days=int(float(value)))
@@ -192,10 +194,10 @@ def parse_date(text, *, field, required=False):
     else:
         named = re.fullmatch(r'([A-Za-z]{3})[A-Za-z]*[\s\-/]+(\d{2}|\d{4})', value)
         if not named or named.group(1).lower() not in _MONTHS:
-            raise CellError(f'{field} "{value}" is not a date. Use e.g. 2027-03-31 or 03/2027.')
+            raise CellError(gettext('{field} "{value}" is not a date. Use e.g. 2027-03-31 or 03/2027.').format(field=field, value=value))
         month, year = _MONTHS[named.group(1).lower()], int(named.group(2))
     if year < 100:
         year += 2000
     if not 1 <= month <= 12:
-        raise CellError(f'{field} "{value}" has no month {month}.')
+        raise CellError(gettext('{field} "{value}" has no month {month}.').format(field=field, value=value, month=month))
     return date(year, month, calendar.monthrange(year, month)[1])

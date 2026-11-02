@@ -3,6 +3,7 @@ import { Button, Icon } from '../../../components/ds/index.js'
 import { Chart } from '../../../components/ds/chartTheme.js'
 import { MAX_SERIES, singleValueStatus, tickFormatter } from '../charts.js'
 import { formatValue } from '../pivot.js'
+import { t, useT } from '../../../i18n/index.js'
 
 const INK = '#1B2333'
 const SURFACE = '#FFFFFF'
@@ -78,7 +79,7 @@ function targetOption(options, unit) {
   if (options.targetValue === null || options.targetValue === undefined) return { value: null }
   return {
     value: options.targetValue,
-    text: `${options.targetLabel || 'Target'} ${formatValue(options.targetValue, unit ?? 'count', options.decimals)}`,
+    text: `${options.targetLabel || t('Target')} ${formatValue(options.targetValue, unit ?? 'count', options.decimals)}`,
   }
 }
 
@@ -175,6 +176,7 @@ function chartConfig(model, options) {
 }
 
 function CanvasChart({ model, options, canvasRef }) {
+  useT()
   const ref = useRef(null)
   const config = useMemo(() => chartConfig(model, options), [model, options])
   useEffect(() => {
@@ -187,7 +189,7 @@ function CanvasChart({ model, options, canvasRef }) {
   const height = horizontal ? Math.max(320, model.data.length * (model.series.length * 14 + 18) + 80) : 400
   return (
     <div style={{ position: 'relative', height }}>
-      <canvas ref={ref} role="img" aria-label="Chart of the table's values; switch to Pivot table to read them" />
+      <canvas ref={ref} role="img" aria-label={t('Chart of the table’s values; switch to Pivot table to read them')} />
     </div>
   )
 }
@@ -210,17 +212,18 @@ function SingleValue({ model, options, subtitle }) {
  * <canvas>, so the PNG download can copy it.
  */
 export default memo(function ChartView({ model, options, subtitle, canvasRef, onSwapAxes }) {
+  useT()
   if (model.tooMany) {
     const canSwap = model.type !== 'PIE' && model.data.length <= MAX_SERIES && onSwapAxes
     return (
       <div className="viz-center">
-        <h3>Too many {model.type === 'PIE' ? 'slices' : 'series'} to tell apart</h3>
+        <h3>{model.type === 'PIE' ? t('Too many slices to tell apart') : t('Too many series to tell apart')}</h3>
         <p>
-          This chart would need {model.tooMany} colours; charts show at most {MAX_SERIES}. Choose fewer items
-          {canSwap ? ', or swap Series and Category' : ''}, or view it as a pivot table.
+          {t('This chart would need {n} colours; charts show at most {max}.', { n: model.tooMany, max: MAX_SERIES })}{' '}
+          {canSwap ? t('Choose fewer items, swap Series and Category, or view it as a pivot table.') : t('Choose fewer items, or view it as a pivot table.')}
         </p>
         {canSwap && (
-          <Button size="small" onClick={onSwapAxes}><Icon name="transfer" size={16} /> Swap Series and Category</Button>
+          <Button size="small" onClick={onSwapAxes}><Icon name="transfer" size={16} /> {t('Swap Series and Category')}</Button>
         )}
       </div>
     )

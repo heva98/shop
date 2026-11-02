@@ -1,16 +1,17 @@
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 
 class VisualizationType(models.TextChoices):
     """Mirrors `VISUALIZATION_TYPES` in the SPA's visualizationConfig.js."""
-    PIVOT_TABLE = 'PIVOT_TABLE', 'Pivot table'
-    COLUMN = 'COLUMN', 'Column chart'
-    STACKED_COLUMN = 'STACKED_COLUMN', 'Stacked column chart'
-    BAR = 'BAR', 'Bar chart'
-    LINE = 'LINE', 'Line chart'
-    PIE = 'PIE', 'Pie chart'
-    SINGLE_VALUE = 'SINGLE_VALUE', 'Single value'
+    PIVOT_TABLE = 'PIVOT_TABLE', gettext_lazy('Pivot table')
+    COLUMN = 'COLUMN', gettext_lazy('Column chart')
+    STACKED_COLUMN = 'STACKED_COLUMN', gettext_lazy('Stacked column chart')
+    BAR = 'BAR', gettext_lazy('Bar chart')
+    LINE = 'LINE', gettext_lazy('Line chart')
+    PIE = 'PIE', gettext_lazy('Pie chart')
+    SINGLE_VALUE = 'SINGLE_VALUE', gettext_lazy('Single value')
 
 
 class SavedVisualization(models.Model):

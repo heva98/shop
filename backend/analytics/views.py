@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Exists, OuterRef, Q
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
@@ -56,19 +57,19 @@ class DimensionItemsView(_VisualizerView):
         visible = {d.id: d for d, _ in visible_dimensions(ctx)}
         dim = visible.get(request.query_params.get('dimension', ''))
         if dim is None or not dim.lazy:
-            return Response({'detail': 'Unknown dimension.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': gettext('Unknown dimension.')}, status=status.HTTP_400_BAD_REQUEST)
         ids = [i for i in request.query_params.get('ids', '').split(',') if i]
         try:
             items = dim.search(ctx, request.query_params.get('search', '').strip(), ids)
         except DjangoValidationError:
-            return Response({'detail': 'Invalid id.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': gettext('Invalid id.')}, status=status.HTTP_400_BAD_REQUEST)
         return Response(items)
 
 
 class IsCreatorOrReadOnly(BasePermission):
     """A shared visualization is read-only to everyone but its creator; they
     can "save as" their own copy instead."""
-    message = 'Only the person who saved this visualization can change it.'
+    message = gettext_lazy('Only the person who saved this visualization can change it.')
 
     def has_object_permission(self, request, view, obj):
         return request.method in SAFE_METHODS or obj.created_by_id == request.user.id

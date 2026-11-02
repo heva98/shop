@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 from django.conf import settings
+from django.utils.translation import gettext
 
 from notifications.interfaces import NotificationChannel
 
@@ -60,11 +61,11 @@ class SMSChannel(NotificationChannel):
                 result = json.loads(response.read() or b'{}')
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors='replace')[:300]
-            raise SMSError(f'Beem refused the message (HTTP {exc.code}): {detail}') from exc
+            raise SMSError(gettext('Beem refused the message (HTTP {code}): {detail}').format(code=exc.code, detail=detail)) from exc
         except (urllib.error.URLError, TimeoutError) as exc:
-            raise SMSError(f'Could not reach Beem: {exc}') from exc
+            raise SMSError(gettext('Could not reach Beem: {exc}').format(exc=exc)) from exc
         if not result.get('successful') and result.get('code') != 100:
-            raise SMSError(f'Beem did not accept the message: {result.get("message") or result}')
+            raise SMSError(gettext('Beem did not accept the message: {value}').format(value=result.get("message") or result))
         if result.get('invalid'):
-            raise SMSError(f'Beem rejected the number {recipient} as invalid.')
+            raise SMSError(gettext('Beem rejected the number {recipient} as invalid.').format(recipient=recipient))
         return True

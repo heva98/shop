@@ -1,3 +1,4 @@
+import { getLanguage, t } from '../i18n/index.js'
 const BASE_URL = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 const TOKEN_KEY = 'duka_erp_token'
 
@@ -21,7 +22,7 @@ export function setToken(token) {
 
 export class ApiError extends Error {
   constructor(status, body) {
-    super(typeof body === 'string' ? body : (body?.detail || 'Request failed'))
+    super(typeof body === 'string' ? body : (body?.detail || t('Request failed')))
     this.status = status
     this.body = body
   }
@@ -32,7 +33,7 @@ export class ApiError extends Error {
  * try again later. */
 export class NetworkError extends Error {
   constructor(cause) {
-    super('No connection to the server.')
+    super(t('No connection to the server.'))
     this.cause = cause
   }
 }
@@ -72,7 +73,8 @@ function buildUrl(path, params) {
 
 async function request(method, path, { params, body, signal, timeout } = {}) {
   const token = getToken()
-  const headers = { Accept: 'application/json' }
+  // The server answers (errors, labels, statements) in the app's language.
+  const headers = { Accept: 'application/json', 'Accept-Language': getLanguage() }
   if (token) headers.Authorization = `Token ${token}`
 
   // FormData (file uploads) must NOT be JSON-encoded and must NOT get an
@@ -121,7 +123,8 @@ export const client = {
 /** Fetches every page of a DRF-paginated list endpoint and returns the flat array. */
 export async function listAll(path, params) {
   const token = getToken()
-  const headers = { Accept: 'application/json' }
+  // The server answers (errors, labels, statements) in the app's language.
+  const headers = { Accept: 'application/json', 'Accept-Language': getLanguage() }
   if (token) headers.Authorization = `Token ${token}`
 
   let results = []

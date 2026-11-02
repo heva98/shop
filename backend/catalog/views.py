@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Role
 from core.permissions import write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
@@ -45,12 +45,12 @@ class ProductViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         product = serializer.save()
-        record(Action.PRODUCT_CREATED, f'Product {product.name} added', request=self.request, entity=product.entity)
+        record(Action.PRODUCT_CREATED, Summary('Product {name} added', name=product.name), request=self.request, entity=product.entity)
 
     def perform_update(self, serializer):
         before = {f: getattr(serializer.instance, f) for f in self._TRACKED}
         product = serializer.save()
         changed = {f: [before[f], getattr(product, f)] for f in self._TRACKED if getattr(product, f) != before[f]}
         if changed:
-            record(Action.PRODUCT_UPDATED, f'Product {product.name} changed: {", ".join(changed)}',
+            record(Action.PRODUCT_UPDATED, Summary('Product {name} changed: {join}', name=product.name, join=", ".join(changed)),
                    request=self.request, entity=product.entity, data=changed)

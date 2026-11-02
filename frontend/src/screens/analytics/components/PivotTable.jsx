@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { formatValue, headerSpans } from '../pivot.js'
+import { t, useT } from '../../../i18n/index.js'
 
 // Every header row is 34px tall (analytics.css), so each sticks below the last.
 const ROW_HEIGHT = 34
@@ -7,6 +8,7 @@ const ROW_HEIGHT = 34
 // `canDrill(colCombo, rowCombo)` says whether a cell can be broken down when
 // clicked; `onDrill(colCombo, rowCombo)` opens that breakdown.
 export default function PivotTable({ pivot, options, dimensionLabel, canDrill, onDrill }) {
+  useT()
   const { colDims, rowDims, colCombos, rowCombos, cell, label, isPlaceholder, isTotal } = pivot
   const showLabels = options.showDimensionLabels
   const labelRow = showLabels && !rowDims.every(isPlaceholder)
@@ -66,7 +68,7 @@ export default function PivotTable({ pivot, options, dimensionLabel, canDrill, o
                     <td key={colCombo.join('|')} className={totalRow || isTotal(colCombo) ? 'total' : undefined}>
                       {drillable ? (
                         <button type="button" className="viz-cell-btn" onClick={() => onDrill(colCombo, rowCombo)}
-                          title="Break this number down">
+                          title={t('Break this number down')}>
                           {text}
                         </button>
                       ) : text}

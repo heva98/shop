@@ -1,7 +1,8 @@
+from django.utils.translation import gettext
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Role
 from core.permissions import write_roles
 
@@ -31,14 +32,14 @@ class PaymentMethodViewSet(viewsets.ModelViewSet):
         on = serializer.validated_data['is_active']
         if entity is None:
             if not self.request.user.is_superuser:
-                raise PermissionDenied('You are not assigned to a shop.')
+                raise PermissionDenied(gettext('You are not assigned to a shop.'))
             if method.is_active != on:
                 method.is_active = on
                 method.save(update_fields=['is_active'])
                 record(Action.PAYMENT_METHOD_CHANGED,
-                       f'{method.name} switched {"on" if on else "off"} by default for all shops', request=self.request)
+                       Summary('{name} switched {value} by default for all shops', name=method.name, value="on" if on else "off"), request=self.request)
             return
         if method.is_active_for(entity) != on:
             EntityPaymentMethod.objects.update_or_create(entity=entity, method=method, defaults={'is_active': on})
-            record(Action.PAYMENT_METHOD_CHANGED, f'{method.name} switched {"on" if on else "off"}',
+            record(Action.PAYMENT_METHOD_CHANGED, Summary('{name} switched {value}', name=method.name, value="on" if on else "off"),
                    request=self.request, entity=entity)

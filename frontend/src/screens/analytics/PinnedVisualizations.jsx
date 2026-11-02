@@ -10,6 +10,7 @@ import { catalogueItemLabels, makeLabelFor, unavailableMessage } from './savedVi
 import {
   FIXED_DIMENSION_LABELS, buildQuery, configReducer, initialConfig, isChart, layoutProblem,
 } from './visualizationConfig.js'
+import { t, useLanguage } from '../../i18n/index.js'
 
 function Placeholder({ title, message }) {
   return (
@@ -21,11 +22,13 @@ function Placeholder({ title, message }) {
 }
 
 function WidgetBody({ viz, catalogue }) {
+  useT()
+  const lang = useLanguage()
   const config = useMemo(() => configReducer(initialConfig, { type: 'LOAD', config: viz.config }), [viz.config])
   const problem = unavailableMessage(viz.unavailable)
   const dimensions = catalogue?.dimensions
   const dimensionsById = useMemo(() => Object.fromEntries((dimensions ?? []).map((d) => [d.id, d])), [dimensions])
-  const dimensionLabel = (id) => FIXED_DIMENSION_LABELS[id] ?? dimensionsById[id]?.label ?? id
+  const dimensionLabel = (id) => FIXED_DIMENSION_LABELS[id] ?? t(dimensionsById[id]?.label) ?? id
 
   const query = catalogue && !problem ? buildQuery(config, dimensionsById) : null
   const layoutIssue = catalogue && !problem ? layoutProblem(config, dimensionLabel) : null
@@ -36,19 +39,20 @@ function WidgetBody({ viz, catalogue }) {
   const pivot = useMemo(() => {
     if (!result.data) return null
     return buildPivot(result.data, config, config.options, makeLabelFor(itemLabels, result.data))
-  }, [result.data, config, itemLabels])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result.data, config, itemLabels, lang])
   const chartModel = useMemo(() => {
     if (!pivot || pivot.isEmpty || !isChart(config.type)) return null
     return buildChartModel(pivot, config.type, config.options)
   }, [pivot, config])
 
-  if (problem) return <Placeholder title="Not available" message={problem} />
-  if (result.error) return <Placeholder title="Could not load this visualization" message="Open it in Analytics to see what went wrong." />
-  if (query?.error || layoutIssue) return <Placeholder title="Needs attention" message={query?.error ?? layoutIssue.message} />
+  if (problem) return <Placeholder title={t('Not available')} message={problem} />
+  if (result.error) return <Placeholder title={t('Could not load this visualization')} message="Open it in Analytics to see what went wrong." />
+  if (query?.error || layoutIssue) return <Placeholder title={t('Needs attention')} message={query?.error ?? layoutIssue.message} />
   if (!pivot) return <div className="viz-placeholder"><div className="viz-spinner" /></div>
-  if (pivot.isEmpty) return <Placeholder title="No data" message="Nothing was recorded for this selection yet." />
+  if (pivot.isEmpty) return <Placeholder title={t('No data')} message="Nothing was recorded for this selection yet." />
   if (chartModel) {
-    if (chartModel.tooMany) return <Placeholder title="Too many series to draw here" message="Open it in Analytics to view it as a table." />
+    if (chartModel.tooMany) return <Placeholder title={t('Too many series to draw here')} message="Open it in Analytics to view it as a table." />
     return <ChartView model={chartModel} options={config.options} />
   }
   return <div style={{ maxHeight: 320, overflow: 'auto' }}><PivotTable pivot={pivot} options={config.options} dimensionLabel={dimensionLabel} /></div>
@@ -59,6 +63,7 @@ function WidgetBody({ viz, catalogue }) {
  * Renders nothing when nothing is pinned; `onOpen(id)` opens one in Analytics.
  */
 export default function PinnedVisualizations({ onOpen }) {
+  useT()
   const pinned = useApi(() => listVisualizations({ pinned: 'true' }), [])
   const [unpinned, setUnpinned] = useState([])
   const list = (pinned.data ?? []).filter((v) => !unpinned.includes(v.id))
@@ -75,15 +80,15 @@ export default function PinnedVisualizations({ onOpen }) {
 
   if (!list.length) return null
   return (
-    <section aria-label="Pinned visualizations" className="viz-pins">
+    <section aria-label={t('Pinned visualizations')} className="viz-pins">
       {list.map((viz) => (
         <Card key={viz.id} title={viz.name} meta={viz.description || undefined}
           action={(
             <div style={{ display: 'flex', gap: 4 }}>
-              <button type="button" className="ds-icon-btn" title="Open in Analytics" aria-label={`Open ${viz.name} in Analytics`} onClick={() => onOpen(viz.id)}>
+              <button type="button" className="ds-icon-btn" title={t('Open in Analytics')} aria-label={t('Open {name} in Analytics', { name: viz.name })} onClick={() => onOpen(viz.id)}>
                 <Icon name="launch" size={16} />
               </button>
-              <button type="button" className="ds-icon-btn" title="Unpin from dashboard" aria-label={`Unpin ${viz.name}`} onClick={() => unpin(viz)}>
+              <button type="button" className="ds-icon-btn" title={t('Unpin from dashboard')} aria-label={t('Unpin {name}', { name: viz.name })} onClick={() => unpin(viz)}>
                 <Icon name="pin-off" size={16} />
               </button>
             </div>

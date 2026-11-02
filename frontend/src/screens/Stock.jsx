@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi.js'
 import { listAllBatches, listAllStoreProducts, listAllLedger } from '../api/inventory.js'
 import { listAllProducts } from '../api/catalog.js'
 import { StockTake, WriteOffs } from './StockControl.jsx'
+import { dateLocale, t, useLanguage } from '../i18n/index.js'
 
 const LEDGER_TYPE_LABEL = {
   transfer_in: 'Transfer In', transfer_out: 'Transfer Out', stolen: 'Stolen', lost: 'Lost',
@@ -26,6 +27,7 @@ const STOCK_TAB_DEFS = [
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
 
 export default function Stock({ storeId, storeName, roles }) {
+  const lang = useLanguage()
   const isManager = MANAGER_ROLES.some((r) => roles.includes(r))
   const [tab, setTab] = useState('list')
   const [expanded, setExpanded] = useState({})
@@ -53,16 +55,17 @@ export default function Stock({ storeId, storeName, roles }) {
       const days = b.expiry_date ? Math.round((new Date(b.expiry_date) - today) / 86400000) : null
       const qty = Number(b.qty_on_hand)
       let status, statusLabel, daysLabel
-      if (qty === 0) { status = 'stocked-out'; statusLabel = 'Stocked out'; daysLabel = '—' } else if (days === null) {
-        status = 'ok'; statusLabel = 'In stock'; daysLabel = 'Does not expire'
+      if (qty === 0) { status = 'stocked-out'; statusLabel = t('Stocked out'); daysLabel = '—' } else if (days === null) {
+        status = 'ok'; statusLabel = t('In stock'); daysLabel = t('Does not expire')
       } else if (days < 0) {
-        status = 'expired'; statusLabel = 'Expired'; daysLabel = `Expired ${Math.abs(days)} days ago`
-      } else if (days <= 30) { status = 'nearly-expired'; statusLabel = 'Nearly expired'; daysLabel = `${days} days to expiry` } else {
-        status = 'ok'; statusLabel = 'In stock'; daysLabel = `${days} days to expiry`
+        status = 'expired'; statusLabel = t('Expired'); daysLabel = t('Expired {n} days ago', { n: Math.abs(days) })
+      } else if (days <= 30) { status = 'nearly-expired'; statusLabel = t('Nearly expired'); daysLabel = t('{n} days to expiry', { n: days }) } else {
+        status = 'ok'; statusLabel = t('In stock'); daysLabel = t('{n} days to expiry', { n: days })
       }
       return { ...b, productName: b.product_name, qty, status, statusLabel, daysLabel }
     })
-  }, [batches])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batches, lang])
 
   const expiryFilter = tab === 'nearly-expired' ? 'nearly-expired' : tab === 'expired' ? 'expired' : null
   const visibleBatches = (expiryFilter ? batchesWithStatus.filter((b) => b.status === expiryFilter) : batchesWithStatus)
@@ -117,35 +120,35 @@ export default function Stock({ storeId, storeName, roles }) {
     .filter((le) => ledgerGroup === 'all' || (LEDGER_GROUPS[ledgerGroup] ?? []).includes(le.ledger_type))
     .map((le) => {
       const delta = Number(le.qty_delta)
-      const type = LEDGER_TYPE_LABEL[le.ledger_type] || le.ledger_type
+      const type = LEDGER_TYPE_LABEL[le.ledger_type] ? t(LEDGER_TYPE_LABEL[le.ledger_type]) : le.ledger_type
       return {
         product: batchLookup[le.batch]?.productName ?? '', batch: batchLookup[le.batch]?.batchNo ?? '',
-        store: storeName, type, timestamp: new Date(le.created_at).toLocaleString(),
+        store: storeName, type, timestamp: new Date(le.created_at).toLocaleString(dateLocale()),
         source: le.ref_type ? `${le.ref_type} ${le.ref_id}`.trim() : '—',
         deltaLabel: (delta > 0 ? '+' : '') + delta, deltaColor: delta > 0 ? 'var(--green-700)' : 'var(--red-700)',
         isPositive: le.ledger_type === 'transfer_in' || le.ledger_type === 'sale_void', isNegative: delta < 0, isNeutral: le.ledger_type === 'consumption',
       }
     })
 
-  const stockTabs = STOCK_TAB_DEFS.filter((t) => !t.roles || t.roles.some((r) => roles.includes(r))).map((t) => ({ label: t.label, active: tab === t.key, select: () => setTab(t.key) }))
+  const stockTabs = STOCK_TAB_DEFS.filter((d) => !d.roles || d.roles.some((r) => roles.includes(r))).map((d) => ({ label: t(d.label), active: tab === d.key, select: () => setTab(d.key) }))
   const ledgerGroupChips = ['all', 'Transfers', 'Sales', 'Losses', 'Consumption'].map((g) => ({
-    label: g === 'all' ? 'All' : g, active: ledgerGroup === g, select: () => setLedgerGroup(g),
+    label: g === 'all' ? t('All') : t(g), active: ledgerGroup === g, select: () => setLedgerGroup(g),
   }))
 
-  if (!storeId) return <NoticeBox variant="warning" title="No store selected">Select a store to view stock.</NoticeBox>
+  if (!storeId) return <NoticeBox variant="warning" title={t('No store selected')}>{t('Select a store to view stock.')}</NoticeBox>
 
   return (
     <div>
-      <PageHeader title="Stock" subtitle={`Batches, stock levels and movements at ${storeName}.`} />
+      <PageHeader title={t('Stock')} subtitle={t('Batches, stock levels and movements at {store}.', { store: storeName })} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {stockTabs.map((t) => <Chip key={t.label} selected={t.active} onClick={t.select}>{t.label}</Chip>)}
+        {stockTabs.map((s) => <Chip key={s.label} selected={s.active} onClick={s.select}>{s.label}</Chip>)}
       </div>
 
       {tab === 'count' && <StockTake storeId={storeId} storeName={storeName} isManager={isManager} />}
       {tab === 'write-offs' && <WriteOffs storeId={storeId} isManager={isManager} />}
 
-      {batchesError && <NoticeBox variant="error">Could not load stock data.</NoticeBox>}
-      {batchesLoading && <NoticeBox variant="info">Loading…</NoticeBox>}
+      {batchesError && <NoticeBox variant="error">{t('Could not load stock data.')}</NoticeBox>}
+      {batchesLoading && <NoticeBox variant="info">{t('Loading…')}</NoticeBox>}
 
       {!batchesLoading && tab === 'list' && (
         <div className="ds-table-card">
@@ -153,11 +156,11 @@ export default function Stock({ storeId, storeName, roles }) {
             <thead>
               <tr>
                 <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>Product</th>
-                <th style={th('right')}>Total qty</th>
-                <th style={th('right')}>Expired qty</th>
-                <th style={th('right')}>Eligible qty</th>
-                <th style={th('right')}>Batches</th>
+                <th style={th('left')}>{t('Product')}</th>
+                <th style={th('right')}>{t('Total qty')}</th>
+                <th style={th('right')}>{t('Expired qty')}</th>
+                <th style={th('right')}>{t('Eligible qty')}</th>
+                <th style={th('right')}>{t('Batches')}</th>
                 <th style={{ width: 32, borderBottom: '1px solid var(--grey-300)' }} />
               </tr>
             </thead>
@@ -181,14 +184,14 @@ export default function Stock({ storeId, storeName, roles }) {
                             {p.batches.map((pb) => (
                               <tr key={pb.batch}>
                                 <td style={{ padding: '8px 16px 8px 48px', fontSize: 13, color: 'var(--grey-700)', fontFamily: 'var(--font-family-mono)' }}>{pb.batch || '—'}</td>
-                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>Qty {pb.qty}</td>
-                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>{pb.expiry ? `Exp ${pb.expiry}` : 'No expiry'}</td>
+                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>{t('Qty')} {pb.qty}</td>
+                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>{pb.expiry ? `${t('Exp')} ${pb.expiry}` : t('No expiry')}</td>
                               </tr>
                             ))}
                             <tr>
                               <td colSpan={3} style={{ padding: '8px 16px 12px 48px' }}>
                                 <Button size="small" disabled>
-                                  <Icon name="add" size={16} /> Add batch
+                                  <Icon name="add" size={16} /> {t('Add batch')}
                                 </Button>
                               </td>
                             </tr>
@@ -210,9 +213,9 @@ export default function Stock({ storeId, storeName, roles }) {
             <thead>
               <tr>
                 <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>Product</th>
-                <th style={th('right')}>Qty on hand</th>
-                <th style={th('right')}>Reorder level</th>
+                <th style={th('left')}>{t('Product')}</th>
+                <th style={th('right')}>{t('Qty on hand')}</th>
+                <th style={th('right')}>{t('Reorder level')}</th>
                 <th style={{ width: 44, borderBottom: '1px solid var(--grey-300)' }} />
               </tr>
             </thead>
@@ -227,7 +230,7 @@ export default function Stock({ storeId, storeName, roles }) {
                 </tr>
               ))}
               {visibleStockLevels.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>No products match this view.</td></tr>
+                <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No products match this view.')}</td></tr>
               )}
             </tbody>
           </table>
@@ -240,11 +243,11 @@ export default function Stock({ storeId, storeName, roles }) {
             <thead>
               <tr>
                 <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>Product</th>
-                <th style={th('left')}>Batch</th>
-                <th style={th('right')}>Qty</th>
-                <th style={th('left')}>Expiry</th>
-                <th style={th('left')}>Status</th>
+                <th style={th('left')}>{t('Product')}</th>
+                <th style={th('left')}>{t('Batch')}</th>
+                <th style={th('right')}>{t('Qty')}</th>
+                <th style={th('left')}>{t('Expiry')}</th>
+                <th style={th('left')}>{t('Status')}</th>
                 <th style={{ width: 44, borderBottom: '1px solid var(--grey-300)' }} />
               </tr>
             </thead>
@@ -269,7 +272,7 @@ export default function Stock({ storeId, storeName, roles }) {
                 </tr>
               ))}
               {visibleBatches.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>No batches match this filter.</td></tr>
+                <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No batches match this filter.')}</td></tr>
               )}
             </tbody>
           </table>
@@ -281,19 +284,19 @@ export default function Stock({ storeId, storeName, roles }) {
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {ledgerGroupChips.map((lg) => <Chip key={lg.label} selected={lg.active} dense onClick={lg.select}>{lg.label}</Chip>)}
           </div>
-          {ledgerLoading && <NoticeBox variant="info">Loading…</NoticeBox>}
+          {ledgerLoading && <NoticeBox variant="info">{t('Loading…')}</NoticeBox>}
           {!ledgerLoading && (
             <div className="ds-table-card">
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
                 <thead>
                   <tr>
-                    <th style={th('left')}>Product</th>
-                    <th style={th('left')}>Batch</th>
-                    <th style={th('left')}>Store</th>
+                    <th style={th('left')}>{t('Product')}</th>
+                    <th style={th('left')}>{t('Batch')}</th>
+                    <th style={th('left')}>{t('Store')}</th>
                     <th style={th('right')}>Qty Δ</th>
-                    <th style={th('left')}>Type</th>
-                    <th style={th('left')}>Timestamp</th>
-                    <th style={th('left')}>Source</th>
+                    <th style={th('left')}>{t('Type')}</th>
+                    <th style={th('left')}>{t('Timestamp')}</th>
+                    <th style={th('left')}>{t('Source')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,7 +316,7 @@ export default function Stock({ storeId, storeName, roles }) {
                     </tr>
                   ))}
                   {visibleLedger.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>No ledger entries match this filter.</td></tr>
+                    <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No ledger entries match this filter.')}</td></tr>
                   )}
                 </tbody>
               </table>

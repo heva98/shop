@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js'
 // "Download" for the Data Visualizer: the pivot table as CSV or XLSX, the
 // chart as PNG. Everything is built in the browser from what is already on
 // screen.
@@ -168,7 +169,7 @@ const FONT = 'Poppins, system-ui, sans-serif'
 
 async function savePng(canvas, filename) {
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('The chart image could not be drawn.')
+  if (!blob) throw new Error(t('The chart image could not be drawn.'))
   saveBlob(blob, `${filename}.png`)
 }
 

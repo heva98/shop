@@ -9,12 +9,13 @@ import {
 import { listAllCustomers } from '../api/credit.js'
 import { fmt } from '../appData.js'
 import { client } from '../api/client.js'
+import { dateLocale, t, useT } from '../i18n/index.js'
 
 const ALL = ['cashier', 'storekeeper', 'store_manager', 'entity_admin']
 const MANAGEMENT = ['storekeeper', 'store_manager', 'entity_admin']
 const MANAGERS = ['store_manager', 'entity_admin']
 const money = (v) => (v === null || v === undefined ? '—' : fmt(Number(v)))
-const dateTime = (v) => (v ? new Date(v).toLocaleString() : '—')
+const dateTime = (v) => (v ? new Date(v).toLocaleString(dateLocale()) : '—')
 const num = (v) => Number(v).toLocaleString('en-US')
 
 const REPORTS = [
@@ -25,17 +26,17 @@ const REPORTS = [
       ['Sales', d.summary.sales_count], ['Gross sales', money(d.summary.gross_total)], ['VAT included', money(d.summary.vat_total)],
       ['Discounts given', money(d.summary.discount_total)], ['Sold on credit', money(d.summary.credit_total)],
       ['Voided', `${d.summary.void_count} (${money(d.summary.void_total)})`], ['Missing EFD no.', d.summary.missing_efd_count],
-      ...d.summary.by_payment_method.map((m) => [m.payment_method, `${money(m.total)} (${m.count})`]),
+      ...d.summary.by_payment_method.map((m) => [t(m.payment_method), `${money(m.total)} (${m.count})`]),
     ],
     tables: (d) => [
       {
         title: 'Sales', rows: d.sales, columns: [
           { label: 'No.', value: (r) => r.number }, { label: 'Date', value: (r) => dateTime(r.completed_at) },
           { label: 'Store', value: (r) => r.store }, { label: 'Cashier', value: (r) => r.cashier },
-          { label: 'Paid by', value: (r) => (Number(r.credit) ? (Number(r.credit) < Number(r.total) ? `${r.payment_method} + credit` : 'On credit') : r.payment_method) },
+          { label: 'Paid by', value: (r) => (Number(r.credit) ? (Number(r.credit) < Number(r.total) ? `${t(r.payment_method)} + ${t('credit')}` : t('On credit')) : t(r.payment_method)) },
           { label: 'Customer', value: (r) => r.customer_name },
           { label: 'Reference', value: (r) => r.payment_reference },
-          { label: 'EFD no.', value: (r) => r.efd_receipt_no }, { label: 'Status', value: (r) => (r.status === 'voided' ? `Voided: ${r.void_reason}` : 'Completed') },
+          { label: 'EFD no.', value: (r) => r.efd_receipt_no }, { label: 'Status', value: (r) => (r.status === 'voided' ? `${t('Voided')}: ${r.void_reason}` : t('Completed')) },
           { label: 'VAT', value: (r) => r.vat, align: 'right', money: true },
           { label: 'Discount', value: (r) => (Number(r.discount) ? r.discount : null), align: 'right', money: true },
           { label: 'On credit', value: (r) => (Number(r.credit) ? r.credit : null), align: 'right', money: true },
@@ -61,7 +62,7 @@ const REPORTS = [
     tables: (d) => [{
       title: 'Shifts', rows: d.shifts, columns: [
         { label: 'Store', value: (r) => r.store }, { label: 'Cashier', value: (r) => r.cashier },
-        { label: 'Opened', value: (r) => dateTime(r.opened_at) }, { label: 'Closed', value: (r) => (r.closed_at ? dateTime(r.closed_at) : 'Still open') },
+        { label: 'Opened', value: (r) => dateTime(r.opened_at) }, { label: 'Closed', value: (r) => (r.closed_at ? dateTime(r.closed_at) : t('Still open')) },
         { label: 'Sales', value: (r) => r.sales_count, align: 'right' }, { label: 'Gross', value: (r) => r.gross_total, align: 'right', money: true },
         { label: 'Expected cash', value: (r) => r.expected_cash, align: 'right', money: true },
         { label: 'Counted cash', value: (r) => r.counted_cash, align: 'right', money: true },
@@ -82,7 +83,7 @@ const REPORTS = [
         { label: 'Store', value: (r) => r.store }, { label: 'Product', value: (r) => r.product },
         { label: 'Usable qty', value: (r) => r.usable_qty, align: 'right' }, { label: 'Expired qty', value: (r) => r.expired_qty, align: 'right' },
         { label: 'Reorder level', value: (r) => r.reorder_level, align: 'right' },
-        { label: 'Status', value: (r) => ({ ok: 'OK', low: 'Low', out: 'Out' }[r.status]) },
+        { label: 'Status', value: (r) => t({ ok: 'OK', low: 'Low', out: 'Out' }[r.status]) },
         { label: 'Cost value', value: (r) => r.cost_value, align: 'right', money: true },
         { label: 'Retail value', value: (r) => r.retail_value, align: 'right', money: true },
       ],
@@ -96,7 +97,7 @@ const REPORTS = [
       title: 'Batches', rows: d.rows, columns: [
         { label: 'Store', value: (r) => r.store }, { label: 'Product', value: (r) => r.product }, { label: 'Batch', value: (r) => r.batch_no },
         { label: 'Expiry', value: (r) => r.expiry_date },
-        { label: 'Days left', value: (r) => (r.days_left < 0 ? `Expired ${-r.days_left}d ago` : r.days_left), align: 'right' },
+        { label: 'Days left', value: (r) => (r.days_left < 0 ? t('Expired {n}d ago', { n: -r.days_left }) : r.days_left), align: 'right' },
         { label: 'Qty', value: (r) => r.qty, align: 'right' }, { label: 'Cost value', value: (r) => r.cost_value, align: 'right', money: true },
       ],
     }],
@@ -121,13 +122,13 @@ const REPORTS = [
     description: 'Stock written off (expired, damaged, lost, stolen...) and stock-count corrections, valued at cost.',
     summary: (d) => [
       ['Entries', d.summary.entries], ['Total value', money(d.summary.value)],
-      ...d.summary.by_reason.map((r) => [r.reason, `${money(r.value)} (${r.count})`]),
+      ...d.summary.by_reason.map((r) => [t(r.reason), `${money(r.value)} (${r.count})`]),
     ],
     tables: (d) => [{
       title: 'Adjustments', rows: d.rows, columns: [
         { label: 'Date', value: (r) => dateTime(r.date) }, { label: 'Store', value: (r) => r.store },
         { label: 'Product', value: (r) => r.product }, { label: 'Batch', value: (r) => r.batch_no },
-        { label: 'Reason', value: (r) => r.reason }, { label: 'Qty', value: (r) => r.qty, align: 'right' },
+        { label: 'Reason', value: (r) => t(r.reason) }, { label: 'Qty', value: (r) => r.qty, align: 'right' },
         { label: 'Unit', value: (r) => r.unit }, { label: 'Value at cost', value: (r) => r.value, align: 'right', money: true },
         { label: 'By', value: (r) => r.by }, { label: 'Note', value: (r) => r.note },
       ],
@@ -192,7 +193,7 @@ const REPORTS = [
         { label: 'Sold', value: (r) => r.sold, align: 'right' }, { label: 'Per day', value: (r) => r.per_day, align: 'right' },
         { label: 'In stock', value: (r) => r.on_hand, align: 'right' },
         { label: 'Days of cover', value: (r) => (r.days_of_cover === null ? '—' : r.days_of_cover), align: 'right' },
-        { label: 'Class', value: (r) => ({ fast: 'Fast', normal: 'Normal', slow: 'Slow', dead: 'Dead stock' }[r.class]) },
+        { label: 'Class', value: (r) => t({ fast: 'Fast', normal: 'Normal', slow: 'Slow', dead: 'Dead stock' }[r.class]) },
       ],
     }],
   },
@@ -208,7 +209,7 @@ const REPORTS = [
         title: 'Transfers', rows: d.rows, columns: [
           { label: 'No.', value: (r) => r.number }, { label: 'Sent', value: (r) => dateTime(r.date) },
           { label: 'From', value: (r) => r.from_store }, { label: 'To', value: (r) => r.to_store },
-          { label: 'Items', value: (r) => r.items }, { label: 'Status', value: (r) => r.status },
+          { label: 'Items', value: (r) => r.items }, { label: 'Status', value: (r) => t(r.status) },
           { label: 'Value at cost', value: (r) => r.value, align: 'right', money: true },
           { label: 'Owed', value: (r) => (r.mode === 'hub' ? r.balance : null), align: 'right', money: true },
         ],
@@ -235,7 +236,7 @@ const REPORTS = [
         { label: 'Bought on credit', value: (r) => r.credit_total, align: 'right', money: true },
         { label: 'Paid back', value: (r) => r.paid_total, align: 'right', money: true },
         { label: 'Owes', value: (r) => r.owing, align: 'right', money: true },
-        { label: 'Credit limit', value: (r) => (r.credit_limit === null ? 'No limit' : money(r.credit_limit)) },
+        { label: 'Credit limit', value: (r) => (r.credit_limit === null ? t('No limit') : money(r.credit_limit)) },
       ],
     }],
   },
@@ -248,6 +249,7 @@ const todayIso = () => {
 const monthStartIso = () => todayIso().slice(0, 8) + '01'
 
 export default function Reports({ roles, storeId, storeName, entity, features }) {
+  useT()
   const available = REPORTS.filter((r) => r.roles.some((x) => roles.includes(x)) && (!r.feature || features?.[r.feature] !== false))
   const [reportId, setReportId] = useState(available[0]?.id)
   const [start, setStart] = useState(monthStartIso())
@@ -264,7 +266,7 @@ export default function Reports({ roles, storeId, storeName, entity, features })
       if (report.usesDays) params.days = days
       setState({ data: await report.fetch(params), loading: false, error: '' })
     } catch (err) {
-      setState({ data: null, loading: false, error: err.body?.detail || 'Could not load the report.' })
+      setState({ data: null, loading: false, error: err.body?.detail || t('Could not load the report.') })
     }
   }
 
@@ -274,37 +276,37 @@ export default function Reports({ roles, storeId, storeName, entity, features })
   }
 
   const data = state.data
-  const scope = storeId ? storeName : 'All stores'
-  const period = report?.usesDates ? `${start} to ${end}`
-    : report?.usesDays ? (report.id === 'movers' ? `Last ${days} days` : `Next ${days} days`)
-      : `As at ${todayIso()}`
+  const scope = storeId ? storeName : t('All stores')
+  const period = report?.usesDates ? t('{start} to {end}', { start, end })
+    : report?.usesDays ? t(report.id === 'movers' ? 'Last {n} days' : 'Next {n} days', { n: days })
+      : t('As at {date}', { date: todayIso() })
 
   return (
     <div>
-      <PageHeader title="Reports" subtitle={`Run, print and download reports for ${scope}.`} />
+      <PageHeader title={t('Reports')} subtitle={t('Run, print and download reports for {scope}.', { scope })} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {available.map((r) => <Chip key={r.id} selected={r.id === reportId} onClick={() => select(r.id)}>{r.title}</Chip>)}
+        {available.map((r) => <Chip key={r.id} selected={r.id === reportId} onClick={() => select(r.id)}>{t(r.title)}</Chip>)}
       </div>
       {report && (
         <Card style={{ marginBottom: 16, maxWidth: 900 }}>
-          <p style={{ fontSize: 13, color: 'var(--fg-subtle)', margin: '0 0 12px' }}>{report.description} Scope: {scope}.</p>
+          <p style={{ fontSize: 13, color: 'var(--fg-subtle)', margin: '0 0 12px' }}>{t(report.description)} {t('Scope: {scope}.', { scope })}</p>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             {report.usesDates && (
               <>
-                <Field label="Start date"><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 170 }} /></Field>
-                <Field label="End date"><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: 170 }} /></Field>
+                <Field label={t('Start date')}><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 170 }} /></Field>
+                <Field label={t('End date')}><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: 170 }} /></Field>
               </>
             )}
-            {report.usesDays && <Field label={report.daysLabel || 'Expiring within (days)'}><Input value={days} onChange={(e) => setDays(e.target.value)} style={{ width: 120 }} /></Field>}
-            <Button variant="primary" onClick={run} disabled={state.loading}>{state.loading ? 'Loading…' : 'Run report'}</Button>
+            {report.usesDays && <Field label={t(report.daysLabel || 'Expiring within (days)')}><Input value={days} onChange={(e) => setDays(e.target.value)} style={{ width: 120 }} /></Field>}
+            <Button variant="primary" onClick={run} disabled={state.loading}>{state.loading ? t('Loading…') : t('Run report')}</Button>
             {data && (
               <>
-                {report.tables(data).map((t) => (
-                  <Button key={t.title} onClick={() => downloadCsv(`${report.id}-${t.title.toLowerCase().replace(/\s+/g, '-')}-${todayIso()}.csv`, t.columns, t.rows)}>
-                    <Icon name="download" size={16} /> {report.tables(data).length > 1 ? `${t.title} (Excel/CSV)` : 'Excel (CSV)'}
+                {report.tables(data).map((tb) => (
+                  <Button key={tb.title} onClick={() => downloadCsv(`${report.id}-${tb.title.toLowerCase().replace(/\s+/g, '-')}-${todayIso()}.csv`, tb.columns.map((c) => ({ ...c, label: t(c.label) })), tb.rows)}>
+                    <Icon name="download" size={16} /> {report.tables(data).length > 1 ? `${t(tb.title)} (Excel/CSV)` : 'Excel (CSV)'}
                   </Button>
                 ))}
-                <Button onClick={() => window.print()}><Icon name="download" size={16} /> Print / PDF</Button>
+                <Button onClick={() => window.print()}><Icon name="download" size={16} /> {t('Print / PDF')}</Button>
               </>
             )}
           </div>
@@ -315,8 +317,8 @@ export default function Reports({ roles, storeId, storeName, entity, features })
       {data && <ReportBody report={report} data={data} />}
       {data && (
         <PrintArea kind="report">
-          <h2 style={{ margin: '0 0 4px' }}>{entity?.name} — {report.title}</h2>
-          <div style={{ marginBottom: 12 }}>{scope} · {period} · printed {new Date().toLocaleString()}</div>
+          <h2 style={{ margin: '0 0 4px' }}>{entity?.name} — {t(report.title)}</h2>
+          <div style={{ marginBottom: 12 }}>{scope} · {period} · {t('printed {date}', { date: new Date().toLocaleString(dateLocale()) })}</div>
           <ReportBody report={report} data={data} plain />
         </PrintArea>
       )}
@@ -325,35 +327,36 @@ export default function Reports({ roles, storeId, storeName, entity, features })
 }
 
 function ReportBody({ report, data, plain }) {
+  useT()
   const box = plain ? {} : { background: 'var(--white)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflowX: 'auto' }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         {report.summary(data).map(([label, value]) => (
           <div key={label}>
-            <div style={{ fontSize: 12, color: plain ? '#444' : 'var(--fg-subtle)' }}>{label}</div>
+            <div style={{ fontSize: 12, color: plain ? '#444' : 'var(--fg-subtle)' }}>{t(label)}</div>
             <div style={{ fontSize: plain ? 13 : 24, lineHeight: plain ? undefined : '32px', fontWeight: plain ? 600 : 700, color: plain ? undefined : 'var(--navy-800)' }}>{value}</div>
           </div>
         ))}
       </div>
-      {report.tables(data).map((t) => (
-        <div key={t.title}>
-          {report.tables(data).length > 1 && <h3 style={{ fontSize: 14, fontWeight: 500, margin: '0 0 8px' }}>{t.title}</h3>}
+      {report.tables(data).map((tb) => (
+        <div key={tb.title}>
+          {report.tables(data).length > 1 && <h3 style={{ fontSize: 14, fontWeight: 500, margin: '0 0 8px' }}>{t(tb.title)}</h3>}
           <div style={box}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{t.columns.map((c) => <th key={c.label} style={th(c.align)}>{c.label}</th>)}</tr>
+                <tr>{tb.columns.map((c) => <th key={c.label} style={th(c.align)}>{t(c.label)}</th>)}</tr>
               </thead>
               <tbody>
-                {t.rows.map((r, i) => (
+                {tb.rows.map((r, i) => (
                   <tr key={i}>
-                    {t.columns.map((c) => {
+                    {tb.columns.map((c) => {
                       const v = c.value(r)
                       return <td key={c.label} style={c.money ? { ...td(c.align), whiteSpace: 'nowrap' } : td(c.align)}>{c.money ? money(v) : (typeof v === 'number' || /^-?\d+\.\d+$/.test(v ?? '') ? num(v) : v)}</td>
                     })}
                   </tr>
                 ))}
-                {t.rows.length === 0 && <tr><td colSpan={t.columns.length} style={{ ...td(), textAlign: 'center' }}>Nothing in this period.</td></tr>}
+                {tb.rows.length === 0 && <tr><td colSpan={tb.columns.length} style={{ ...td(), textAlign: 'center' }}>{t('Nothing in this period.')}</td></tr>}
               </tbody>
             </table>
           </div>

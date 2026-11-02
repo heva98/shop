@@ -17,6 +17,7 @@ multiple stores gets back whatever it had chosen.
 
 from dataclasses import dataclass
 
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 
@@ -34,22 +35,21 @@ class Feature:
 
 
 FEATURES = [
-    Feature('pos_sale', 'Point of sale', ModuleRegistry.Scope.STORE, True,
-            'Selling to customers at the till. Switch off for a store that only holds stock, such as a warehouse.'),
-    Feature('receiving_invoice', 'Receiving from suppliers', ModuleRegistry.Scope.STORE, True,
-            'Entering supplier invoices. Switch off for a branch that only gets stock from the main store.'),
-    Feature('customer_credit', 'Sales on credit', ModuleRegistry.Scope.STORE, True,
-            "Putting sales on a registered customer's account (madeni) and taking their repayments. "
-            "Set each customer's credit limit under Customers."),
-    Feature('transfer', 'Transfers between stores', ModuleRegistry.Scope.ENTITY, True,
-            'Enquiries between stores and sending stock from one store to another.',
+    Feature('pos_sale', gettext_lazy('Point of sale'), ModuleRegistry.Scope.STORE, True,
+            gettext_lazy('Selling to customers at the till. Switch off for a store that only holds stock, such as a warehouse.')),
+    Feature('receiving_invoice', gettext_lazy('Receiving from suppliers'), ModuleRegistry.Scope.STORE, True,
+            gettext_lazy('Entering supplier invoices. Switch off for a branch that only gets stock from the main store.')),
+    Feature('customer_credit', gettext_lazy('Sales on credit'), ModuleRegistry.Scope.STORE, True,
+            gettext_lazy("Putting sales on a registered customer's account (madeni) and taking their repayments. Set each customer's credit limit under Customers.")),
+    Feature('transfer', gettext_lazy('Transfers between stores'), ModuleRegistry.Scope.ENTITY, True,
+            gettext_lazy('Enquiries between stores and sending stock from one store to another.'),
             multi_store_only=True),
-    Feature('analytics_dashboards', 'Analytics', ModuleRegistry.Scope.ENTITY, True,
-            'The Analytics screen: the data visualizer, saved visualizations and dashboard pins.'),
+    Feature('analytics_dashboards', gettext_lazy('Analytics'), ModuleRegistry.Scope.ENTITY, True,
+            gettext_lazy('The Analytics screen: the data visualizer, saved visualizations and dashboard pins.')),
 ]
 FEATURES_BY_KEY = {f.key: f for f in FEATURES}
 
-SINGLE_STORE_REASON = 'Not available for a single shop. Switch to multiple stores under Admin > Shop profile.'
+SINGLE_STORE_REASON = gettext_lazy('Not available for a single shop. Switch to multiple stores under Admin > Shop profile.')
 
 
 def unavailable_reason(key, entity):
@@ -82,9 +82,14 @@ def require(key, *, entity=None, store=None):
         feature = FEATURES_BY_KEY[key]
         entity_id = store.entity_id if store is not None else getattr(entity, 'id', entity)
         if _blocked_by_single_store(feature, entity_id):
-            raise PermissionDenied(f'{feature.label}: {SINGLE_STORE_REASON}')
-        where = f' at {store.name}' if store is not None and feature.scope == ModuleRegistry.Scope.STORE else ''
-        raise PermissionDenied(f'{feature.label} is switched off{where}. An admin can switch it on under Settings > Features.')
+            raise PermissionDenied(gettext('{label}: {single_store_reason}').format(label=feature.label, single_store_reason=SINGLE_STORE_REASON))
+        if store is not None and feature.scope == ModuleRegistry.Scope.STORE:
+            raise PermissionDenied(gettext(
+                '{label} is switched off at {store}. An admin can switch it on under Settings > Features.',
+            ).format(label=feature.label, store=store.name))
+        raise PermissionDenied(gettext(
+            '{label} is switched off. An admin can switch it on under Settings > Features.',
+        ).format(label=feature.label))
 
 
 class _FeatureGate(BasePermission):

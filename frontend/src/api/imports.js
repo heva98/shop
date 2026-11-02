@@ -1,4 +1,5 @@
 import { client, getToken } from './client.js'
+import { getLanguage } from '../i18n/index.js'
 
 export const listImportKinds = () => client.get('/api/imports/')
 
@@ -15,7 +16,7 @@ export function runImport(kind, { file, store, commit }) {
 export async function downloadImportTemplate(kind) {
   const base = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
   const response = await fetch(`${base.replace(/\/$/, '')}/api/imports/${kind}/template/`, {
-    headers: { Authorization: `Token ${getToken()}` },
+    headers: { Authorization: `Token ${getToken()}`, 'Accept-Language': getLanguage() },
   })
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)

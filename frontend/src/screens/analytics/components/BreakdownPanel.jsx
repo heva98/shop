@@ -5,6 +5,7 @@ import { useApi } from '../../../hooks/useApi.js'
 import { breakdownConfig, breakdownOptions, breakdownQuery } from '../breakdown.js'
 import { formatValue } from '../pivot.js'
 import { apiErrorMessage, makeLabelFor } from '../savedVisualizations.js'
+import { t, useT } from '../../../i18n/index.js'
 
 const ADDITIVE = ['sum', 'count']
 
@@ -17,6 +18,7 @@ const ADDITIVE = ['sum', 'count']
 export default function BreakdownPanel({
   cell, cellSummary, metric, dimensionsById, dimensionLabel, itemLabels, options, onOpenAsTable, onClose,
 }) {
+  useT()
   const choices = useMemo(() => breakdownOptions(metric, cell.filters, dimensionsById), [metric, cell, dimensionsById])
   const [byId, setById] = useState(() => (choices.find((c) => c.id === 'product') ?? choices[0])?.id ?? null)
   const by = choices.find((c) => c.id === byId)
@@ -42,26 +44,26 @@ export default function BreakdownPanel({
   const sum = rows.reduce((s, r) => s + Math.max(r.value, 0), 0)
 
   let body
-  if (!by) body = <p className="viz-empty-row">This number can't be broken down any further.</p>
+  if (!by) body = <p className="viz-empty-row">{t('This number can’t be broken down any further.')}</p>
   else if (result.loading) body = <div className="viz-center"><div className="viz-spinner" /></div>
-  else if (result.error) body = <div style={{ padding: 16 }}><NoticeBox variant="error">{apiErrorMessage(result.error, 'The breakdown could not be loaded.')}</NoticeBox></div>
-  else if (!rows.length) body = <p className="viz-empty-row">Nothing to break down here.</p>
+  else if (result.error) body = <div style={{ padding: 16 }}><NoticeBox variant="error">{apiErrorMessage(result.error, t('The breakdown could not be loaded.'))}</NoticeBox></div>
+  else if (!rows.length) body = <p className="viz-empty-row">{t('Nothing to break down here.')}</p>
   else {
     body = (
       <table className="viz-breakdown">
         <thead>
           <tr>
             <th>{dimensionLabel(by.id)}</th>
-            <th className="num">{metric.label}</th>
+            <th className="num">{t(metric.label)}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
               <td>
-                {r.label}
+                {t(r.label)}
                 {additive && sum > 0 && (
-                  <div className="viz-share" title={`${Math.round((Math.max(r.value, 0) / sum) * 100)}% of the cell`}>
+                  <div className="viz-share" title={t('{n}% of the cell', { n: Math.round((Math.max(r.value, 0) / sum) * 100) })}>
                     <span style={{ width: `${(Math.max(r.value, 0) / sum) * 100}%` }} />
                   </div>
                 )}
@@ -83,7 +85,7 @@ export default function BreakdownPanel({
       <aside className="viz-drawer" role="dialog" aria-modal="true" aria-labelledby="viz-breakdown-title">
         <div className="viz-drawer-head">
           <div style={{ minWidth: 0 }}>
-            <h2 id="viz-breakdown-title">Break this number down</h2>
+            <h2 id="viz-breakdown-title">{t('Break this number down')}</h2>
             <dl className="viz-summary">
               {cellSummary.map(({ label, value }) => (
                 <div key={label} style={{ display: 'contents' }}>
@@ -93,25 +95,25 @@ export default function BreakdownPanel({
               ))}
             </dl>
           </div>
-          <button type="button" className="ds-icon-btn" onClick={onClose} aria-label="Close"><Icon name="cross" size={18} /></button>
+          <button type="button" className="ds-icon-btn" onClick={onClose} aria-label={t('Close')}><Icon name="cross" size={18} /></button>
         </div>
         {choices.length > 0 && (
           <div className="viz-drawer-tools">
             <label style={{ flex: 1 }}>
-              <span className="ds-label">By</span>
+              <span className="ds-label">{t('By')}</span>
               <Select value={byId ?? ''} onChange={(e) => setById(e.target.value)}
-                options={choices.map((c) => ({ value: c.id, label: c.id === 'pe' ? 'Period (one level down)' : dimensionLabel(c.id) }))} />
+                options={choices.map((c) => ({ value: c.id, label: c.id === 'pe' ? t('Period (one level down)') : dimensionLabel(c.id) }))} />
             </label>
             <Button size="small" disabled={!by} onClick={() => onOpenAsTable(breakdownConfig(cell, by, options))}>
-              <Icon name="pivot-table" size={16} /> Open as table
+              <Icon name="pivot-table" size={16} /> {t('Open as table')}
             </Button>
           </div>
         )}
         <div className="viz-drawer-body">{body}</div>
         {rows.length > 0 && (
           <p className="viz-drawer-foot" style={{ margin: 0 }}>
-            {rows.length} {rows.length === 1 ? 'row' : 'rows'}
-            {additive ? ' · shares are of the rows shown' : ''}
+            {t(rows.length === 1 ? '{n} row' : '{n} rows', { n: rows.length })}
+            {additive ? ` · ${t('shares are of the rows shown')}` : ''}
           </p>
         )}
       </aside>

@@ -3,11 +3,12 @@ import { Button, Card, Field, Input, NoticeBox, Radio, Select } from '../compone
 import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { updateEntity, updateEntityLogo } from '../api/core.js'
+import { t, tOptions, useT } from '../i18n/index.js'
 
 /** Flattens a DRF error body ({field: [msg]} / {detail}) into readable lines. */
 function errorLines(err) {
   const body = err?.body
-  if (!body || typeof body !== 'object') return [err?.message || 'Request failed']
+  if (!body || typeof body !== 'object') return [err?.message || t('Request failed')]
   return Object.entries(body).map(([field, msgs]) => {
     const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs)
     return field === 'detail' || field === 'non_field_errors' || field === 'store_mode' ? text : `${field}: ${text}`
@@ -24,6 +25,7 @@ const STORE_MODE_OPTIONS = [
 ]
 
 export default function AdminShopProfile() {
+  useT()
   const auth = useAuth()
   const entity = auth.entity
   const [name, setName] = useState(entity?.name || '')
@@ -56,7 +58,7 @@ export default function AdminShopProfile() {
   function onPickLogo(e) {
     const file = e.target.files?.[0] || null
     if (file && file.size > 2 * 1024 * 1024) {
-      setErrors(['Logo must be 2MB or smaller.'])
+      setErrors([t('Logo must be 2MB or smaller.')])
       return
     }
     setErrors([])
@@ -72,12 +74,12 @@ export default function AdminShopProfile() {
 
   async function save() {
     if (!name.trim()) {
-      setErrors(['Shop name is required.'])
+      setErrors([t('Shop name is required.')])
       return
     }
     const limit = Number(discountLimit)
     if (discountLimit.trim() === '' || Number.isNaN(limit) || limit < 0 || limit > 100) {
-      setErrors(['The cashier discount limit must be a percentage between 0 and 100.'])
+      setErrors([t('The cashier discount limit must be a percentage between 0 and 100.')])
       return
     }
     setErrors([])
@@ -104,7 +106,7 @@ export default function AdminShopProfile() {
   }
 
   if (!entity) {
-    return <NoticeBox variant="info" title="No shop to edit">Sign in as the shop's owner to edit its profile.</NoticeBox>
+    return <NoticeBox variant="info" title={t('No shop to edit')}>{t('Sign in as the shop’s owner to edit its profile.')}</NoticeBox>
   }
 
   const logoToShow = previewUrl || (removeLogo ? null : entity.logo)
@@ -115,72 +117,72 @@ export default function AdminShopProfile() {
   return (
     <div style={{ maxWidth: 560 }}>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px' }}>
-        The shop's name and logo appear in the app header and on printed documents — set once per firm, shared across every store.
+        {t('The shop’s name and logo appear in the app header and on printed documents — set once per firm, shared across every store.')}
       </p>
 
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not save" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not save')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
-      {saved && <NoticeBox variant="valid" title="Shop profile saved" style={{ marginBottom: 12 }} />}
+      {saved && <NoticeBox variant="valid" title={t('Shop profile saved')} style={{ marginBottom: 12 }} />}
 
       <Card>
         <div style={{ marginBottom: 16 }}>
-          <Field label="Shop name" required>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kariakoo General Stores" />
+          <Field label={t('Shop name')} required>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('e.g. Kariakoo General Stores')} />
           </Field>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, marginBottom: 16 }}>
-          <Field label="Type of shop">
-            <Select value={details.business_type} onChange={setDetail('business_type')} options={BUSINESS_TYPE_OPTIONS} />
+          <Field label={t('Type of shop')}>
+            <Select value={details.business_type} onChange={setDetail('business_type')} options={tOptions(BUSINESS_TYPE_OPTIONS)} />
           </Field>
-          <Field label="Phone"><Input value={details.phone} onChange={setDetail('phone')} placeholder="e.g. 0712 345 678" /></Field>
-          <Field label="Email"><Input type="email" value={details.email} onChange={setDetail('email')} /></Field>
-          <Field label="Region"><Input value={details.region} onChange={setDetail('region')} placeholder="e.g. Dar es Salaam" /></Field>
-          <Field label="District"><Input value={details.district} onChange={setDetail('district')} placeholder="e.g. Kinondoni" /></Field>
-          <Field label="Street / area"><Input value={details.address} onChange={setDetail('address')} placeholder="e.g. Sinza, near the market" /></Field>
+          <Field label={t('Phone')}><Input value={details.phone} onChange={setDetail('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
+          <Field label={t('Email')}><Input type="email" value={details.email} onChange={setDetail('email')} /></Field>
+          <Field label={t('Region')}><Input value={details.region} onChange={setDetail('region')} placeholder={t('e.g. Dar es Salaam')} /></Field>
+          <Field label={t('District')}><Input value={details.district} onChange={setDetail('district')} placeholder={t('e.g. Kinondoni')} /></Field>
+          <Field label={t('Street / area')}><Input value={details.address} onChange={setDetail('address')} placeholder={t('e.g. Sinza, near the market')} /></Field>
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <Field label="Cashier discount limit (%)">
+          <Field label={t('Cashier discount limit (%)')}>
             <Input type="number" value={discountLimit} onChange={(e) => setDiscountLimit(e.target.value)} style={{ width: 140 }} />
           </Field>
           <div style={{ fontSize: 12, color: 'var(--fg-subtle)', marginTop: 4 }}>
-            The largest discount a cashier may give on a sale. Above it, a manager approves at the till. Managers may give any discount.
+            {t('The largest discount a cashier may give on a sale. Above it, a manager approves at the till. Managers may give any discount.')}
           </div>
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-default)', marginBottom: 8 }}>Store setup</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-default)', marginBottom: 8 }}>{t('Store setup')}</div>
           {STORE_MODE_OPTIONS.map((o) => (
             <div key={o.value} style={{ marginBottom: 8 }}>
-              <Radio checked={storeMode === o.value} onChange={() => setStoreMode(o.value)} label={o.label} />
-              <div style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '2px 0 0 26px' }}>{o.hint}</div>
+              <Radio checked={storeMode === o.value} onChange={() => setStoreMode(o.value)} label={t(o.label)} />
+              <div style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '2px 0 0 26px' }}>{t(o.hint)}</div>
             </div>
           ))}
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-default)', marginBottom: 8 }}>Logo</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-default)', marginBottom: 8 }}>{t('Logo')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{
               width: 64, height: 64, borderRadius: 'var(--radius-md)', border: '1px solid var(--grey-400)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: 'var(--grey-050)',
             }}>
               {logoToShow
-                ? <img src={logoToShow} alt="Shop logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                : <span style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>No logo</span>}
+                ? <img src={logoToShow} alt={t('Shop logo')} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                : <span style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>{t('No logo')}</span>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={onPickLogo} style={{ fontSize: 13 }} />
-              {logoToShow && <Button size="small" onClick={onRemoveLogo}>Remove logo</Button>}
+              {logoToShow && <Button size="small" onClick={onRemoveLogo}>{t('Remove logo')}</Button>}
             </div>
           </div>
         </div>
 
-        <Button variant="primary" onClick={save} disabled={saving || unchanged}>{saving ? 'Saving…' : 'Save changes'}</Button>
+        <Button variant="primary" onClick={save} disabled={saving || unchanged}>{saving ? t('Saving…') : t('Save changes')}</Button>
       </Card>
     </div>
   )

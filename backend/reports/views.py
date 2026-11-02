@@ -15,6 +15,7 @@ from decimal import Decimal
 from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -50,10 +51,10 @@ def _stores(request):
         try:
             uuid.UUID(store_id)
         except ValueError:
-            raise ValidationError({'store': 'Not a valid store id.'})
+            raise ValidationError({'store': gettext('Not a valid store id.')})
         qs = qs.filter(id=store_id)
         if not qs.exists():
-            raise PermissionDenied('You do not have access to this store.')
+            raise PermissionDenied(gettext('You do not have access to this store.'))
     return qs
 
 
@@ -63,9 +64,9 @@ def _date_range(request):
         start = date.fromisoformat(request.query_params.get('start') or today.isoformat())
         end = date.fromisoformat(request.query_params.get('end') or today.isoformat())
     except ValueError:
-        raise ValidationError('Dates must be YYYY-MM-DD.')
+        raise ValidationError(gettext('Dates must be YYYY-MM-DD.'))
     if end < start:
-        raise ValidationError('End date is before start date.')
+        raise ValidationError(gettext('End date is before start date.'))
     return start, end
 
 
@@ -253,7 +254,7 @@ def sales_trend(request):
     try:
         days = min(max(int(request.query_params.get('days', 30)), 1), 366)
     except ValueError:
-        raise ValidationError({'days': 'Must be a number.'})
+        raise ValidationError({'days': gettext('Must be a number.')})
     end = timezone.localdate()
     start = end - timedelta(days=days - 1)
     rows = (
@@ -342,7 +343,7 @@ def expiry(request):
     try:
         days = min(max(int(request.query_params.get('days', 90)), 0), 730)
     except ValueError:
-        raise ValidationError({'days': 'Must be a number.'})
+        raise ValidationError({'days': gettext('Must be a number.')})
     batches = (
         StockBatch.objects.filter(store__in=stores, qty_on_hand__gt=0, expiry_date__lte=today + timedelta(days=days))
         .select_related('store', 'product').order_by('expiry_date')
@@ -435,7 +436,7 @@ def losses(request):
             'date': e.created_at, 'store': e.store.name, 'product': e.batch.product.name,
             'batch_no': e.batch.batch_no, 'reason': labels.get(e.ledger_type, e.ledger_type),
             'qty': e.qty_delta, 'unit': e.batch.product.uom.name, 'value': value,
-            'note': adj.note if adj else ('Lost in transit between stores' if e.ref_type == 'transfer' else ''),
+            'note': adj.note if adj else (gettext('Lost in transit between stores') if e.ref_type == 'transfer' else ''),
             'by': (adj.created_by.get_full_name() or adj.created_by.username) if adj else '',
         })
         reason = by_reason.setdefault(e.ledger_type, {'reason': labels.get(e.ledger_type), 'count': 0, 'value': _ZERO})

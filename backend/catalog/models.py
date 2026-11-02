@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.translation import gettext, gettext_lazy
 
 from core.models import Entity
 
@@ -59,7 +60,7 @@ def convert_qty(qty, from_uom, to_uom):
     rounded = converted.quantize(Decimal('0.01'))
     if abs(converted - rounded) > Decimal('0.000001'):
         raise UnitConversionError(
-            f'{qty} {from_uom.name} is not a whole number of {to_uom.name} ({converted:.4f}).',
+            gettext('{qty} {name} is not a whole number of {name2} ({converted:.4f}).').format(qty=qty, name=from_uom.name, name2=to_uom.name, converted=converted),
         )
     return rounded
 
@@ -70,9 +71,9 @@ class Product(models.Model):
     inventory.StoreProduct — this table is never store-scoped."""
 
     class VatClass(models.TextChoices):
-        EXEMPT = 'exempt', 'Exempt'
-        ZERO_RATED = 'zero_rated', 'Zero-rated'
-        STANDARD = 'standard', 'Standard'
+        EXEMPT = 'exempt', gettext_lazy('Exempt')
+        ZERO_RATED = 'zero_rated', gettext_lazy('Zero-rated')
+        STANDARD = 'standard', gettext_lazy('Standard')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name='products')
@@ -111,6 +112,6 @@ class Product(models.Model):
 
     def clean(self):
         if self.category_id and self.category.entity_id != self.entity_id:
-            raise ValidationError({'category': 'Category must belong to the same entity as the product.'})
+            raise ValidationError({'category': gettext('Category must belong to the same entity as the product.')})
         if self.uom_id and self.uom.entity_id != self.entity_id:
-            raise ValidationError({'uom': 'Unit of measure must belong to the same entity as the product.'})
+            raise ValidationError({'uom': gettext('Unit of measure must belong to the same entity as the product.')})

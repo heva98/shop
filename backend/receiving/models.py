@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from catalog.models import Product, UnitOfMeasure, convert_qty
 from core.models import Entity, Store
@@ -35,8 +36,8 @@ class ReceivingInvoice(models.Model):
     receiving posts stock to the ledger and locks the invoice."""
 
     class Status(models.TextChoices):
-        DRAFT = 'draft', 'Draft'
-        RECEIVED = 'received', 'Received'
+        DRAFT = 'draft', gettext_lazy('Draft')
+        RECEIVED = 'received', gettext_lazy('Received')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='receiving_invoices')
@@ -68,10 +69,10 @@ class ReceivingInvoice(models.Model):
             return
         lines = list(self.lines.select_related('product__uom', 'uom'))
         if not lines:
-            raise StockError('Add at least one line before receiving the invoice.')
+            raise StockError(gettext('Add at least one line before receiving the invoice.'))
         missing = [line.product.name for line in lines if line.product.tracks_expiry and not line.expiry_date]
         if missing:
-            raise StockError(f'These goods expire, so the expiry date is required for: {", ".join(missing)}.')
+            raise StockError(gettext('These goods expire, so the expiry date is required for: {join}.').format(join=", ".join(missing)))
         for line in lines:
             # The invoice is in the supplier's unit (e.g. Crate of 24); stock
             # and cost are held in the product's own unit (e.g. Bottle).
@@ -118,11 +119,11 @@ class ReceivingInvoice(models.Model):
     def record_payment(self, *, amount, paid_on, method, reference, user):
         locked = ReceivingInvoice.objects.select_for_update().get(pk=self.pk)
         if locked.status != self.Status.RECEIVED:
-            raise StockError('Receive the invoice before recording a payment against it.')
+            raise StockError(gettext('Receive the invoice before recording a payment against it.'))
         if amount <= 0:
-            raise StockError('Payment amount must be above zero.')
+            raise StockError(gettext('Payment amount must be above zero.'))
         if amount > locked.balance:
-            raise StockError(f'That is more than the {locked.balance:,.0f} still owed on this invoice.')
+            raise StockError(gettext('That is more than the {balance:,.0f} still owed on this invoice.').format(balance=locked.balance))
         return SupplierPayment.objects.create(
             invoice=locked, amount=amount, paid_on=paid_on, method=method, reference=reference, recorded_by=user,
         )
@@ -149,10 +150,10 @@ class SupplierPayment(models.Model):
     (see the Supplier balances report)."""
 
     class Method(models.TextChoices):
-        CASH = 'cash', 'Cash'
-        BANK = 'bank', 'Bank transfer'
-        MOBILE_MONEY = 'mobile_money', 'Mobile money'
-        CHEQUE = 'cheque', 'Cheque'
+        CASH = 'cash', gettext_lazy('Cash')
+        BANK = 'bank', gettext_lazy('Bank transfer')
+        MOBILE_MONEY = 'mobile_money', gettext_lazy('Mobile money')
+        CHEQUE = 'cheque', gettext_lazy('Cheque')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     invoice = models.ForeignKey(ReceivingInvoice, on_delete=models.PROTECT, related_name='payments')

@@ -5,13 +5,15 @@ import {
   AXES, AXIS_LABELS, FIXED_PERIOD_TYPES, MONTHS, fixedPeriods, flattenTree, periodLabel, placementError,
 } from '../visualizationConfig.js'
 import TransferList from './TransferList.jsx'
+import { t, useT } from '../../../i18n/index.js'
 
 function DataHeader({ groups, group, onGroup }) {
+  useT()
   if (groups.length < 2) return null
   return (
     <div className="viz-search">
-      <Select value={group} onChange={(e) => onGroup(e.target.value)} aria-label="Data group"
-        options={[{ value: '', label: 'All groups' }, ...groups.map((g) => ({ value: g.id, label: g.label }))]} />
+      <Select value={group} onChange={(e) => onGroup(e.target.value)} aria-label={t('Data group')}
+        options={[{ value: '', label: t('All groups') }, ...groups.map((g) => ({ value: g.id, label: t(g.label) }))]} />
     </div>
   )
 }
@@ -20,6 +22,7 @@ const THIS_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 10 }, (_, i) => THIS_YEAR - i)
 
 function PeriodSelector({ dim, draft, setDraft }) {
+  useT()
   const [tab, setTab] = useState('relative')
   const [periodType, setPeriodType] = useState('MONTH')
   const [year, setYear] = useState(THIS_YEAR)
@@ -34,17 +37,17 @@ function PeriodSelector({ dim, draft, setDraft }) {
   const header = (
     <>
       <div className="ds-chip-row" style={{ marginBottom: 10 }}>
-        <Chip dense selected={tab === 'relative'} onClick={() => setTab('relative')}>Relative periods</Chip>
-        <Chip dense selected={tab === 'fixed'} onClick={() => setTab('fixed')}>Fixed periods</Chip>
+        <Chip dense selected={tab === 'relative'} onClick={() => setTab('relative')}>{t('Relative periods')}</Chip>
+        <Chip dense selected={tab === 'fixed'} onClick={() => setTab('fixed')}>{t('Fixed periods')}</Chip>
       </div>
       {tab === 'fixed' && (
         <div className="viz-row2" style={periodType === 'DAY' ? { gridTemplateColumns: '1fr 1fr 1fr' } : undefined}>
-          <Select value={periodType} onChange={(e) => setPeriodType(e.target.value)} aria-label="Period type"
+          <Select value={periodType} onChange={(e) => setPeriodType(e.target.value)} aria-label={t('Period type')}
             options={FIXED_PERIOD_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
-          <Select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year" options={YEARS} />
+          <Select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label={t('Year')} options={YEARS} />
           {periodType === 'DAY' && (
-            <Select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month"
-              options={MONTHS.map((m, i) => ({ value: i + 1, label: m }))} />
+            <Select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label={t('Month')}
+              options={MONTHS.map((m, i) => ({ value: i + 1, label: t(m) }))} />
           )}
         </div>
       )}
@@ -91,6 +94,7 @@ function useItemSearch(dim, selected) {
 export default function DimensionModal({
   dim, title, groups, selected, axis, axisNames = AXIS_LABELS, labelFor, onApply, onAddTo, onClose,
 }) {
+  useT()
   const [draft, setDraft] = useState(selected)
   const [group, setGroup] = useState('')
   const search = useItemSearch(dim, selected)
@@ -124,23 +128,23 @@ export default function DimensionModal({
         onChange={setDraft}
         labelFor={(id) => labels[id] ?? labelFor(dim.id, id)}
         onSearch={dim.lazy ? search.setText : undefined}
-        searchPlaceholder={dim.lazy ? `Search ${dim.label.toLowerCase()}s` : 'Search'}
-        emptyText={dim.lazy && search.loading ? 'Searching…' : dim.lazy && search.error ? 'Could not search. Try again.' : 'No items.'}
+        searchPlaceholder={t('Search')}
+        emptyText={dim.lazy && search.loading ? t('Searching…') : dim.lazy && search.error ? t('Could not search. Try again.') : t('No items.')}
       />
     )
   }
 
   const hint = dim.kind === 'dynamic' && !dim.filter_only
-    ? 'Leave empty to show every item when this dimension is in Columns or Rows.'
-    : dim.kind === 'data' ? 'Hover an item to see how it is calculated.' : null
+    ? t('Leave empty to show every item when this dimension is in Columns or Rows.')
+    : dim.kind === 'data' ? t('Hover an item to see how it is calculated.') : null
 
   const footer = (
     <>
-      <Button onClick={onClose}>Cancel</Button>
+      <Button onClick={onClose}>{t('Cancel')}</Button>
       {axis ? (
         <>
-          <Button variant="secondary" onClick={() => onApply(draft, false)}>Keep selection</Button>
-          <Button variant="primary" onClick={() => onApply(draft, true)}>Update</Button>
+          <Button variant="secondary" onClick={() => onApply(draft, false)}>{t('Keep selection')}</Button>
+          <Button variant="primary" onClick={() => onApply(draft, true)}>{t('Update')}</Button>
         </>
       ) : (
         AXES.filter((a) => !placementError(dim, a)).map((a) => (

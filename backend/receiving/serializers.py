@@ -1,3 +1,4 @@
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned, validate_owned_entity
@@ -35,10 +36,10 @@ class ReceivingInvoiceLineSerializer(ClientGeneratedIdMixin, serializers.ModelSe
         return invoice
 
     def validate_product(self, product):
-        return validate_owned(product, self.context.get('request'), 'Unknown product.')
+        return validate_owned(product, self.context.get('request'), gettext('Unknown product.'))
 
     def validate_uom(self, uom):
-        return validate_owned(uom, self.context.get('request'), 'Unknown unit of measure.')
+        return validate_owned(uom, self.context.get('request'), gettext('Unknown unit of measure.'))
 
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):
@@ -77,9 +78,9 @@ class ReceivingInvoiceSerializer(ClientGeneratedIdMixin, serializers.ModelSerial
         store = attrs.get('store', getattr(self.instance, 'store', None))
         supplier = attrs.get('supplier', getattr(self.instance, 'supplier', None))
         if store and supplier and supplier.entity_id != store.entity_id:
-            raise serializers.ValidationError({'supplier': 'Supplier must belong to the invoice\'s entity.'})
+            raise serializers.ValidationError({'supplier': gettext("Supplier must belong to the invoice's entity.")})
         if self.instance is not None and self.instance.status == ReceivingInvoice.Status.RECEIVED:
-            raise serializers.ValidationError('A received invoice can no longer be changed.')
+            raise serializers.ValidationError(gettext('A received invoice can no longer be changed.'))
         return attrs
 
     def create(self, validated_data):

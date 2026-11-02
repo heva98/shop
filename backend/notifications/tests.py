@@ -95,6 +95,15 @@ class DailySummaryTests(TestCase):
             call_command('send_daily_summaries', stdout=StringIO())
         return urlopen
 
+    def test_summaries_use_the_recipients_language(self):
+        self.manager.language = 'sw'
+        self.manager.save()
+        urlopen = self.run_command()
+        self.assertIn('Mauzo: TZS 2,000 kutoka mauzo 1', mail.outbox[0].body)
+        self.assertIn('Fedha taslimu: TZS 2,000', mail.outbox[0].body)
+        self.assertIn('mwisho wa siku', mail.outbox[0].subject)
+        self.assertIn('Mauzo TZS 2,000 (1)', json.loads(urlopen.call_args[0][0].data)['message'])
+
     def test_managers_get_sms_and_email_cashiers_do_not(self):
         urlopen = self.run_command()
         self.assertEqual(len(mail.outbox), 1)

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Icon, Menu, MenuItem } from '../../../components/ds/index.js'
 import { AXES, DIM_MIME, axisLabels, placementError } from '../visualizationConfig.js'
+import { t, useT } from '../../../i18n/index.js'
 
 function Chip({ dimId, axis, axisNames, index, label, count, emptyWarning, menuOpen, onMenu, onOpen, onDropAt, onMove, onRemove, canMoveTo }) {
+  useT()
   return (
     <div
       draggable
@@ -20,12 +22,12 @@ function Chip({ dimId, axis, axisNames, index, label, count, emptyWarning, menuO
       className={`viz-chip ${axis}${emptyWarning ? ' empty' : ''}`}
     >
       <button type="button" className="viz-chip-main" onClick={() => onOpen(dimId)}
-        title={emptyWarning ? 'Nothing selected' : `${label}: ${count || 'all'} selected`}>
+        title={emptyWarning ? t('Nothing selected') : `${label}: ${t('{n} selected', { n: count || t('all') })}`}>
         {label}
-        <span className="viz-chip-count">{count > 0 ? count : emptyWarning ? '0' : 'all'}</span>
+        <span className="viz-chip-count">{count > 0 ? count : emptyWarning ? '0' : t('all')}</span>
       </button>
       <button type="button" className="viz-chip-more" onClick={() => onMenu(menuOpen ? null : dimId)}
-        aria-label={`${label} options`} aria-haspopup="menu" aria-expanded={menuOpen}>
+        aria-label={t('{name} options', { name: label })} aria-haspopup="menu" aria-expanded={menuOpen}>
         <Icon name="more" size={14} />
       </button>
       {menuOpen && (
@@ -34,9 +36,9 @@ function Chip({ dimId, axis, axisNames, index, label, count, emptyWarning, menuO
           <div className="viz-popover">
             <Menu>
               {AXES.filter((a) => a !== axis && canMoveTo(a)).map((a) => (
-                <MenuItem key={a} label={`Move to ${axisNames[a]}`} onClick={() => onMove(dimId, a)} />
+                <MenuItem key={a} label={t('Move to {axis}', { axis: axisNames[a] })} onClick={() => onMove(dimId, a)} />
               ))}
-              <MenuItem label="Remove" destructive onClick={() => onRemove(dimId)} />
+              <MenuItem label={t('Remove')} destructive onClick={() => onRemove(dimId)} />
             </Menu>
           </div>
         </>
@@ -51,6 +53,7 @@ function Chip({ dimId, axis, axisNames, index, label, count, emptyWarning, menuO
  * screens, where HTML drag and drop isn't available.
  */
 export default function LayoutArea({ config, dimensionsById, dimensionLabel, onOpen, onPlace, onRemove }) {
+  useT()
   const [menu, setMenu] = useState(null)
   const [over, setOver] = useState(null)
   const axisNames = axisLabels(config.type)
@@ -78,7 +81,7 @@ export default function LayoutArea({ config, dimensionsById, dimensionLabel, onO
         >
           <span className="viz-zone-label">{axisNames[axis]}</span>
           <div className="viz-zone-chips">
-            {config[axis].length === 0 && <span className="viz-zone-empty">Drop a dimension here</span>}
+            {config[axis].length === 0 && <span className="viz-zone-empty">{t('Drop a dimension here')}</span>}
             {config[axis].map((dimId, index) => {
               const count = config.items[dimId]?.length ?? 0
               const required = ['dx', 'pe'].includes(dimId) || (dimId === 'ou' && axis !== 'filters')

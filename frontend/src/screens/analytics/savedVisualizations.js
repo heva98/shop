@@ -1,10 +1,11 @@
 // Helpers shared by the Data Visualizer and the dashboard widgets that draw a
 // saved visualization.
 import { flattenTree, periodLabel, TOTAL } from './visualizationConfig.js'
+import { t } from '../../i18n/index.js'
 
 function listJoin(words) {
   if (words.length <= 1) return words.join('')
-  return `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+  return `${words.slice(0, -1).join(', ')} ${t('and')} ${words.at(-1)}`
 }
 
 /**
@@ -17,10 +18,11 @@ export function unavailableMessage(unavailable) {
   const disabled = unavailable.filter((u) => u.reason === 'feature_disabled')
   if (disabled.length) {
     const features = [...new Set(disabled.flatMap((u) => u.features))]
-    return `It uses ${listJoin(disabled.map((u) => u.label))}, which needs ${listJoin(features)}: `
-      + 'switched off for this shop under Settings > Features.'
+    return t('It uses {items}, which needs {features}: switched off for this shop under Settings > Features.', {
+      items: listJoin(disabled.map((u) => t(u.label))), features: listJoin(features.map((f) => t(f))),
+    })
   }
-  return `It uses data that is no longer available: ${listJoin(unavailable.map((u) => u.label))}.`
+  return t('It uses data that is no longer available: {items}.', { items: listJoin(unavailable.map((u) => t(u.label))) })
 }
 
 // Catalogue item labels per dimension, the fallback for an item a query
@@ -39,11 +41,11 @@ export function catalogueItemLabels(dimensions) {
 // up for products and customers).
 export function makeLabelFor(itemLabels, response, extra = {}) {
   return (dimId, itemId) => {
-    if (itemId === TOTAL) return 'Total'
+    if (itemId === TOTAL) return t('Total')
     const name = response?.metaData?.items?.[dimId]?.items?.[itemId]?.name
-    if (name) return name
-    if (dimId === 'pe') return itemLabels.pe?.[itemId] ?? periodLabel(itemId)
-    return itemLabels[dimId]?.[itemId] ?? extra[dimId]?.[itemId] ?? (itemId || '(blank)')
+    if (name) return t(name)
+    if (dimId === 'pe') return t(itemLabels.pe?.[itemId]) ?? periodLabel(itemId)
+    return t(itemLabels[dimId]?.[itemId]) ?? extra[dimId]?.[itemId] ?? (itemId || t('(blank)'))
   }
 }
 
@@ -53,7 +55,7 @@ export function apiErrorMessage(err, fallback) {
   if (typeof body?.detail === 'string') return body.detail
   const field = body && ['name', 'config', 'description', 'shared'].map((k) => body[k]).find(Boolean)
   if (field) return Array.isArray(field) ? field.join(' ') : String(field)
-  if (err?.status === 403) return 'You do not have access to this data.'
-  if (err && !err.status) return 'The server could not be reached. Check the connection and try again.'
-  return fallback
+  if (err?.status === 403) return t('You do not have access to this data.')
+  if (err && !err.status) return t('The server could not be reached. Check the connection and try again.')
+  return t(fallback)
 }

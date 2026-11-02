@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, Field, Input, NoticeBox, Select } from '../components/ds/index.js'
 import { client } from '../api/client.js'
 import { apiErrorText } from '../lib/apiError.js'
+import { useT } from '../i18n/index.js'
 
 const ACTIONS = [
   ['', 'All activity'],
@@ -23,10 +24,12 @@ const ACTIONS = [
   ['credit_payment_voided', 'Customer credit payment voided'], ['discount_given', 'Discount over the cashier limit'],
   ['promotion_changed', 'Promotion added or changed'],
 ]
+const ACTION_LABEL = Object.fromEntries(ACTIONS)
 const ALERT_ACTIONS = new Set(['login_failed', 'login_locked', 'sale_voided', 'stock_written_off', 'user_disabled', 'password_reset', 'transfer_resolved', 'transfer_cancelled'])
 
 /** Who did what, and when. Nothing here can be edited or deleted. */
 export default function ActivityLog() {
+  const t = useT()
   const [filters, setFilters] = useState({ action: '', search: '', start: '', end: '' })
   const [events, setEvents] = useState([])
   const [next, setNext] = useState(null)
@@ -48,7 +51,7 @@ export default function ActivityLog() {
       setEvents((prev) => (url ? [...prev, ...page.results] : page.results))
       setNext(page.next)
     } catch (err) {
-      setError(apiErrorText(err, 'Could not load the activity log.'))
+      setError(apiErrorText(err, t('Could not load the activity log.')))
     } finally { setLoading(false) }
   }
   // Reload whenever a filter changes; the text search waits for a pause in typing.
@@ -62,36 +65,35 @@ export default function ActivityLog() {
   return (
     <div>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px', maxWidth: 640 }}>
-        Every sign-in, price change, void, write-off, stock count approval, staff change and import, with who did it and when.
-        Entries can&apos;t be edited or deleted.
+        {t('Every sign-in, price change, void, write-off, stock count approval, staff change and import, with who did it and when. Entries can’t be edited or deleted.')}
       </p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
-        <Field label="Activity"><Select value={filters.action} onChange={set('action')} options={ACTIONS.map(([value, label]) => ({ value, label }))} style={{ width: 220 }} /></Field>
-        <Field label="User or text"><Input value={filters.search} onChange={set('search')} placeholder="e.g. juma or Sugar" style={{ width: 200 }} /></Field>
-        <Field label="From"><Input type="date" value={filters.start} onChange={set('start')} style={{ width: 160 }} /></Field>
-        <Field label="To"><Input type="date" value={filters.end} onChange={set('end')} style={{ width: 160 }} /></Field>
+        <Field label={t('Activity')}><Select value={filters.action} onChange={set('action')} options={ACTIONS.map(([value, label]) => ({ value, label: t(label) }))} style={{ width: 220 }} /></Field>
+        <Field label={t('User or text')}><Input value={filters.search} onChange={set('search')} placeholder={t('e.g. juma or Sugar')} style={{ width: 200 }} /></Field>
+        <Field label={t('From')}><Input type="date" value={filters.start} onChange={set('start')} style={{ width: 160 }} /></Field>
+        <Field label={t('To')}><Input type="date" value={filters.end} onChange={set('end')} style={{ width: 160 }} /></Field>
       </div>
       {error && <NoticeBox variant="error" style={{ marginBottom: 12 }}>{error}</NoticeBox>}
       <div className="ds-table-card">
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
           <thead>
-            <tr>{['When', 'Who', 'What', 'Details', 'Store'].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+            <tr>{['When', 'Who', 'What', 'Details', 'Store'].map((h) => <th key={h} style={th}>{t(h)}</th>)}</tr>
           </thead>
           <tbody>
             {events.map((e) => (
               <tr key={e.id}>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>{new Date(e.created_at).toLocaleString()}</td>
                 <td style={td}>{e.username || '—'}</td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: ALERT_ACTIONS.has(e.action) ? 'var(--status-error)' : undefined }}>{e.action_label}</td>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: ALERT_ACTIONS.has(e.action) ? 'var(--status-error)' : undefined }}>{ACTION_LABEL[e.action] ? t(ACTION_LABEL[e.action]) : e.action_label}</td>
                 <td style={td}>{e.summary}</td>
                 <td style={td}>{e.store_name || '—'}</td>
               </tr>
             ))}
-            {!loading && events.length === 0 && <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--fg-subtle)' }}>Nothing matches.</td></tr>}
+            {!loading && events.length === 0 && <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--fg-subtle)' }}>{t('Nothing matches.')}</td></tr>}
           </tbody>
         </table>
       </div>
-      {next && <Button onClick={() => load(next)} disabled={loading} style={{ marginTop: 12 }}>{loading ? 'Loading…' : 'Load more'}</Button>}
+      {next && <Button onClick={() => load(next)} disabled={loading} style={{ marginTop: 12 }}>{loading ? t('Loading…') : t('Load more')}</Button>}
     </div>
   )
 }

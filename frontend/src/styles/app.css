@@ -47,6 +47,14 @@ th.sortable{cursor:default}
 .ds-online .dot{width:8px;height:8px;border-radius:50%;background:var(--success-dot)}
 .ds-online.offline{background:var(--danger-bg);color:#A82020;white-space:normal;line-height:16px;height:auto;min-height:30px;padding:6px 12px}
 .ds-online.offline .dot{background:var(--danger)}
+/* Language toggle (components/ds/LanguageSwitch.jsx) */
+.ds-lang{display:inline-flex;flex:0 0 auto;padding:3px;gap:2px;border-radius:var(--radius-pill);background:var(--surface-input)}
+.ds-lang button{min-width:40px;height:30px;padding:0 10px;border:0;border-radius:var(--radius-pill);background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
+.ds-lang button[aria-pressed="true"]{background:var(--blue-600);color:#fff}
+.ds-lang.dark{background:rgba(255,255,255,.14)}
+.ds-lang.dark button{color:#fff}
+.ds-lang.dark button[aria-pressed="true"]{background:#fff;color:var(--navy-800)}
+.signin-lang{display:flex;justify-content:flex-end;margin:0 0 12px}
 .ds-avatar{width:44px;height:44px;border:0;border-radius:50%;background:var(--navy-800);color:#fff;font:inherit;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer}
 
 @media (max-width:860px){

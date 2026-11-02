@@ -6,6 +6,7 @@ import {
   createStoreRole, createUser, deleteStoreRole, listAllStoreRoles, listAllStores, listAllUsers, updateUser,
 } from '../api/core.js'
 import { GENDER_OPTIONS, ROLE_LABEL } from '../appData.js'
+import { t, tOptions, useT } from '../i18n/index.js'
 
 // Owners (entity_admin) are appointed by the platform administrator, not
 // here. Anyone, an owner included, may hold any number of these, at one
@@ -38,14 +39,15 @@ function td(color) {
 /** Flattens a DRF error body ({field: [msg]} / {detail}) into readable lines. */
 function errorLines(err) {
   const body = err?.body
-  if (!body || typeof body !== 'object') return [err?.message || 'Request failed']
+  if (!body || typeof body !== 'object') return [err?.message || t('Request failed')]
   return Object.entries(body).map(([field, msgs]) => {
     const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs)
-    return field === 'detail' || field === 'non_field_errors' ? text : `${REQUIRED[field] || field}: ${text}`
+    return field === 'detail' || field === 'non_field_errors' ? text : `${REQUIRED[field] ? t(REQUIRED[field]) : field}: ${text}`
   })
 }
 
 export default function AdminUsers() {
+  useT()
   const auth = useAuth()
   const { data: users, loading, error: loadError, refetch: refetchUsers } = useApi(() => listAllUsers(), [])
   const { data: storeRoles, refetch: refetchRoles } = useApi(() => listAllStoreRoles(), [])
@@ -90,7 +92,7 @@ export default function AdminUsers() {
         role: sr.role,
         store: sr.store,
         label: ROLE_LABEL[sr.role] || sr.role,
-        scope: sr.store ? storeName[sr.store] ?? '—' : 'All stores',
+        scope: sr.store ? storeName[sr.store] ?? '—' : null,
       })),
     }))
   }, [users, storeRoles, stores])
@@ -125,13 +127,13 @@ export default function AdminUsers() {
 
   async function toggleActive(row) {
     const disabling = row.is_active
-    if (disabling && !window.confirm(`Disable ${row.fullName}? They will no longer be able to sign in.`)) return
+    if (disabling && !window.confirm(t('Disable {name}? They will no longer be able to sign in.', { name: row.fullName }))) return
     setBusyUserId(row.id)
     setErrors([])
     setNotice(null)
     try {
       await updateUser(row.id, { is_active: !disabling })
-      setNotice(`${row.fullName} ${disabling ? 'disabled' : 'enabled'}.`)
+      setNotice(t(disabling ? '{name} disabled.' : '{name} enabled.', { name: row.fullName }))
       refetchUsers()
     } catch (err) {
       setErrors(errorLines(err))
@@ -156,9 +158,9 @@ export default function AdminUsers() {
 
   async function submit() {
     const required = editing ? Object.entries(REQUIRED).filter(([f]) => f !== 'password') : Object.entries(REQUIRED)
-    const problems = required.filter(([f]) => !String(draft[f] ?? '').trim()).map(([, label]) => `${label} is required.`)
-    if (draft.password && draft.password !== draft.confirmPassword) problems.push('Passwords do not match.')
-    if (!editingOwner && draft.assignments.size === 0) problems.push('Give the user at least one role.')
+    const problems = required.filter(([f]) => !String(draft[f] ?? '').trim()).map(([, label]) => t('{field} is required.', { field: t(label) }))
+    if (draft.password && draft.password !== draft.confirmPassword) problems.push(t('Passwords do not match.'))
+    if (!editingOwner && draft.assignments.size === 0) problems.push(t('Give the user at least one role.'))
     setErrors(problems)
     setNotice(null)
     if (problems.length) return
@@ -171,9 +173,9 @@ export default function AdminUsers() {
       try {
         await syncRoles(user.id, editing ? editing.roles : [])
       } catch (err) {
-        setErrors([`User "${user.username}" was saved, but updating their roles failed:`, ...errorLines(err)])
+        setErrors([t('User “{name}” was saved, but updating their roles failed:', { name: user.username }), ...errorLines(err)])
       }
-      setNotice(editing ? `User "${user.username}" updated.` : `User "${user.username}" created.`)
+      setNotice(t(editing ? 'User “{name}” updated.' : 'User “{name}” created.', { name: user.username }))
       closeForm()
       refetchUsers()
       refetchRoles()
@@ -190,11 +192,11 @@ export default function AdminUsers() {
     <>
       {!showForm && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="primary" onClick={openCreate}><Icon name="add" size={16} /> Add user</Button>
+          <Button variant="primary" onClick={openCreate}><Icon name="add" size={16} /> {t('Add user')}</Button>
         </div>
       )}
       {errors.length > 0 && (
-        <NoticeBox variant="error" title="Could not save user" style={{ marginBottom: 12 }}>
+        <NoticeBox variant="error" title={t('Could not save user')} style={{ marginBottom: 12 }}>
           {errors.map((e) => <div key={e}>{e}</div>)}
         </NoticeBox>
       )}
@@ -203,57 +205,58 @@ export default function AdminUsers() {
         <div style={{ marginBottom: 16 }}>
           <Card>
             <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 12px' }}>
-              {editing ? `Edit user — ${editing.fullName}` : 'Create user'}
+              {editing ? `${t('Edit user')} — ${editing.fullName}` : t('Create user')}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 12 }}>
-              <Field label="First name" required><Input value={draft.first_name} onChange={set('first_name')} /></Field>
-              <Field label="Middle name"><Input value={draft.middle_name} onChange={set('middle_name')} /></Field>
-              <Field label="Last name" required><Input value={draft.last_name} onChange={set('last_name')} /></Field>
-              <Field label="Gender" required><Select value={draft.gender} onChange={set('gender')} options={GENDER_OPTIONS} /></Field>
-              <Field label="Date of birth" required><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
-              <Field label="Email"><Input type="email" value={draft.email} onChange={set('email')} /></Field>
-              <Field label="Mobile number"><Input value={draft.phone} onChange={set('phone')} placeholder="e.g. 0712 345 678" /></Field>
+              <Field label={t('First name')} required><Input value={draft.first_name} onChange={set('first_name')} /></Field>
+              <Field label={t('Middle name')}><Input value={draft.middle_name} onChange={set('middle_name')} /></Field>
+              <Field label={t('Last name')} required><Input value={draft.last_name} onChange={set('last_name')} /></Field>
+              <Field label={t('Gender')} required><Select value={draft.gender} onChange={set('gender')} options={tOptions(GENDER_OPTIONS)} /></Field>
+              <Field label={t('Date of birth')} required><Input type="date" value={draft.date_of_birth} onChange={set('date_of_birth')} /></Field>
+              <Field label={t('Email')}><Input type="email" value={draft.email} onChange={set('email')} /></Field>
+              <Field label={t('Mobile number')}><Input value={draft.phone} onChange={set('phone')} placeholder={t('e.g. 0712 345 678')} /></Field>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 12 }}>
-              <Field label="Username" required><Input value={draft.username} onChange={set('username')} /></Field>
-              <Field label={editing ? 'New password' : 'Password'} required={!editing}>
-                <Input type="password" value={draft.password} onChange={set('password')} placeholder={editing ? 'Leave blank to keep current' : undefined} />
+              <Field label={t('Username')} required><Input value={draft.username} onChange={set('username')} /></Field>
+              <Field label={editing ? t('New password') : t('Password')} required={!editing}>
+                <Input type="password" value={draft.password} onChange={set('password')} placeholder={editing ? t('Leave blank to keep current') : undefined} />
               </Field>
-              <Field label={editing ? 'Confirm new password' : 'Confirm password'} required={!editing}>
+              <Field label={editing ? t('Confirm new password') : t('Confirm password')} required={!editing}>
                 <Input type="password" value={draft.confirmPassword} onChange={set('confirmPassword')} />
               </Field>
             </div>
             <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '-4px 0 12px' }}>
-              A password you set here is temporary: the user must choose their own the next time they sign in
-              {editing ? ', and setting it signs them out of every device now' : ''}.
+              {editing
+                ? t('A password you set here is temporary: the user must choose their own the next time they sign in, and setting it signs them out of every device now.')
+                : t('A password you set here is temporary: the user must choose their own the next time they sign in.')}
             </p>
-            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Roles</p>
+            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>{t('Roles')}</p>
             <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '0 0 12px' }}>
               {editingOwner
-                ? 'Owner of the shop, at every store (appointed by the system administrator). You can also take on the roles below, e.g. to work the till.'
-                : `Tick every role this user works in${isSingle ? '' : ', at each store'}.`}
+                ? t('Owner of the shop, at every store (appointed by the system administrator). You can also take on the roles below, e.g. to work the till.')
+                : isSingle ? t('Tick every role this user works in.') : t('Tick every role this user works in, at each store.')}
             </p>
             <div className="ds-table-card" style={{ marginBottom: 16, maxWidth: 640 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 {!isSingle && (
                   <thead>
                     <tr>
-                      <th style={th()}>Store</th>
-                      {ROLES.map((r) => <th key={r} style={th()}>{ROLE_LABEL[r]}</th>)}
+                      <th style={th()}>{t('Store')}</th>
+                      {ROLES.map((r) => <th key={r} style={th()}>{t(ROLE_LABEL[r])}</th>)}
                     </tr>
                   </thead>
                 )}
                 <tbody>
-                  {roleStores.length === 0 && <tr><td style={td()} colSpan={ROLES.length + 1}>No stores yet. Add one under Stores first.</td></tr>}
+                  {roleStores.length === 0 && <tr><td style={td()} colSpan={ROLES.length + 1}>{t('No stores yet. Add one under Stores first.')}</td></tr>}
                   {roleStores.map((st) => (
                     <tr key={st.id}>
-                      {!isSingle && <td style={td('var(--grey-900)')}>{st.name}{!st.is_active && ' (inactive)'}</td>}
+                      {!isSingle && <td style={td('var(--grey-900)')}>{st.name}{!st.is_active && ` (${t('inactive')})`}</td>}
                       {ROLES.map((r) => (
                         <td key={r} style={td()}>
                           <Checkbox
                             checked={draft.assignments.has(assignmentKey(st.id, r))}
                             onChange={() => toggleAssignment(assignmentKey(st.id, r))}
-                            label={isSingle ? ROLE_LABEL[r] : undefined}
+                            label={isSingle ? t(ROLE_LABEL[r]) : undefined}
                           />
                         </td>
                       ))}
@@ -264,9 +267,9 @@ export default function AdminUsers() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button variant="primary" onClick={submit} disabled={saving}>
-                {saving ? 'Saving…' : editing ? 'Save changes' : 'Create user'}
+                {saving ? t('Saving…') : editing ? t('Save changes') : t('Create user')}
               </Button>
-              <Button onClick={closeForm} disabled={saving}>Cancel</Button>
+              <Button onClick={closeForm} disabled={saving}>{t('Cancel')}</Button>
             </div>
           </Card>
         </div>
@@ -277,16 +280,16 @@ export default function AdminUsers() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
             <thead>
               <tr>
-                <th style={th()}>Name</th>
-                <th style={th()}>Username</th>
-                <th style={th()}>Role · Store scope</th>
-                <th style={th()}>Status</th>
-                <th style={th()}>Actions</th>
+                <th style={th()}>{t('Name')}</th>
+                <th style={th()}>{t('Username')}</th>
+                <th style={th()}>{t('Role · Store scope')}</th>
+                <th style={th()}>{t('Status')}</th>
+                <th style={th()}>{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td style={td()} colSpan={5}>Loading users…</td></tr>}
-              {loadError && <tr><td style={td('var(--red-600)')} colSpan={5}>Could not load users: {loadError.message}</td></tr>}
+              {loading && <tr><td style={td()} colSpan={5}>{t('Loading users…')}</td></tr>}
+              {loadError && <tr><td style={td('var(--red-600)')} colSpan={5}>{t('Could not load users:')} {loadError.message}</td></tr>}
               {rows.map((u) => {
                 const isSelf = u.id === auth.profile?.id
                 // Another owner's account is the system administrator's to change.
@@ -297,15 +300,15 @@ export default function AdminUsers() {
                     <td style={td()}>{u.username}</td>
                     <td style={td()}>
                       {u.roles.length === 0 && '—'}
-                      {u.roles.map((r) => <div key={r.id} style={{ marginBottom: 4 }}><Tag>{r.label}</Tag> {r.scope}</div>)}
+                      {u.roles.map((r) => <div key={r.id} style={{ marginBottom: 4 }}><Tag>{t(r.label)}</Tag> {r.scope ?? t('All stores')}</div>)}
                     </td>
                     <td style={td()}>
-                      {u.is_active ? <Tag variant="positive">Active</Tag> : <Tag variant="negative">Disabled</Tag>}
+                      {u.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Disabled')}</Tag>}
                     </td>
                     <td style={td()}>
-                      {locked ? <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>Managed by the system administrator</span> : (
+                      {locked ? <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>{t('Managed by the system administrator')}</span> : (
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <Button size="small" onClick={() => openEdit(u)}>Edit</Button>
+                        <Button size="small" onClick={() => openEdit(u)}>{t('Edit')}</Button>
                         {!isSelf && (
                           <Button
                             size="small"
@@ -313,7 +316,7 @@ export default function AdminUsers() {
                             disabled={busyUserId === u.id}
                             onClick={() => toggleActive(u)}
                           >
-                            {u.is_active ? 'Disable' : 'Enable'}
+                            {u.is_active ? t('Disable') : t('Enable')}
                           </Button>
                         )}
                       </div>

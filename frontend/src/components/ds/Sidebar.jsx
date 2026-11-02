@@ -1,8 +1,10 @@
 import Icon from './Icon.jsx'
+import { useT } from '../../i18n/index.js'
 
 /** Blue app sidebar (DESIGN.md › AppShell / Sidebar): brand row, overline
  * section labels, 44px items with a white active pill, circle motif below. */
 export default function Sidebar({ items = [], active, onSelect, collapsed, onToggle, logoUrl, brandName }) {
+  const t = useT()
   const sections = []
   for (const item of items) {
     let section = sections.find((s) => s.name === item.section)
@@ -12,7 +14,7 @@ export default function Sidebar({ items = [], active, onSelect, collapsed, onTog
     }
     section.items.push(item)
   }
-  const toggleLabel = collapsed ? 'Expand menu' : 'Collapse menu'
+  const toggleLabel = collapsed ? t('Expand menu') : t('Collapse menu')
   return (
     <aside className={['ds-sb', collapsed ? 'collapsed' : ''].filter(Boolean).join(' ')}>
       <span className="ds-sb-circle c1" aria-hidden="true" />
@@ -27,7 +29,7 @@ export default function Sidebar({ items = [], active, onSelect, collapsed, onTog
           <Icon name={collapsed ? 'panel-open' : 'panel-close'} size={18} />
         </button>
       </div>
-      <nav className="ds-sb-nav" aria-label="Main">
+      <nav className="ds-sb-nav" aria-label={t('Main')}>
         {sections.map((section) => (
           <div key={section.name} className="ds-sb-group">
             <div className="ds-sb-section overline">{section.name}</div>

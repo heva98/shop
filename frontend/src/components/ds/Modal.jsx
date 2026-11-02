@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import Icon from './Icon.jsx'
+import { t } from '../../i18n/index.js'
 
 /** Centred dialog over a dimmed page. Escape or a left click on the backdrop closes it.
  * `footer` renders in a bar under the body (buttons, right-aligned);
@@ -36,7 +37,7 @@ export default function Modal({ title, onClose, size = 'md', footer, children })
       <div ref={ref} className={`ds-modal ${size}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <header className="ds-modal-head">
           <h2 id={titleId} className="ds-modal-title">{title}</h2>
-          <button type="button" className="ds-icon-btn" aria-label="Close" onClick={onClose}><Icon name="cross" size={18} /></button>
+          <button type="button" className="ds-icon-btn" aria-label={t('Close')} onClick={onClose}><Icon name="cross" size={18} /></button>
         </header>
         <div className="ds-modal-body">{children}</div>
         {footer && <footer className="ds-modal-foot">{footer}</footer>}

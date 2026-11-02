@@ -10,12 +10,13 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.utils.translation import gettext
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
@@ -43,7 +44,7 @@ class OwnerSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError('That username is taken.')
+            raise serializers.ValidationError(gettext('That username is taken.'))
         return value
 
     def validate_phone(self, value):
@@ -94,9 +95,9 @@ class ShopSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if self.instance is None and 'owner' not in attrs:
-            raise serializers.ValidationError({'owner': 'A new shop needs its owner.'})
+            raise serializers.ValidationError({'owner': gettext('A new shop needs its owner.')})
         if self.instance is not None and 'owner' in attrs:
-            raise serializers.ValidationError({'owner': 'Add owners to an existing shop with its owners action.'})
+            raise serializers.ValidationError({'owner': gettext('Add owners to an existing shop with its owners action.')})
         return attrs
 
     @transaction.atomic
@@ -134,7 +135,7 @@ class ShopViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         entity = serializer.save()
-        record(Action.SHOP_REGISTERED, f'Shop {entity.name} registered', request=self.request, entity=entity,
+        record(Action.SHOP_REGISTERED, Summary('Shop {name} registered', name=entity.name), request=self.request, entity=entity,
                data={'owner': [o.username for o in entity.users.all()]})
 
     def perform_update(self, serializer):
@@ -143,9 +144,9 @@ class ShopViewSet(viewsets.ModelViewSet):
         if was_active and not entity.is_active:
             for user in entity.users.all():
                 revoke_sessions(user)
-            record(Action.SHOP_SUSPENDED, f'Shop {entity.name} suspended', request=self.request, entity=entity)
+            record(Action.SHOP_SUSPENDED, Summary('Shop {name} suspended', name=entity.name), request=self.request, entity=entity)
         elif not was_active and entity.is_active:
-            record(Action.SHOP_REACTIVATED, f'Shop {entity.name} reactivated', request=self.request, entity=entity)
+            record(Action.SHOP_REACTIVATED, Summary('Shop {name} reactivated', name=entity.name), request=self.request, entity=entity)
 
     @action(detail=True, methods=['post'])
     def owners(self, request, pk=None):
@@ -153,6 +154,6 @@ class ShopViewSet(viewsets.ModelViewSet):
         serializer = OwnerSerializer(data=request.data, context={'entity': entity})
         serializer.is_valid(raise_exception=True)
         owner = serializer.save()
-        record(Action.USER_CREATED, f'Owner {owner.username} added to {entity.name}', request=request,
+        record(Action.USER_CREATED, Summary('Owner {username} added to {name}', username=owner.username, name=entity.name), request=request,
                entity=entity, data={'user': owner.username})
         return Response(OwnerSerializer(owner).data, status=201)

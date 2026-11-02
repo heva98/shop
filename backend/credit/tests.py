@@ -132,3 +132,11 @@ class PaymentTests(CreditTestBase):
         self.assertEqual([(r['kind'], r['balance']) for r in data['rows']],
                          [('sale', Decimal('3000')), ('sale', Decimal('5000')), ('payment', Decimal('1000'))])
         self.assertEqual(data['owing'], Decimal('1000'))
+
+    def test_statement_in_swahili(self):
+        self.credit_sale('3000')
+        self.pay('1000')
+        self.client.force_authenticate(self.manager)
+        data = self.client.get(f'/api/credit/customers/{self.customer.id}/statement/', HTTP_ACCEPT_LANGUAGE='sw').data
+        self.assertRegex(data['rows'][0]['description'], r'^Risiti #\d+$')
+        self.assertEqual(data['rows'][1]['description'], 'Imelipwa kwa Fedha taslimu')

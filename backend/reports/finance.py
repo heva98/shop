@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.db.models import Q, Sum
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -127,7 +128,7 @@ def movers(request):
     try:
         days = min(max(int(request.query_params.get('days', 90)), 7), 365)
     except ValueError:
-        raise ValidationError({'days': 'Must be a number.'})
+        raise ValidationError({'days': gettext('Must be a number.')})
     since = today - timedelta(days=days)
     sold = dict(
         SaleLine.objects.filter(sale__store__in=stores, sale__status=Sale.Status.COMPLETED,

@@ -1,3 +1,4 @@
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product
@@ -15,7 +16,7 @@ class StoreProductSerializer(serializers.ModelSerializer):
         return validate_accessible_store(store, self.context.get('request'))
 
     def validate_product(self, product):
-        return validate_owned(product, self.context.get('request'), 'Unknown product.')
+        return validate_owned(product, self.context.get('request'), gettext('Unknown product.'))
 
 
 class StockBatchSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
@@ -34,7 +35,7 @@ class StockBatchSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
         return validate_accessible_store(store, self.context.get('request'))
 
     def validate_product(self, product):
-        return validate_owned(product, self.context.get('request'), 'Unknown product.')
+        return validate_owned(product, self.context.get('request'), gettext('Unknown product.'))
 
 
 class StockLedgerSerializer(serializers.ModelSerializer):

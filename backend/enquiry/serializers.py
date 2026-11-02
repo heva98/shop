@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product
@@ -22,7 +23,7 @@ class EnquiryLineSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer)
 
     def validate_qty_requested(self, qty):
         if qty <= 0:
-            raise serializers.ValidationError('Must be more than zero.')
+            raise serializers.ValidationError(gettext('Must be more than zero.'))
         return qty
 
 
@@ -57,13 +58,13 @@ class EnquirySerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
         for line in lines:
             product = line['product']
             if request and not request.user.is_superuser and product.entity_id != request.user.entity_id:
-                raise serializers.ValidationError("Product is not in this shop's catalog.")
+                raise serializers.ValidationError(gettext("Product is not in this shop's catalog."))
         return lines
 
     def create(self, validated_data):
         lines_data = validated_data.pop('lines', [])
         if not lines_data:
-            raise serializers.ValidationError({'lines': 'Add at least one product.'})
+            raise serializers.ValidationError({'lines': gettext('Add at least one product.')})
         store = validated_data['requesting_store']
         main_store_id = store.entity.main_store_id
         if main_store_id and main_store_id != store.id:
@@ -133,7 +134,7 @@ class TransferItemSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if not attrs.get('product') and not attrs.get('batch'):
-            raise serializers.ValidationError('Choose a product.')
+            raise serializers.ValidationError(gettext('Choose a product.'))
         return attrs
 
 
@@ -155,7 +156,7 @@ class TransferCreateSerializer(serializers.Serializer):
 
     def validate_lines(self, lines):
         if not lines:
-            raise serializers.ValidationError('Add at least one product to send.')
+            raise serializers.ValidationError(gettext('Add at least one product to send.'))
         return lines
 
 

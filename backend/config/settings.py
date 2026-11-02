@@ -103,6 +103,8 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # Answers in the language the app asks for (Accept-Language: sw / en).
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -158,6 +160,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 
 LANGUAGE_CODE = 'en-us'
+LANGUAGES = [('en', 'English'), ('sw', 'Kiswahili')]
+# Kiswahili for our own messages and for Django/DRF's built-in ones (DRF
+# ships no Swahili). Edit locale/sw/LC_MESSAGES/django.po, then run
+# `python manage.py compile_translations`.
+LOCALE_PATHS = [BASE_DIR / 'locale']
 TIME_ZONE = 'Africa/Dar_es_Salaam'
 USE_I18N = True
 USE_TZ = True

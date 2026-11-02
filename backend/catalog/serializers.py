@@ -1,3 +1,4 @@
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from core.serializers import validate_owned_entity
@@ -52,12 +53,12 @@ class ProductSerializer(serializers.ModelSerializer):
             if self.instance is not None:
                 clash = clash.exclude(pk=self.instance.pk)
             if clash.exists():
-                raise serializers.ValidationError({'barcode': f'Barcode {barcode} is already used by {clash.first().name}.'})
+                raise serializers.ValidationError({'barcode': gettext('Barcode {barcode} is already used by {name}.').format(barcode=barcode, name=clash.first().name)})
         if entity is not None:
             if category is not None and category.entity_id != entity.id:
                 raise serializers.ValidationError(
-                    {'category': 'Category must belong to the same entity as the product.'})
+                    {'category': gettext('Category must belong to the same entity as the product.')})
             if uom is not None and uom.entity_id != entity.id:
                 raise serializers.ValidationError(
-                    {'uom': 'Unit of measure must belong to the same entity as the product.'})
+                    {'uom': gettext('Unit of measure must belong to the same entity as the product.')})
         return attrs

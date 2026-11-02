@@ -11,7 +11,8 @@ import logging
 
 from django.core.management.base import BaseCommand
 from django.db.models import Q
-from django.utils import timezone
+from django.utils import timezone, translation
+from django.utils.translation import gettext
 
 from core.models import ModuleEnablement, Role, Store, User
 from notifications.channels.email_channel import EmailChannel
@@ -43,32 +44,46 @@ def summary_recipients(store):
     ).distinct()
 
 
+# The texts below are written in the recipient's language: the caller
+# wraps them in translation.override(user.language).
+
 def sms_text(store, day, s):
     """Fits in about two SMS (≤ 306 characters) so it costs little."""
-    parts = [f'{store.name} {day:%d/%m}: Sales TZS {s["sales_total"]:,.0f} ({s["sales_count"]})']
-    parts += [f'{name} {total:,.0f}' for name, total in s['by_method']]
+    parts = [gettext('{store} {day}: Sales TZS {total:,.0f} ({count})').format(
+        store=store.name, day=f'{day:%d/%m}', total=s['sales_total'], count=s['sales_count'])]
+    parts += [f'{gettext(name)} {total:,.0f}' for name, total in s['by_method']]
     if s['void_count']:
-        parts.append(f'Voids {s["void_count"]}')
+        parts.append(gettext('Voids {n}').format(n=s['void_count']))
     if s['missing_efd']:
-        parts.append(f'NO EFD no: {s["missing_efd"]}')
+        parts.append(gettext('NO EFD no: {n}').format(n=s['missing_efd']))
     if s['variance']:
-        parts.append(f'Cash diff {s["variance"]:+,.0f}')
-    parts.append(f'Purchases {s["purchases_total"]:,.0f}')
-    parts.append(f'Low stock {s["low_stock"]}, expiring 30d {s["expiring"]}')
+        parts.append(gettext('Cash diff {amount:+,.0f}').format(amount=s['variance']))
+    parts.append(gettext('Purchases {amount:,.0f}').format(amount=s['purchases_total']))
+    parts.append(gettext('Low stock {low}, expiring 30d {expiring}').format(low=s['low_stock'], expiring=s['expiring']))
     return '. '.join(parts)[:306]
+
+
+def long_date(day):
+    """"Monday 3 November 2026", in the active language (strftime would
+    always give English names)."""
+    return f'{gettext(f"{day:%A}")} {day.day} {gettext(f"{day:%B}")} {day.year}'
+
+
+def email_subject(store, day):
+    return gettext('{store} — end of day {day}').format(store=store.name, day=f'{day:%d/%m/%Y}')
 
 
 def email_text(store, day, s):
     lines = [
-        f'{store.name} — end of day {day:%A %d %B %Y}', '',
-        f'Sales: TZS {s["sales_total"]:,.0f} from {s["sales_count"]} sale(s)',
-        *[f'  {name}: TZS {total:,.0f}' for name, total in s['by_method']],
-        f'Voided sales: {s["void_count"]}',
-        f'Sales without an EFD receipt number: {s["missing_efd"]}',
-        f'Cash difference at shift close: TZS {s["variance"]:+,.0f}',
-        f'Supplier invoices received: TZS {s["purchases_total"]:,.0f}',
-        f'Products low or out of stock: {s["low_stock"]}',
-        f'Batches expiring within 30 days: {s["expiring"]}',
+        gettext('{store} — end of day {day}').format(store=store.name, day=long_date(day)), '',
+        gettext('Sales: TZS {total:,.0f} from {count} sale(s)').format(total=s['sales_total'], count=s['sales_count']),
+        *[f'  {gettext(name)}: TZS {total:,.0f}' for name, total in s['by_method']],
+        gettext('Voided sales: {n}').format(n=s['void_count']),
+        gettext('Sales without an EFD receipt number: {n}').format(n=s['missing_efd']),
+        gettext('Cash difference at shift close: TZS {amount:+,.0f}').format(amount=s['variance']),
+        gettext('Supplier invoices received: TZS {amount:,.0f}').format(amount=s['purchases_total']),
+        gettext('Products low or out of stock: {n}').format(n=s['low_stock']),
+        gettext('Batches expiring within 30 days: {n}').format(n=s['expiring']),
     ]
     return '\n'.join(lines)
 
@@ -100,10 +115,13 @@ class Command(BaseCommand):
                     ).exists()
                     if already:
                         continue
-                    body = email_text(store, today, stats) if key == NotificationLog.Channel.EMAIL else sms_text(store, today, stats)
+                    with translation.override(user.language or 'en'):
+                        subject = email_subject(store, today)
+                        body = (email_text(store, today, stats) if key == NotificationLog.Channel.EMAIL
+                                else sms_text(store, today, stats))
                     success, error = True, ''
                     try:
-                        channel.send(address, f'{store.name} — end of day {today:%d/%m/%Y}', body)
+                        channel.send(address, subject, body)
                     except Exception as exc:  # noqa: BLE001 — record it and carry on with the others
                         success, error = False, str(exc)[:500]
                         failures += 1

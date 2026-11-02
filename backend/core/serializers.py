@@ -3,6 +3,7 @@ from datetime import date
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework import serializers
 
 from .models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
@@ -34,7 +35,7 @@ def validate_owned_entity(entity, request):
     checked explicitly on create/update."""
     if entity is not None and request is not None and not request.user.is_superuser:
         if entity.id != request.user.entity_id:
-            raise serializers.ValidationError('Must be your own entity.')
+            raise serializers.ValidationError(gettext('Must be your own entity.'))
     return entity
 
 
@@ -43,11 +44,11 @@ def validate_owned_store(store, request):
     user's own entity (superusers exempt)."""
     if store is not None and request is not None and not request.user.is_superuser:
         if store.entity_id != request.user.entity_id:
-            raise serializers.ValidationError('Must be a store in your own entity.')
+            raise serializers.ValidationError(gettext('Must be a store in your own entity.'))
     return store
 
 
-def validate_owned(obj, request, message='Must belong to your own shop.'):
+def validate_owned(obj, request, message=gettext('Must belong to your own shop.')):
     """Same idea for any other FK to entity-owned data (a Product, a
     UnitOfMeasure, ...): `obj.entity_id` must be the requesting user's own
     entity (superusers exempt)."""
@@ -70,7 +71,7 @@ def validate_accessible_store(store, request):
         return store
     store_ids = accessible_store_ids(request.user)
     if store_ids is not None and store.id not in list(store_ids):
-        raise serializers.ValidationError('You do not have access to this store.')
+        raise serializers.ValidationError(gettext('You do not have access to this store.'))
     return store
 
 
@@ -109,7 +110,7 @@ class EntitySerializer(serializers.ModelSerializer):
         if (mode == Entity.StoreMode.SINGLE and entity is not None
                 and entity.stores.filter(is_active=True).count() > 1):
             raise serializers.ValidationError(
-                'This shop has more than one active store. Deactivate or remove the others first.')
+                gettext('This shop has more than one active store. Deactivate or remove the others first.'))
         return mode
 
     def save(self, **kwargs):
@@ -119,13 +120,13 @@ class EntitySerializer(serializers.ModelSerializer):
 
     def validate_logo(self, logo):
         if logo is not None and hasattr(logo, 'size') and logo.size > _MAX_LOGO_SIZE:
-            raise serializers.ValidationError('Logo must be 2MB or smaller.')
+            raise serializers.ValidationError(gettext('Logo must be 2MB or smaller.'))
         return logo
 
     def validate_main_store(self, store):
         entity = self.instance
         if store is not None and entity is not None and store.entity_id != entity.id:
-            raise serializers.ValidationError('main_store must belong to this entity.')
+            raise serializers.ValidationError(gettext('main_store must belong to this entity.'))
         return store
 
 
@@ -136,11 +137,11 @@ def normalize_phone(value):
     if not digits:
         return ''
     if not digits.isdigit():
-        raise serializers.ValidationError('Use digits only, e.g. 0712 345 678.')
+        raise serializers.ValidationError(gettext('Use digits only, e.g. 0712 345 678.'))
     if len(digits) == 10 and digits.startswith('0'):
         digits = '255' + digits[1:]
     if not 10 <= len(digits) <= 15:
-        raise serializers.ValidationError('Enter a full mobile number, e.g. 0712 345 678.')
+        raise serializers.ValidationError(gettext('Enter a full mobile number, e.g. 0712 345 678.'))
     return digits
 
 
@@ -164,7 +165,7 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if entity is None and request is not None and not request.user.is_superuser:
             # Unlinking staff from the shop would leave them in no shop at all.
-            raise serializers.ValidationError('Must be your own entity.')
+            raise serializers.ValidationError(gettext('Must be your own entity.'))
         return validate_owned_entity(entity, request)
 
     def validate_phone(self, value):
@@ -172,16 +173,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_date_of_birth(self, dob):
         if dob is not None and dob >= date.today():
-            raise serializers.ValidationError('Date of birth must be in the past.')
+            raise serializers.ValidationError(gettext('Date of birth must be in the past.'))
         return dob
 
     def validate(self, attrs):
         request = self.context.get('request')
         if (self.instance is not None and request is not None
                 and self.instance.pk == request.user.pk and attrs.get('is_active') is False):
-            raise serializers.ValidationError({'is_active': 'You cannot disable your own account.'})
+            raise serializers.ValidationError({'is_active': gettext('You cannot disable your own account.')})
         if self.instance is None:
-            missing = {f: 'This field is required.' for f in self._REQUIRED_ON_CREATE if not attrs.get(f)}
+            missing = {f: gettext('This field is required.') for f in self._REQUIRED_ON_CREATE if not attrs.get(f)}
             if missing:
                 raise serializers.ValidationError(missing)
         password = attrs.get('password')
@@ -233,7 +234,7 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth',
-            'email', 'phone', 'current_password', 'new_password',
+            'email', 'phone', 'language', 'current_password', 'new_password',
         ]
 
     def validate_phone(self, value):
@@ -241,14 +242,14 @@ class OwnProfileSerializer(serializers.ModelSerializer):
 
     def validate_date_of_birth(self, dob):
         if dob is not None and dob >= date.today():
-            raise serializers.ValidationError('Date of birth must be in the past.')
+            raise serializers.ValidationError(gettext('Date of birth must be in the past.'))
         return dob
 
     def validate(self, attrs):
         new_password = attrs.get('new_password')
         if new_password:
             if not self.instance.check_password(attrs.get('current_password') or ''):
-                raise serializers.ValidationError({'current_password': 'Current password is incorrect.'})
+                raise serializers.ValidationError({'current_password': gettext('Current password is incorrect.')})
             try:
                 validate_password(new_password, user=self.instance)
             except DjangoValidationError as exc:
@@ -266,7 +267,7 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         return user
 
 
-_OWNER_ROLE_MESSAGE = 'Only the platform administrator can make someone a shop owner.'
+_OWNER_ROLE_MESSAGE = gettext_lazy('Only the platform administrator can make someone a shop owner.')
 
 
 class StoreRoleSerializer(serializers.ModelSerializer):
@@ -282,7 +283,7 @@ class StoreRoleSerializer(serializers.ModelSerializer):
         target_user = attrs.get('user', getattr(self.instance, 'user', None))
         if request and not request.user.is_superuser:
             if target_user is not None and target_user.entity_id != request.user.entity_id:
-                raise serializers.ValidationError({'user': 'Must be a user in your own entity.'})
+                raise serializers.ValidationError({'user': gettext('Must be a user in your own entity.')})
             if Role.ENTITY_ADMIN in (attrs.get('role'), getattr(self.instance, 'role', None)):
                 raise serializers.ValidationError({'role': _OWNER_ROLE_MESSAGE})
         # A single-store firm's staff all work at its one store, so the
@@ -317,5 +318,5 @@ class ModuleEnablementSerializer(serializers.ModelSerializer):
         entity = attrs.get('entity', getattr(self.instance, 'entity', None))
         store = attrs.get('store', getattr(self.instance, 'store', None))
         if entity is not None and store is not None and store.entity_id != entity.id:
-            raise serializers.ValidationError({'store': "Store must belong to the enablement's entity."})
+            raise serializers.ValidationError({'store': gettext("Store must belong to the enablement's entity.")})
         return attrs

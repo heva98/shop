@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Max, Q
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from catalog.models import Product, convert_qty
 from core import features
@@ -127,7 +128,7 @@ class Shift(models.Model):
     @transaction.atomic
     def close(self, *, counted_cash, note=''):
         if not self.is_open:
-            raise SaleError('This shift is already closed.')
+            raise SaleError(gettext('This shift is already closed.'))
         self.expected_cash = self.summary()['expected_cash']
         self.counted_cash = counted_cash
         self.closing_note = note
@@ -152,9 +153,9 @@ class Sale(models.Model):
     it off with a credit.CustomerPayment."""
 
     class Status(models.TextChoices):
-        OPEN = 'open', 'Open'
-        COMPLETED = 'completed', 'Completed'
-        VOIDED = 'voided', 'Voided'
+        OPEN = 'open', gettext_lazy('Open')
+        COMPLETED = 'completed', gettext_lazy('Completed')
+        VOIDED = 'voided', gettext_lazy('Voided')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='sales')
@@ -254,12 +255,12 @@ class Sale(models.Model):
         if total - self.credit_amount > 0 or not self.credit_amount:
             parts.append((self.payment_method.name, self.payment_method.implementation, total - self.credit_amount))
         if self.credit_amount:
-            parts.append(('On credit', 'credit', self.credit_amount))
+            parts.append((gettext('On credit'), 'credit', self.credit_amount))
         return parts
 
     def _require_status(self, status, action):
         if self.status != status:
-            raise SaleError(f'Cannot {action} a sale that is {self.get_status_display().lower()}.')
+            raise SaleError(gettext('Cannot {action} a sale that is {lower}.').format(action=action, lower=self.get_status_display().lower()))
 
     def current_price(self, product, uom=None):
         """The store's selling price today for one `uom` of `product`
@@ -282,22 +283,22 @@ class Sale(models.Model):
         `unit_price` is only for recording a sale the till already made
         offline (see record_offline): the price the customer was charged
         then, which the cloud may have changed since."""
-        self._require_status(self.Status.OPEN, 'add items to')
+        self._require_status(self.Status.OPEN, gettext('add items to'))
         if product.entity_id != self.store.entity_id:
-            raise SaleError("Product is not in this shop's catalog.")
+            raise SaleError(gettext("Product is not in this shop's catalog."))
         sell_uom = uom if uom is not None and uom.pk != product.uom_id else None
         if sell_uom is not None and sell_uom.entity_id != product.entity_id:
-            raise SaleError("Unit is not in this shop's catalog.")
+            raise SaleError(gettext("Unit is not in this shop's catalog."))
         if unit_price is None:
             unit_price = self.current_price(product, sell_uom)
         if unit_price is None:
             unit = f' per {sell_uom.name}' if sell_uom else ''
             raise SaleError(
-                f'{product.name} has no selling price{unit} set. Ask a manager to set one under Settings > Selling prices.')
+                gettext('{name} has no selling price{unit} set. Ask a manager to set one under Settings > Selling prices.').format(name=product.name, unit=unit))
         gross = _money(unit_price * qty)
         discount = _money(discount or 0)
         if discount < 0 or discount > gross:
-            raise SaleError(f'The discount on {product.name} must be between 0 and TZS {gross:,.0f}.')
+            raise SaleError(gettext('The discount on {name} must be between 0 and TZS {gross:,.0f}.').format(name=product.name, gross=gross))
 
         base_qty = convert_qty(qty, sell_uom, product.uom)
         plan = allocate_fefo(self.store, product, base_qty)
@@ -345,8 +346,7 @@ class Sale(models.Model):
             if price is not None and price != charged:
                 if strict:
                     raise SaleError(
-                        f'The price of {product.name} has changed to TZS {price:,.0f}. '
-                        'The cart now shows the new price: check the total with the customer.')
+                        gettext('The price of {name} has changed to TZS {price:,.0f}. The cart now shows the new price: check the total with the customer.').format(name=product.name, price=price))
                 price_changes.append({'product': product.name, 'charged': charged, 'current': price})
             sale.add_product(product=product, qty=item['qty'], uom=uom, unit_price=None if strict else charged,
                              discount=item.get('discount') or Decimal('0'))
@@ -363,7 +363,7 @@ class Sale(models.Model):
 
     @transaction.atomic
     def remove_product(self, product):
-        self._require_status(self.Status.OPEN, 'remove items from')
+        self._require_status(self.Status.OPEN, gettext('remove items from'))
         self.lines.filter(batch__product=product).delete()
 
     def _apply_sale_discount(self, discount):
@@ -374,7 +374,7 @@ class Sale(models.Model):
         lines = list(self.lines.all())
         total = sum((line.amount for line in lines), Decimal('0'))
         if discount < 0 or discount > total:
-            raise SaleError(f'The discount must be between 0 and TZS {total:,.0f}.')
+            raise SaleError(gettext('The discount must be between 0 and TZS {total:,.0f}.').format(total=total))
         for line, share in zip(lines, _split(discount, [line.amount for line in lines])):
             line.discount += share
             line.amount -= share
@@ -395,26 +395,24 @@ class Sale(models.Model):
             return None
         if approver is not None and is_store_manager(approver, self.store):
             return approver
-        raise SaleError(f'A discount of TZS {discount:,.0f} is more than the {limit.normalize():f}% a cashier may give. '
-                        'A manager must approve it.')
+        raise SaleError(gettext('A discount of TZS {discount:,.0f} is more than the {normalize:f}% a cashier may give. A manager must approve it.').format(discount=discount, normalize=limit.normalize()))
 
     def _check_credit(self, customer, credit_amount, total, enforce_limit):
         if customer is not None and (customer.entity_id != self.store.entity_id or not customer.is_active):
-            raise SaleError("Choose one of the shop's active customers.")
+            raise SaleError(gettext("Choose one of the shop's active customers."))
         if not credit_amount:
             return
         if not features.is_enabled('customer_credit', store=self.store):
-            raise SaleError(f'{self.store.name} does not sell on credit. An admin can switch it on under Settings > Features.')
+            raise SaleError(gettext('{name} does not sell on credit. An admin can switch it on under Settings > Features.').format(name=self.store.name))
         if customer is None:
-            raise SaleError('Choose the customer this sale is on credit to.')
+            raise SaleError(gettext('Choose the customer this sale is on credit to.'))
         if credit_amount < 0 or credit_amount > total:
-            raise SaleError(f'The amount on credit must be between 0 and the total of TZS {total:,.0f}.')
+            raise SaleError(gettext('The amount on credit must be between 0 and the total of TZS {total:,.0f}.').format(total=total))
         if enforce_limit and customer.credit_limit is not None:
             owing = customer.balance()
             if owing + credit_amount > customer.credit_limit:
                 raise SaleError(
-                    f'{customer.name} already owes TZS {owing:,.0f}; their credit limit is '
-                    f'TZS {customer.credit_limit:,.0f}. Take at most TZS {max(customer.credit_limit - owing, 0):,.0f} on credit.')
+                    gettext('{name} already owes TZS {owing:,.0f}; their credit limit is TZS {credit_limit:,.0f}. Take at most TZS {max:,.0f} on credit.').format(name=customer.name, owing=owing, credit_limit=customer.credit_limit, max=max(customer.credit_limit - owing, 0)))
 
     @transaction.atomic
     def complete(self, *, user, payment_method, amount_tendered=None, payment_reference='',
@@ -438,17 +436,17 @@ class Sale(models.Model):
         locked = Sale.objects.select_for_update().select_related('store__entity').get(pk=self.pk)
         locked._require_status(self.Status.OPEN, 'complete')
         if not locked.lines.exists():
-            raise SaleError('The cart is empty.')
+            raise SaleError(gettext('The cart is empty.'))
 
         if shift is None or shift.store_id != locked.store_id or shift.cashier_id != user.pk:
             shift = Shift.objects.filter(store=locked.store, cashier=user, closed_at__isnull=True).first()
         if shift is None:
-            raise SaleError('Open a shift before selling.')
+            raise SaleError(gettext('Open a shift before selling.'))
         now = timezone.now()
         completed_at = now if completed_at is None or completed_at > now else completed_at
 
         if not payment_method.is_active_for(locked.store.entity_id):
-            raise SaleError(f'{payment_method.name} is not enabled.')
+            raise SaleError(gettext('{name} is not enabled.').format(name=payment_method.name))
         if discount:
             locked._apply_sale_discount(discount)
         approved_by = None
@@ -462,12 +460,12 @@ class Sale(models.Model):
             if payable == 0 and amount_tendered is None:
                 amount_tendered = Decimal('0')
             if amount_tendered is None or amount_tendered < payable:
-                raise SaleError(f'Amount tendered must cover the total of TZS {payable:,.0f}.')
+                raise SaleError(gettext('Amount tendered must cover the total of TZS {payable:,.0f}.').format(payable=payable))
             payment_reference = ''
         else:
             payment_reference = (payment_reference or '').strip()
             if payable > 0 and not payment_reference:
-                raise SaleError(f'Enter the {payment_method.name} transaction reference.')
+                raise SaleError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
             amount_tendered = payable
 
         for line in locked.lines.select_related('batch'):
@@ -534,13 +532,13 @@ class Sale(models.Model):
         """Stores the receipt number printed by a standalone EFD machine."""
         receipt_number = (receipt_number or '').strip()
         if not receipt_number:
-            raise SaleError('Enter the EFD receipt number.')
+            raise SaleError(gettext('Enter the EFD receipt number.'))
         if self.status == self.Status.OPEN:
-            raise SaleError('Complete the sale before recording its EFD receipt.')
+            raise SaleError(gettext('Complete the sale before recording its EFD receipt.'))
         if self.efd_receipt_no:
-            raise SaleError(f'EFD receipt {self.efd_receipt_no} is already recorded for this sale.')
+            raise SaleError(gettext('EFD receipt {efd_receipt_no} is already recorded for this sale.').format(efd_receipt_no=self.efd_receipt_no))
         if Sale.objects.filter(store=self.store, efd_receipt_no=receipt_number).exclude(pk=self.pk).exists():
-            raise SaleError(f'EFD receipt {receipt_number} is already recorded on another sale. Check the number.')
+            raise SaleError(gettext('EFD receipt {receipt_number} is already recorded on another sale. Check the number.').format(receipt_number=receipt_number))
         FiscalReceipt.objects.create(
             sale_id=self.id, driver=get_fiscal_driver(self.store).name, receipt_number=receipt_number,
             status=FiscalReceipt.Status.RECORDED, entered_by=user,
@@ -560,7 +558,7 @@ class Sale(models.Model):
         locked._require_status(self.Status.COMPLETED, 'void')
         reason = (reason or '').strip()
         if not reason:
-            raise SaleError('Give a reason for voiding this sale.')
+            raise SaleError(gettext('Give a reason for voiding this sale.'))
         for line in locked.lines.select_related('batch'):
             StockLedger.record(
                 store=locked.store, batch=line.batch, qty_delta=line.qty,

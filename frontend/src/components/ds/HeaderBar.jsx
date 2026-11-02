@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon.jsx'
 import { Menu, MenuDivider, MenuItem } from './Menu.jsx'
+import LanguageSwitch from './LanguageSwitch.jsx'
+import { useT } from '../../i18n/index.js'
 
 /** White 72px top bar (DESIGN.md › TopBar). Left: store picker + role text.
  * Right: online pill + navy avatar. `menuItems`: [{ label, onClick,
@@ -10,6 +12,7 @@ import { Menu, MenuDivider, MenuItem } from './Menu.jsx'
 export default function HeaderBar({
   storeLabel, roleLabel, stores, activeStore, onStoreChange, isOnline, unsyncedSales = 0, avatarInitials, menuHeader, menuItems,
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [storeOpen, setStoreOpen] = useState(false)
   const ref = useRef(null)
@@ -68,14 +71,17 @@ export default function HeaderBar({
         <span className={['ds-online', isOnline ? '' : 'offline'].filter(Boolean).join(' ')} role="status">
           <span className="dot" />
           {isOnline
-            ? (unsyncedSales > 0 ? `Online · sending ${unsyncedSales} sale${unsyncedSales === 1 ? '' : 's'}` : 'Online')
-            : `Offline — keep selling: sales are saved on this till${unsyncedSales > 0 ? ` (${unsyncedSales} waiting)` : ''} and sent when the connection returns`}
+            ? (unsyncedSales > 0 ? t(unsyncedSales === 1 ? 'Online · sending {n} sale' : 'Online · sending {n} sales', { n: unsyncedSales }) : t('Online'))
+            : (unsyncedSales > 0
+              ? t('Offline — keep selling: sales are saved on this till ({n} waiting) and sent when the connection returns', { n: unsyncedSales })
+              : t('Offline — keep selling: sales are saved on this till and sent when the connection returns'))}
         </span>
+        <LanguageSwitch />
         <div ref={ref} style={{ position: 'relative' }}>
           <button
             type="button"
             className="ds-avatar"
-            aria-label="Account menu"
+            aria-label={t('Account menu')}
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}

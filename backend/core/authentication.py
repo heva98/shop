@@ -10,12 +10,13 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework import exceptions
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 
 
-SHOP_SUSPENDED_MESSAGE = 'This shop has been suspended. Contact the system administrator.'
+SHOP_SUSPENDED_MESSAGE = gettext_lazy('This shop has been suspended. Contact the system administrator.')
 
 
 def shop_suspended(user):
@@ -29,7 +30,7 @@ class ExpiringTokenAuthentication(TokenAuthentication):
         user, token = super().authenticate_credentials(key)
         if token.created < timezone.now() - timedelta(hours=settings.TOKEN_TTL_HOURS):
             token.delete()
-            raise exceptions.AuthenticationFailed('Your session has expired. Sign in again.')
+            raise exceptions.AuthenticationFailed(gettext('Your session has expired. Sign in again.'))
         if shop_suspended(user):
             token.delete()
             raise exceptions.AuthenticationFailed(SHOP_SUSPENDED_MESSAGE)

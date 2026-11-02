@@ -1,9 +1,10 @@
+from django.utils.translation import gettext
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core import features
 from core.models import Role
 from core.permissions import is_store_manager, write_roles
@@ -48,7 +49,7 @@ class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         invoice = self.get_object()
         features.require('receiving_invoice', store=invoice.store)
         invoice.mark_received()
-        record(Action.INVOICE_RECEIVED, f'Invoice {invoice.invoice_number} from {invoice.supplier.name} received',
+        record(Action.INVOICE_RECEIVED, Summary('Invoice {invoice_number} from {name} received', invoice_number=invoice.invoice_number, name=invoice.supplier.name),
                request=request, store=invoice.store, data={'invoice': str(invoice.id)})
         return Response(self.get_serializer(invoice).data)
 
@@ -59,7 +60,7 @@ class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         only — paying suppliers is a finance job."""
         invoice = self.get_object()
         if not is_store_manager(request.user, invoice.store):
-            raise PermissionDenied('Only a manager of this store can record supplier payments.')
+            raise PermissionDenied(gettext('Only a manager of this store can record supplier payments.'))
         serializer = SupplierPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -68,8 +69,7 @@ class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             reference=data.get('reference', ''), user=request.user,
         )
         record(Action.SUPPLIER_PAYMENT,
-               f'Paid {payment.amount:,.0f} to {invoice.supplier.name} for invoice {invoice.invoice_number} '
-               f'({payment.get_method_display()})',
+               Summary('Paid {amount:,.0f} to {name} for invoice {invoice_number} ({get_method_display})', amount=payment.amount, name=invoice.supplier.name, invoice_number=invoice.invoice_number, get_method_display=payment.get_method_display()),
                request=request, store=invoice.store,
                data={'invoice': str(invoice.id), 'amount': payment.amount, 'reference': payment.reference})
         return Response(self.get_serializer(self.get_queryset().get(pk=invoice.pk)).data)
@@ -90,16 +90,16 @@ class ReceivingInvoiceLineViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewS
     def perform_create(self, serializer):
         invoice = serializer.validated_data['invoice']
         if invoice.status != ReceivingInvoice.Status.DRAFT:
-            raise ValidationError('Cannot add lines to an invoice that has already been received.')
+            raise ValidationError(gettext('Cannot add lines to an invoice that has already been received.'))
         serializer.save()
 
     def perform_update(self, serializer):
         invoice = serializer.instance.invoice
         if invoice.status != ReceivingInvoice.Status.DRAFT:
-            raise ValidationError('Cannot edit lines on an invoice that has already been received.')
+            raise ValidationError(gettext('Cannot edit lines on an invoice that has already been received.'))
         serializer.save()
 
     def perform_destroy(self, instance):
         if instance.invoice.status != ReceivingInvoice.Status.DRAFT:
-            raise ValidationError('Cannot remove lines from an invoice that has already been received.')
+            raise ValidationError(gettext('Cannot remove lines from an invoice that has already been received.'))
         instance.delete()

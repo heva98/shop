@@ -2,6 +2,7 @@
 // Charts read the same layout as the table: Columns are the series, Rows the
 // categories, each holding at most one dimension (`layoutProblem` enforces it).
 import { formatValue } from './pivot.js'
+import { t } from '../../i18n/index.js'
 
 // Categorical hues in fixed order, so a series keeps its colour when the
 // chart is re-sorted or filtered; a ninth series is never a generated hue
@@ -126,10 +127,10 @@ export function singleValueStatus(model, options) {
   const diff = Number(cell.value) - target
   // The gap between two percentages is in percentage points, not percent.
   const amount = cell.unit === 'percent'
-    ? `${formatValue(Math.abs(diff), 'points', options.decimals)} points`
+    ? `${formatValue(Math.abs(diff), 'points', options.decimals)} ${t('points')}`
     : formatValue(Math.abs(diff), cell.unit, options.decimals)
-  const what = options.targetLabel || 'target'
+  const what = options.targetLabel || t('target')
   return diff >= 0
-    ? { text: `▲ ${amount} above ${what}`, color: '#13693F' }
-    : { text: `▼ ${amount} below ${what}`, color: '#A82020' }
+    ? { text: `▲ ${t('{amount} above {what}', { amount, what })}`, color: '#13693F' }
+    : { text: `▼ ${t('{amount} below {what}', { amount, what })}`, color: '#A82020' }
 }

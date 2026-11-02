@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from catalog.models import Product
 from core import features
@@ -19,14 +20,14 @@ class Enquiry(models.Model):
     already in flight."""
 
     class Mode(models.TextChoices):
-        BROADCAST = 'broadcast', 'Broadcast'
-        HUB = 'hub', 'Hub'
+        BROADCAST = 'broadcast', gettext_lazy('Broadcast')
+        HUB = 'hub', gettext_lazy('Hub')
 
     class Status(models.TextChoices):
-        OPEN = 'open', 'Open'
-        FULFILLED = 'fulfilled', 'Fulfilled'
-        REJECTED = 'rejected', 'Rejected'
-        CANCELLED = 'cancelled', 'Cancelled'
+        OPEN = 'open', gettext_lazy('Open')
+        FULFILLED = 'fulfilled', gettext_lazy('Fulfilled')
+        REJECTED = 'rejected', gettext_lazy('Rejected')
+        CANCELLED = 'cancelled', gettext_lazy('Cancelled')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     requesting_store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='enquiries_made')
@@ -74,19 +75,19 @@ class Transfer(models.Model):
     referencing the transfer."""
 
     class Mode(models.TextChoices):
-        PEER = 'peer', 'Peer'
-        HUB = 'hub', 'Hub'
+        PEER = 'peer', gettext_lazy('Peer')
+        HUB = 'hub', gettext_lazy('Hub')
 
     class Status(models.TextChoices):
-        DISPATCHED = 'dispatched', 'In transit'
-        RECEIVED = 'received', 'Received'
-        DISCREPANCY = 'discrepancy', 'Short delivery'
-        CANCELLED = 'cancelled', 'Cancelled'
+        DISPATCHED = 'dispatched', gettext_lazy('In transit')
+        RECEIVED = 'received', gettext_lazy('Received')
+        DISCREPANCY = 'discrepancy', gettext_lazy('Short delivery')
+        CANCELLED = 'cancelled', gettext_lazy('Cancelled')
 
     class Resolution(models.TextChoices):
-        RETURN_TO_SENDER = 'return_to_sender', 'Back in stock at the sending store'
-        RECEIVED_LATE = 'received_late', 'Found, added to the receiving store'
-        WRITE_OFF = 'write_off', 'Lost in transit, written off'
+        RETURN_TO_SENDER = 'return_to_sender', gettext_lazy('Back in stock at the sending store')
+        RECEIVED_LATE = 'received_late', gettext_lazy('Found, added to the receiving store')
+        WRITE_OFF = 'write_off', gettext_lazy('Lost in transit, written off')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     number = models.PositiveIntegerField(null=True, blank=True, help_text='Sequential per firm, for the delivery note.')
@@ -132,7 +133,7 @@ class Transfer(models.Model):
 
     def _require_status(self, *statuses):
         if self.status not in statuses:
-            raise StockError(f'This transfer is {self.get_status_display().lower()}.')
+            raise StockError(gettext('This transfer is {lower}.').format(lower=self.get_status_display().lower()))
 
     def _post(self, store, batch, qty, ledger_type):
         return StockLedger.record(
@@ -169,14 +170,14 @@ class Transfer(models.Model):
         'qty': n} (that batch exactly). Quantities are in the product's own
         unit."""
         if from_store.id == to_store.id:
-            raise StockError('Choose a different store to send to.')
+            raise StockError(gettext('Choose a different store to send to.'))
         if from_store.entity_id != to_store.entity_id:
-            raise StockError('Stock can only move between stores of the same shop.')
+            raise StockError(gettext('Stock can only move between stores of the same shop.'))
         if not to_store.is_active:
-            raise StockError(f'{to_store.name} is deactivated.')
+            raise StockError(gettext('{name} is deactivated.').format(name=to_store.name))
         features.require('transfer', entity=from_store.entity_id)
         if not items:
-            raise StockError('Add at least one product to send.')
+            raise StockError(gettext('Add at least one product to send.'))
 
         # The entity row lock serializes numbering across the firm.
         entity = Entity.objects.select_for_update().get(pk=from_store.entity_id)
@@ -190,20 +191,20 @@ class Transfer(models.Model):
             try:
                 qty = Decimal(str(item['qty']))
             except (InvalidOperation, KeyError):
-                raise StockError('Every line needs a quantity.')
+                raise StockError(gettext('Every line needs a quantity.'))
             if qty <= 0:
-                raise StockError('Quantities must be more than zero.')
+                raise StockError(gettext('Quantities must be more than zero.'))
             batch = item.get('batch')
             if batch is not None:
                 if batch.store_id != from_store.id:
-                    raise StockError(f'Batch {batch.batch_no} is not at {from_store.name}.')
+                    raise StockError(gettext('Batch {batch_no} is not at {name}.').format(batch_no=batch.batch_no, name=from_store.name))
                 if batch.is_expired:
-                    raise StockError(f'Batch {batch.batch_no} has expired and cannot be sent.')
+                    raise StockError(gettext('Batch {batch_no} has expired and cannot be sent.').format(batch_no=batch.batch_no))
                 plan = [(StockBatch.objects.select_for_update().get(pk=batch.pk), qty)]
             else:
                 product = item['product']
                 if product.entity_id != entity.id:
-                    raise StockError("Product is not in this shop's catalog.")
+                    raise StockError(gettext("Product is not in this shop's catalog."))
                 plan = allocate_fefo(from_store, product, qty)
             for plan_batch, plan_qty in plan:
                 TransferLine.objects.create(transfer=transfer, batch=plan_batch, qty=plan_qty, unit_cost=plan_batch.unit_cost)
@@ -229,15 +230,15 @@ class Transfer(models.Model):
             try:
                 qty = Decimal(str(received.get(str(line.id), line.qty)))
             except InvalidOperation:
-                raise StockError('Received quantities must be numbers.')
+                raise StockError(gettext('Received quantities must be numbers.'))
             if qty < 0:
-                raise StockError('Received quantities cannot be negative.')
+                raise StockError(gettext('Received quantities cannot be negative.'))
             if qty > line.qty:
-                raise StockError(f'{line.batch.product.name}: {qty} received but only {line.qty} were sent. Count again.')
+                raise StockError(gettext('{name}: {qty} received but only {qty2} were sent. Count again.').format(name=line.batch.product.name, qty=qty, qty2=line.qty))
             counted.append((line, qty))
         short = any(qty < line.qty for line, qty in counted)
         if short and not note:
-            raise StockError('Less arrived than was sent: add a note saying what is missing.')
+            raise StockError(gettext('Less arrived than was sent: add a note saying what is missing.'))
 
         for line, qty in counted:
             if qty > 0:
@@ -263,7 +264,7 @@ class Transfer(models.Model):
         locked = Transfer.objects.select_for_update().get(pk=self.pk)
         locked._require_status(self.Status.DISCREPANCY)
         if resolution not in self.Resolution.values:
-            raise StockError('Choose what happened to the missing stock.')
+            raise StockError(gettext('Choose what happened to the missing stock.'))
         ref = f'transfer #{locked.number}'
         for line in locked.lines.select_related('batch__product'):
             missing = line.qty - (line.received_qty or 0)
@@ -296,7 +297,7 @@ class Transfer(models.Model):
         locked._require_status(self.Status.DISPATCHED)
         reason = (reason or '').strip()
         if not reason:
-            raise StockError('Give a reason for cancelling this transfer.')
+            raise StockError(gettext('Give a reason for cancelling this transfer.'))
         for line in locked.lines.select_related('batch__product'):
             locked._post(locked.from_store, line.batch, line.qty, StockLedger.LedgerType.TRANSFER_IN)
         locked.status = self.Status.CANCELLED
@@ -312,15 +313,15 @@ class Transfer(models.Model):
         received transfer, in full."""
         locked = Transfer.objects.select_for_update().get(pk=self.pk)
         if not locked.is_billed:
-            raise StockError('Only stock sent from the main store is paid for.')
+            raise StockError(gettext('Only stock sent from the main store is paid for.'))
         locked._require_status(self.Status.RECEIVED)
         if locked.paid_at:
-            raise StockError('This transfer is already paid.')
+            raise StockError(gettext('This transfer is already paid.'))
         if not locked.amount:
-            raise StockError('There is nothing to pay on this transfer.')
+            raise StockError(gettext('There is nothing to pay on this transfer.'))
         reference = (reference or '').strip()
         if payment_method.requires_reference and not reference:
-            raise StockError(f'Enter the {payment_method.name} transaction reference.')
+            raise StockError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
         locked.payment_method = payment_method
         locked.payment_reference = reference
         locked.paid_at = timezone.now()

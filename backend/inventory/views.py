@@ -1,11 +1,12 @@
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Role
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
@@ -75,14 +76,14 @@ class StockAdjustmentViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         if not is_store_manager(request.user, data['batch'].store):
-            raise PermissionDenied('Only a manager of this store can adjust its stock.')
+            raise PermissionDenied(gettext('Only a manager of this store can adjust its stock.'))
         adjustment = StockAdjustment.apply(
             batch=data['batch'], qty_delta=data['qty_delta'], reason=data['reason'],
             note=data.get('note', ''), user=request.user,
         )
         batch = adjustment.batch
         record(Action.STOCK_WRITTEN_OFF,
-               f'{adjustment.get_reason_display()}: {adjustment.qty_delta:+} {batch.product.name} (batch {batch.batch_no})',
+               Summary('{get_reason_display}: {qty_delta:+} {name} (batch {batch_no})', get_reason_display=adjustment.get_reason_display(), qty_delta=adjustment.qty_delta, name=batch.product.name, batch_no=batch.batch_no),
                request=request, store=batch.store,
                data={'qty': adjustment.qty_delta, 'reason': adjustment.reason, 'note': adjustment.note,
                      'value_at_cost': adjustment.qty_delta * batch.unit_cost})
@@ -93,10 +94,10 @@ class StockAdjustmentViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         from core.models import Store
         store = Store.objects.filter(pk=request.data.get('store')).first()
         if store is None:
-            raise ValidationError({'store': 'Choose a store.'})
+            raise ValidationError({'store': gettext('Choose a store.')})
         validate_accessible_store(store, request)
         if not is_store_manager(request.user, store):
-            raise PermissionDenied('Only a manager of this store can write off stock.')
+            raise PermissionDenied(gettext('Only a manager of this store can write off stock.'))
         expired = StockBatch.objects.filter(store=store, qty_on_hand__gt=0, expiry_date__lt=timezone.localdate())
         with transaction.atomic():
             created = [
@@ -107,7 +108,7 @@ class StockAdjustmentViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
                 for batch in expired.select_related('product', 'store')
             ]
         if created:
-            record(Action.STOCK_WRITTEN_OFF, f'All expired stock written off: {len(created)} batch(es)',
+            record(Action.STOCK_WRITTEN_OFF, Summary('All expired stock written off: {len} batch(es)', len=len(created)),
                    request=request, store=store,
                    data={'batches': [f'{a.batch.product.name} {a.batch.batch_no} ({a.qty_delta})' for a in created]})
         return Response(self.get_serializer(created, many=True).data, status=status.HTTP_201_CREATED)
@@ -142,7 +143,7 @@ class StockCountViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         store = data['store']
         if StockCount.objects.filter(store=store, status__in=[StockCount.Status.DRAFT, StockCount.Status.SUBMITTED]).exists():
-            raise StockError('This store already has a stock count in progress. Finish or cancel it first.')
+            raise StockError(gettext('This store already has a stock count in progress. Finish or cancel it first.'))
         count = StockCount.start(store=store, user=request.user, products=data.get('products'), note=data.get('note', ''))
         return Response(StockCountDetailSerializer(StockCount.objects.get(pk=count.pk)).data, status=status.HTTP_201_CREATED)
 
@@ -161,7 +162,7 @@ class StockCountViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         for entry in entries.validated_data:
             line = lines.get(str(entry['id']))
             if line is None:
-                raise ValidationError(f'Line {entry["id"]} is not part of this count.')
+                raise ValidationError(gettext('Line {id} is not part of this count.').format(id=entry["id"]))
             line.counted_qty = entry['counted_qty']
             changed.append(line)
         StockCountLine.objects.bulk_update(changed, ['counted_qty'])
@@ -176,15 +177,16 @@ class StockCountViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         product = data['product']
         if product.entity_id != count.store.entity_id:
-            raise ValidationError({'product': "Product is not in this shop's catalog."})
+            raise ValidationError({'product': gettext("Product is not in this shop's catalog.")})
         existing = StockBatch.objects.filter(
             store=count.store, product=product, batch_no=data['batch_no'],
             **({'expiry_date': data['expiry_date']} if not data['batch_no'] else {})).first()
         if existing and count.lines.filter(batch=existing).exists():
-            label = f'Batch {data["batch_no"]}' if data['batch_no'] else f'{product.name} stock like this'
-            raise StockError(f'{label} is already on this count sheet.')
+            label = (gettext('Batch {batch}').format(batch=data['batch_no']) if data['batch_no']
+                     else gettext('{name} stock like this').format(name=product.name))
+            raise StockError(gettext('{label} is already on this count sheet.').format(label=label))
         if existing is None and product.tracks_expiry and data['expiry_date'] is None:
-            raise StockError(f'{product.name} expires: enter the expiry date on the pack.')
+            raise StockError(gettext('{name} expires: enter the expiry date on the pack.').format(name=product.name))
         StockCountLine.objects.create(
             count=count, batch=existing, product=product, batch_no=data['batch_no'],
             expiry_date=existing.expiry_date if existing else data['expiry_date'], counted_qty=data['counted_qty'],
@@ -199,7 +201,7 @@ class StockCountViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def _require_manager(self, count):
         if not is_store_manager(self.request.user, count.store):
-            raise PermissionDenied('Only a manager of this store can do this.')
+            raise PermissionDenied(gettext('Only a manager of this store can do this.'))
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -209,7 +211,7 @@ class StockCountViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         corrections = [line for line in count.lines.select_related('product', 'batch') if line.adjustment_qty]
         value = sum((line.adjustment_qty * (line.batch.unit_cost if line.batch else 0) for line in corrections), 0)
         record(Action.STOCK_COUNT_APPROVED,
-               f'Stock count approved: {len(corrections)} correction(s), value at cost {value:,.0f}',
+               Summary('Stock count approved: {len} correction(s), value at cost {value:,.0f}', len=len(corrections), value=value),
                request=request, store=count.store, data={'count': str(count.id), 'value_at_cost': value})
         return self._detail(count)
 

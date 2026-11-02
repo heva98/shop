@@ -2,12 +2,13 @@ from decimal import Decimal
 
 import django_filters
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Role, StoreRole
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
@@ -56,27 +57,27 @@ class CustomerViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.entity_id is None:
-            raise ValidationError('Your account is not linked to a shop.')
+            raise ValidationError(gettext('Your account is not linked to a shop.'))
         extra = {} if _is_any_manager(user) else {'credit_limit': Decimal('0')}
         customer = serializer.save(entity=user.entity, **extra)
-        record(Action.CUSTOMER_CHANGED, f'Customer {customer.name} added', request=self.request,
+        record(Action.CUSTOMER_CHANGED, Summary('Customer {name} added', name=customer.name), request=self.request,
                data={'credit_limit': customer.credit_limit})
 
     def perform_update(self, serializer):
         old_limit = serializer.instance.credit_limit
         if 'credit_limit' in serializer.validated_data and serializer.validated_data['credit_limit'] != old_limit \
                 and not _is_any_manager(self.request.user):
-            raise PermissionDenied('Only a manager can change a customer\'s credit limit.')
+            raise PermissionDenied(gettext("Only a manager can change a customer's credit limit."))
         customer = serializer.save()
-        record(Action.CUSTOMER_CHANGED, f'Customer {customer.name} changed', request=self.request,
+        record(Action.CUSTOMER_CHANGED, Summary('Customer {name} changed', name=customer.name), request=self.request,
                data={'old_credit_limit': old_limit, 'credit_limit': customer.credit_limit})
 
     def perform_destroy(self, instance):
         if instance.sales.exists() or instance.payments.exists():
-            raise PermissionDenied(f'{instance.name} has sales or payments, so they cannot be removed. Deactivate them instead.')
+            raise PermissionDenied(gettext('{name} has sales or payments, so they cannot be removed. Deactivate them instead.').format(name=instance.name))
         if not _is_any_manager(self.request.user):
-            raise PermissionDenied('Only a manager can remove a customer.')
-        record(Action.CUSTOMER_CHANGED, f'Customer {instance.name} removed', request=self.request)
+            raise PermissionDenied(gettext('Only a manager can remove a customer.'))
+        record(Action.CUSTOMER_CHANGED, Summary('Customer {name} removed', name=instance.name), request=self.request)
         instance.delete()
 
     @action(detail=False, methods=['get'])
@@ -105,13 +106,13 @@ class CustomerViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         for sale in sales:
             rows.append({
                 'kind': 'sale', 'id': str(sale.id), 'date': sale.completed_at, 'store': sale.store.name,
-                'description': f'Receipt #{sale.number}', 'amount': sale.credit_amount,
+                'description': gettext('Receipt #{number}').format(number=sale.number), 'amount': sale.credit_amount,
                 'voided': sale.status == Sale.Status.VOIDED,
             })
         for payment in customer.payments.select_related('store', 'payment_method'):
             rows.append({
                 'kind': 'payment', 'id': str(payment.id), 'date': payment.created_at, 'store': payment.store.name,
-                'description': f'Paid by {payment.payment_method.name}'
+                'description': gettext('Paid by {method}').format(method=gettext(payment.payment_method.name))
                                + (f' ({payment.reference})' if payment.reference else ''),
                 'amount': -payment.amount, 'voided': payment.voided_at is not None,
             })
@@ -150,7 +151,7 @@ class CustomerPaymentViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelVi
         serializer = ReceivePaymentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         payment = CustomerPayment.receive(user=request.user, **serializer.validated_data)
-        record(Action.CREDIT_PAYMENT, f'{payment.customer.name} paid {payment.amount:,.0f} by {payment.payment_method.name}',
+        record(Action.CREDIT_PAYMENT, Summary('{name} paid {amount:,.0f} by {name2}', name=payment.customer.name, amount=payment.amount, name2=payment.payment_method.name),
                request=request, store=payment.store,
                data={'customer': str(payment.customer_id), 'amount': payment.amount, 'reference': payment.reference})
         return Response(self.get_serializer(payment).data, status=status.HTTP_201_CREATED)
@@ -159,11 +160,11 @@ class CustomerPaymentViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelVi
     def void(self, request, pk=None):
         payment = self.get_object()
         if not is_store_manager(request.user, payment.store):
-            raise PermissionDenied(f'Only a manager of {payment.store.name} can void a payment.')
+            raise PermissionDenied(gettext('Only a manager of {name} can void a payment.').format(name=payment.store.name))
         serializer = VoidPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         payment.void(user=request.user, reason=serializer.validated_data['reason'])
         record(Action.CREDIT_PAYMENT_VOIDED,
-               f'Payment of {payment.amount:,.0f} from {payment.customer.name} voided: {payment.void_reason}',
+               Summary('Payment of {amount:,.0f} from {name} voided: {void_reason}', amount=payment.amount, name=payment.customer.name, void_reason=payment.void_reason),
                request=request, store=payment.store, data={'payment': str(payment.id)})
         return Response(self.get_serializer(payment).data)

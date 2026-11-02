@@ -11,6 +11,8 @@ driver implementing the same FiscalDevice interface, returning the TRA
 receipt number directly instead of pending_manual.
 """
 
+from django.utils.translation import gettext
+
 from fiscal.interfaces import FiscalDevice, FiscalResult, FiscalSubmission
 
 
@@ -23,7 +25,7 @@ class ManualEFDDriver(FiscalDevice):
     def submit_sale(self, submission: FiscalSubmission) -> FiscalResult:
         return FiscalResult(
             success=False, pending_manual=True,
-            error='Issue the receipt on the EFD machine, then enter its receipt number.',
+            error=gettext('Issue the receipt on the EFD machine, then enter its receipt number.'),
         )
 
     def get_status(self) -> str:

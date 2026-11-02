@@ -1,12 +1,13 @@
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 
 from .features import FEATURES, FEATURES_BY_KEY, feature_values, is_enabled, set_feature, unavailable_reason
 from .models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
@@ -24,8 +25,7 @@ from .serializers import (
 
 _ADMIN_WRITE_ROLES = (Role.ENTITY_ADMIN,)
 _SINGLE_STORE_MESSAGE = (
-    'Your shop is set up as a single shop. To add another store, switch to '
-    '"Shop with multiple branches" under Admin > Shop profile.'
+    gettext_lazy('Your shop is set up as a single shop. To add another store, switch to "Shop with multiple branches" under Admin > Shop profile.')
 )
 
 
@@ -45,7 +45,7 @@ class EntityViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not self.request.user.is_superuser:
-            raise PermissionDenied('Only a superuser can create a new entity.')
+            raise PermissionDenied(gettext('Only a superuser can create a new entity.'))
         serializer.save()
 
     def perform_update(self, serializer):
@@ -53,7 +53,7 @@ class EntityViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         entity = serializer.save()
         changed = {f: [str(v), str(getattr(entity, f))] for f, v in before.items() if getattr(entity, f) != v}
         if changed:
-            record(Action.SETTINGS_CHANGED, f'Shop profile changed: {", ".join(changed)}',
+            record(Action.SETTINGS_CHANGED, Summary('Shop profile changed: {join}', join=", ".join(changed)),
                    request=self.request, entity=entity, data=changed)
 
 
@@ -69,7 +69,7 @@ class StoreViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         one (validate_entity already refuses a foreign one for non-superusers)."""
         entity = serializer.validated_data.get('entity') or self.request.user.entity
         if entity is None:
-            raise ValidationError({'entity': 'Your account is not linked to a shop.'})
+            raise ValidationError({'entity': gettext('Your account is not linked to a shop.')})
         if entity.is_single_store and entity.stores.filter(is_active=True).exists():
             raise ValidationError({'detail': _SINGLE_STORE_MESSAGE})
         serializer.save(entity=entity)
@@ -81,7 +81,7 @@ class StoreViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             if activating and store.entity.stores.filter(is_active=True).exists():
                 raise ValidationError({'detail': _SINGLE_STORE_MESSAGE})
             if not activating:
-                raise ValidationError({'detail': 'This is your shop\'s only store, so it cannot be deactivated.'})
+                raise ValidationError({'detail': gettext("This is your shop's only store, so it cannot be deactivated.")})
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -92,19 +92,17 @@ class StoreViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         store is refused too: deleting it would silently drop the entity
         from hub to peer mode, which belongs in Settings > Network topology."""
         if instance.entity.is_single_store and instance.is_active:
-            raise ValidationError({'detail': 'This is your shop\'s only store, so it cannot be removed.'})
+            raise ValidationError({'detail': gettext("This is your shop's only store, so it cannot be removed.")})
         if instance.is_main:
             raise ValidationError({'detail': (
-                'This is the main store. Switch the network topology to peer mode '
-                'or choose another main store before removing it.'
+                gettext('This is the main store. Switch the network topology to peer mode or choose another main store before removing it.')
             )})
         try:
             with transaction.atomic():
                 instance.delete()
         except ProtectedError:
             raise ValidationError({'detail': (
-                f'"{instance.name}" has sales, stock movements, transfers or controlled-substance '
-                'records, so it cannot be removed. Deactivate it instead.'
+                gettext('"{name}" has sales, stock movements, transfers or controlled-substance records, so it cannot be removed. Deactivate it instead.').format(name=instance.name)
             )})
 
 
@@ -116,7 +114,7 @@ def refuse_other_owner(request, target):
     user = request.user
     if (not user.is_superuser and target.pk != user.pk
             and target.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
-        raise PermissionDenied("Only the platform administrator can change another shop owner's account.")
+        raise PermissionDenied(gettext("Only the platform administrator can change another shop owner's account."))
 
 
 class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
@@ -127,7 +125,7 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        record(Action.USER_CREATED, f'User {user.username} created', request=self.request, data={'user': user.username})
+        record(Action.USER_CREATED, Summary('User {username} created', username=user.username), request=self.request, data={'user': user.username})
 
     def perform_update(self, serializer):
         refuse_other_owner(self.request, serializer.instance)
@@ -138,14 +136,14 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         user = serializer.save()
         target = {'user': user.username}
         if was_active and not user.is_active:
-            record(Action.USER_DISABLED, f'User {user.username} disabled', request=self.request, data=target)
+            record(Action.USER_DISABLED, Summary('User {username} disabled', username=user.username), request=self.request, data=target)
         elif not was_active and user.is_active:
-            record(Action.USER_ENABLED, f'User {user.username} enabled', request=self.request, data=target)
+            record(Action.USER_ENABLED, Summary('User {username} enabled', username=user.username), request=self.request, data=target)
         if resetting:
-            record(Action.PASSWORD_RESET, f'Password of {user.username} reset', request=self.request, data=target)
+            record(Action.PASSWORD_RESET, Summary('Password of {username} reset', username=user.username), request=self.request, data=target)
         changed = sorted(f for f, old in before.items() if f != 'is_active' and getattr(user, f) != old)
         if changed:
-            record(Action.USER_UPDATED, f'User {user.username} changed: {", ".join(changed)}',
+            record(Action.USER_UPDATED, Summary('User {username} changed: {join}', username=user.username, join=", ".join(changed)),
                    request=self.request, data=target)
 
     def perform_destroy(self, instance):
@@ -167,7 +165,7 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
             if serializer.validated_data.get('new_password'):
-                record(Action.PASSWORD_CHANGED, f'{user.username} changed their password', request=request)
+                record(Action.PASSWORD_CHANGED, Summary('{username} changed their password', username=user.username), request=request)
         store_roles = StoreRole.objects.filter(user=user).select_related('store').order_by('id')
         entity = user.entity if user.entity_id else None
         return Response({
@@ -180,6 +178,7 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             'date_of_birth': user.date_of_birth,
             'email': user.email,
             'phone': user.phone,
+            'language': user.language,
             'must_change_password': user.must_change_password,
             'is_superuser': user.is_superuser,
             'entity': EntitySerializer(entity).data if entity else None,
@@ -204,24 +203,24 @@ def features(request):
     enabled} switches one."""
     entity = request.user.entity
     if entity is None:
-        raise ValidationError('Your account is not linked to a shop.')
+        raise ValidationError(gettext('Your account is not linked to a shop.'))
     if request.method == 'PATCH':
         key = request.data.get('key')
         if key not in FEATURES_BY_KEY:
-            raise ValidationError({'key': 'Unknown feature.'})
+            raise ValidationError({'key': gettext('Unknown feature.')})
         feature = FEATURES_BY_KEY[key]
         store = None
         if request.data.get('store'):
             store = Store.objects.filter(entity=entity, pk=request.data['store']).first()
             if store is None:
-                raise ValidationError({'store': 'Not a store in your shop.'})
+                raise ValidationError({'store': gettext('Not a store in your shop.')})
         enabled = str(request.data.get('enabled')).lower() in ('true', '1', 'yes')
         reason = unavailable_reason(key, entity)
         if enabled and reason:
-            raise ValidationError({'detail': f'{feature.label}: {reason}'})
+            raise ValidationError({'detail': gettext('{label}: {reason}').format(label=feature.label, reason=reason)})
         set_feature(key, enabled, entity=entity, store=store)
         where = f' at {store.name}' if store is not None and feature.scope == ModuleRegistry.Scope.STORE else ''
-        record(Action.SETTINGS_CHANGED, f'{feature.label} switched {"on" if enabled else "off"}{where}',
+        record(Action.SETTINGS_CHANGED, Summary('{label} switched {value}{where}', label=feature.label, value="on" if enabled else "off", where=where),
                request=request, entity=entity, store=store, data={'feature': key, 'enabled': enabled})
     stores = list(entity.stores.order_by('name'))
     return Response({
@@ -247,7 +246,8 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     permission_classes = [write_roles(*_ADMIN_WRITE_ROLES)]
 
     def _describe(self, role):
-        return f'{role.get_role_display()} at {role.store.name if role.store_id else "all stores"} for {role.user.username}'
+        return Summary('{role} at {where} for {user}', role=role.get_role_display(),
+                       where=role.store.name if role.store_id else 'all stores', user=role.user.username)
 
     def perform_create(self, serializer):
         refuse_other_owner(self.request, serializer.validated_data['user'])
@@ -256,7 +256,7 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         if instance.role == Role.ENTITY_ADMIN and not self.request.user.is_superuser:
-            raise PermissionDenied('Only the platform administrator can remove a shop owner.')
+            raise PermissionDenied(gettext('Only the platform administrator can remove a shop owner.'))
         refuse_other_owner(self.request, instance.user)
         summary, store = self._describe(instance), instance.store
         instance.delete()

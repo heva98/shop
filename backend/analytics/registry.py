@@ -39,6 +39,7 @@ from django.db.models import (
 )
 from django.db.models.functions import ExtractHour, ExtractIsoWeekDay
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 from rest_framework.exceptions import PermissionDenied
 
 from catalog.models import Category, Product
@@ -92,7 +93,7 @@ class Context:
         entity = getattr(user, 'entity', None)
         if entity is None and not user.is_superuser:
             # entity None means "every firm" below, which only a superuser may see.
-            raise PermissionDenied('You are not assigned to a shop.')
+            raise PermissionDenied(gettext('You are not assigned to a shop.'))
         ids = accessible_store_ids(user)
         return cls(user, entity, feature_values(entity), None if ids is None else [str(i) for i in ids])
 
@@ -125,11 +126,11 @@ class MetricGroup:
 
 
 GROUP_LABELS = {
-    MetricGroup.SALES: 'Sales',
-    MetricGroup.PROFIT: 'Profit',
-    MetricGroup.PURCHASES: 'Purchases',
-    MetricGroup.STOCK: 'Stock',
-    MetricGroup.CREDIT: 'Customer credit',
+    MetricGroup.SALES: gettext_lazy('Sales'),
+    MetricGroup.PROFIT: gettext_lazy('Profit'),
+    MetricGroup.PURCHASES: gettext_lazy('Purchases'),
+    MetricGroup.STOCK: gettext_lazy('Stock'),
+    MetricGroup.CREDIT: gettext_lazy('Customer credit'),
     MetricGroup.TILLS: 'Tills & cash',
 }
 
@@ -168,15 +169,15 @@ class FactSource:
 
 
 _SOURCES = [
-    FactSource('sales', 'Sales (items sold)', 'sale line', 'sale__completed_at', 'sale__store'),
+    FactSource('sales', gettext_lazy('Sales (items sold)'), gettext_lazy('sale line'), 'sale__completed_at', 'sale__store'),
     FactSource('receipts', 'Sales (receipts)', 'sale', 'completed_at', 'store'),
-    FactSource('voids', 'Voided sales', 'sale', 'voided_at', 'store'),
-    FactSource('purchases', 'Purchases', 'supplier invoice line', 'invoice__received_date', 'invoice__store'),
-    FactSource('supplier_payments', 'Supplier payments', 'payment', 'paid_on', 'invoice__store'),
-    FactSource('stock_moves', 'Stock movements', 'ledger entry', 'created_at', 'store'),
-    FactSource('stock_balance', 'Stock on hand', 'ledger entry', 'created_at', 'store', cumulative=True),
-    FactSource('credit_payments', 'Credit repayments', 'repayment', 'created_at', 'store'),
-    FactSource('shifts', 'Shifts', 'shift', 'closed_at', 'store'),
+    FactSource('voids', gettext_lazy('Voided sales'), 'sale', 'voided_at', 'store'),
+    FactSource('purchases', gettext_lazy('Purchases'), gettext_lazy('supplier invoice line'), 'invoice__received_date', 'invoice__store'),
+    FactSource('supplier_payments', gettext_lazy('Supplier payments'), 'payment', 'paid_on', 'invoice__store'),
+    FactSource('stock_moves', gettext_lazy('Stock movements'), gettext_lazy('ledger entry'), 'created_at', 'store'),
+    FactSource('stock_balance', gettext_lazy('Stock on hand'), gettext_lazy('ledger entry'), 'created_at', 'store', cumulative=True),
+    FactSource('credit_payments', gettext_lazy('Credit repayments'), 'repayment', 'created_at', 'store'),
+    FactSource('shifts', gettext_lazy('Shifts'), 'shift', 'closed_at', 'store'),
 ]
 SOURCES: dict[str, FactSource] = {s.id: s for s in _SOURCES}
 
@@ -259,110 +260,110 @@ _WASTE = Q(ledger_type__in=WASTAGE_LEDGER_TYPES)
 
 _METRICS = [
     # ── sales ──
-    Metric('sales.net', 'Net sales', 'What customers were charged, after discounts, VAT included.',
+    Metric('sales.net', gettext_lazy('Net sales'), gettext_lazy('What customers were charged, after discounts, VAT included.'),
            MetricGroup.SALES, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum('amount')),
-    Metric('sales.gross', 'Sales before discounts', 'Shelf price times quantity, before any discount.',
+    Metric('sales.gross', gettext_lazy('Sales before discounts'), gettext_lazy('Shelf price times quantity, before any discount.'),
            MetricGroup.SALES, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum(_LINE_GROSS())),
-    Metric('sales.discounts', 'Discounts given', 'Discounts on items and on whole sales.',
+    Metric('sales.discounts', gettext_lazy('Discounts given'), gettext_lazy('Discounts on items and on whole sales.'),
            MetricGroup.SALES, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum('discount')),
-    Metric('sales.discount_rate', 'Discount rate (%)', 'Discounts as a share of sales before discounts.',
+    Metric('sales.discount_rate', gettext_lazy('Discount rate (%)'), gettext_lazy('Discounts as a share of sales before discounts.'),
            MetricGroup.SALES, 'sales', Aggregation.RATIO, _sale_lines,
            lambda: Sum('discount'), lambda: Sum(_LINE_GROSS()), scale=100, unit='percent'),
-    Metric('sales.vat', 'VAT in sales', 'The 18/118 share of standard-rated sales.',
+    Metric('sales.vat', gettext_lazy('VAT in sales'), gettext_lazy('The 18/118 share of standard-rated sales.'),
            MetricGroup.SALES, 'sales', Aggregation.SUM, _sale_lines,
            lambda: Sum(_dec(F('amount') * Value(Decimal('18')) / Value(Decimal('118'))),
                        filter=Q(vat_class=Product.VatClass.STANDARD))),
-    Metric('sales.qty', 'Quantity sold', "Units sold, each product counted in its own stock unit.",
+    Metric('sales.qty', gettext_lazy('Quantity sold'), gettext_lazy('Units sold, each product counted in its own stock unit.'),
            MetricGroup.SALES, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum('qty'), unit='qty'),
-    Metric('sales.count', 'Number of sales', 'Completed receipts.',
+    Metric('sales.count', gettext_lazy('Number of sales'), gettext_lazy('Completed receipts.'),
            MetricGroup.SALES, 'sales', Aggregation.COUNT_DISTINCT, _sale_lines,
            lambda: Count('sale', distinct=True), unit='count'),
-    Metric('sales.avg_sale', 'Average sale value', 'Net sales divided by the number of sales.',
+    Metric('sales.avg_sale', gettext_lazy('Average sale value'), gettext_lazy('Net sales divided by the number of sales.'),
            MetricGroup.SALES, 'sales', Aggregation.RATIO, _sale_lines,
            lambda: Sum('amount'), lambda: Count('sale', distinct=True)),
-    Metric('sales.products', 'Different products sold', 'Distinct products with at least one sale.',
+    Metric('sales.products', gettext_lazy('Different products sold'), gettext_lazy('Distinct products with at least one sale.'),
            MetricGroup.SALES, 'sales', Aggregation.COUNT_DISTINCT, _sale_lines,
            lambda: Count('batch__product', distinct=True), unit='count'),
-    Metric('sales.customers', 'Registered customers served', 'Distinct registered customers who bought.',
+    Metric('sales.customers', gettext_lazy('Registered customers served'), gettext_lazy('Distinct registered customers who bought.'),
            MetricGroup.SALES, 'sales', Aggregation.COUNT_DISTINCT, _sale_lines,
            lambda: Count('sale__customer', distinct=True), unit='count'),
-    Metric('sales.voids', 'Voided sales', 'Completed sales later voided, counted when voided.',
+    Metric('sales.voids', gettext_lazy('Voided sales'), gettext_lazy('Completed sales later voided, counted when voided.'),
            MetricGroup.SALES, 'voids', Aggregation.COUNT_DISTINCT, _voids,
            lambda: Count('pk', distinct=True), unit='count'),
-    Metric('sales.void_value', 'Value of voided sales', 'What the voided sales had been charged.',
+    Metric('sales.void_value', gettext_lazy('Value of voided sales'), gettext_lazy('What the voided sales had been charged.'),
            MetricGroup.SALES, 'voids', Aggregation.SUM, _voids, lambda: Sum('lines__amount')),
 
     # ── profit ──
-    Metric('profit.cogs', 'Cost of goods sold', 'Quantity sold times the cost of the batch it came from.',
+    Metric('profit.cogs', gettext_lazy('Cost of goods sold'), gettext_lazy('Quantity sold times the cost of the batch it came from.'),
            MetricGroup.PROFIT, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum(_LINE_COST())),
-    Metric('profit.gross', 'Gross profit', 'Net sales less the cost of the goods sold.',
+    Metric('profit.gross', gettext_lazy('Gross profit'), gettext_lazy('Net sales less the cost of the goods sold.'),
            MetricGroup.PROFIT, 'sales', Aggregation.SUM, _sale_lines, lambda: Sum(_LINE_PROFIT())),
-    Metric('profit.margin', 'Gross margin (%)', 'Gross profit as a share of net sales.',
+    Metric('profit.margin', gettext_lazy('Gross margin (%)'), gettext_lazy('Gross profit as a share of net sales.'),
            MetricGroup.PROFIT, 'sales', Aggregation.RATIO, _sale_lines,
            lambda: Sum(_LINE_PROFIT()), lambda: Sum('amount'), scale=100, unit='percent'),
-    Metric('profit.markup', 'Markup (%)', 'Gross profit as a share of the cost of the goods sold.',
+    Metric('profit.markup', 'Markup (%)', gettext_lazy('Gross profit as a share of the cost of the goods sold.'),
            MetricGroup.PROFIT, 'sales', Aggregation.RATIO, _sale_lines,
            lambda: Sum(_LINE_PROFIT()), lambda: Sum(_LINE_COST()), scale=100, unit='percent'),
 
     # ── purchases ──
-    Metric('purchases.value', 'Purchases', 'Received supplier invoices: quantity times pack price.',
+    Metric('purchases.value', gettext_lazy('Purchases'), gettext_lazy('Received supplier invoices: quantity times pack price.'),
            MetricGroup.PURCHASES, 'purchases', Aggregation.SUM, _purchase_lines,
            lambda: Sum(_dec(F('order_qty') * F('pack_price')))),
-    Metric('purchases.qty', 'Quantity received', "Units received, in each product's own stock unit.",
+    Metric('purchases.qty', gettext_lazy('Quantity received'), gettext_lazy("Units received, in each product's own stock unit."),
            MetricGroup.PURCHASES, 'purchases', Aggregation.SUM, _purchase_lines,
            lambda: Sum(_dec(F('order_qty') * F('uom__unit_value') / F('product__uom__unit_value'))), unit='qty'),
-    Metric('purchases.invoices', 'Supplier invoices', 'Received supplier invoices.',
+    Metric('purchases.invoices', gettext_lazy('Supplier invoices'), gettext_lazy('Received supplier invoices.'),
            MetricGroup.PURCHASES, 'purchases', Aggregation.COUNT_DISTINCT, _purchase_lines,
            lambda: Count('invoice', distinct=True), unit='count'),
-    Metric('purchases.suppliers', 'Suppliers bought from', 'Distinct suppliers with a received invoice.',
+    Metric('purchases.suppliers', gettext_lazy('Suppliers bought from'), gettext_lazy('Distinct suppliers with a received invoice.'),
            MetricGroup.PURCHASES, 'purchases', Aggregation.COUNT_DISTINCT, _purchase_lines,
            lambda: Count('invoice__supplier', distinct=True), unit='count'),
-    Metric('purchases.paid', 'Paid to suppliers', 'Payments recorded against supplier invoices.',
+    Metric('purchases.paid', gettext_lazy('Paid to suppliers'), gettext_lazy('Payments recorded against supplier invoices.'),
            MetricGroup.PURCHASES, 'supplier_payments', Aggregation.SUM, SupplierPayment.objects.all,
            lambda: Sum('amount')),
 
     # ── stock ──
-    Metric('stock.on_hand', 'Stock on hand (closing)', 'Units in stock at the end of the period, expired included.',
+    Metric('stock.on_hand', gettext_lazy('Stock on hand (closing)'), gettext_lazy('Units in stock at the end of the period, expired included.'),
            MetricGroup.STOCK, 'stock_balance', Aggregation.BALANCE, _ledger, lambda: Sum('qty_delta'), unit='qty'),
-    Metric('stock.value', 'Stock value at cost (closing)', 'Stock at the end of the period, at batch cost.',
+    Metric('stock.value', gettext_lazy('Stock value at cost (closing)'), gettext_lazy('Stock at the end of the period, at batch cost.'),
            MetricGroup.STOCK, 'stock_balance', Aggregation.BALANCE, _ledger, lambda: Sum(_MOVE_VALUE())),
-    Metric('stock.in', 'Stock in', 'Units added: received, transferred in, counted up, voids returned.',
+    Metric('stock.in', gettext_lazy('Stock in'), gettext_lazy('Units added: received, transferred in, counted up, voids returned.'),
            MetricGroup.STOCK, 'stock_moves', Aggregation.SUM, _ledger,
            lambda: Sum('qty_delta', filter=Q(qty_delta__gt=0)), unit='qty'),
-    Metric('stock.out', 'Stock out', 'Units removed: sold, transferred out, written off, counted down.',
+    Metric('stock.out', gettext_lazy('Stock out'), gettext_lazy('Units removed: sold, transferred out, written off, counted down.'),
            MetricGroup.STOCK, 'stock_moves', Aggregation.SUM, _ledger,
            lambda: Sum(_dec(-F('qty_delta')), filter=Q(qty_delta__lt=0)), unit='qty'),
-    Metric('stock.net_change', 'Net stock change', 'Stock in less stock out.',
+    Metric('stock.net_change', gettext_lazy('Net stock change'), gettext_lazy('Stock in less stock out.'),
            MetricGroup.STOCK, 'stock_moves', Aggregation.SUM, _ledger, lambda: Sum('qty_delta'), unit='qty'),
-    Metric('stock.wastage', 'Stock lost or wasted', 'Units written off as lost, stolen, damaged, expired or spoiled.',
+    Metric('stock.wastage', gettext_lazy('Stock lost or wasted'), gettext_lazy('Units written off as lost, stolen, damaged, expired or spoiled.'),
            MetricGroup.STOCK, 'stock_moves', Aggregation.SUM, _ledger,
            lambda: Sum(_dec(-F('qty_delta')), filter=_WASTE), unit='qty'),
-    Metric('stock.wastage_value', 'Value lost or wasted', 'Write-offs at batch cost.',
+    Metric('stock.wastage_value', gettext_lazy('Value lost or wasted'), gettext_lazy('Write-offs at batch cost.'),
            MetricGroup.STOCK, 'stock_moves', Aggregation.SUM, _ledger,
            lambda: Sum(_dec(-F('qty_delta') * F('batch__unit_cost')), filter=_WASTE)),
 
     # ── customer credit ──
-    Metric('credit.given', 'Sold on credit', "The share of sales put on customers' accounts.",
+    Metric('credit.given', gettext_lazy('Sold on credit'), gettext_lazy("The share of sales put on customers' accounts."),
            MetricGroup.CREDIT, 'receipts', Aggregation.SUM, _receipts, lambda: Sum('credit_amount')),
-    Metric('credit.customers', 'Customers buying on credit', 'Distinct customers with a credit sale.',
+    Metric('credit.customers', gettext_lazy('Customers buying on credit'), gettext_lazy('Distinct customers with a credit sale.'),
            MetricGroup.CREDIT, 'receipts', Aggregation.COUNT_DISTINCT, _receipts,
            lambda: Count('customer', distinct=True, filter=Q(credit_amount__gt=0)), unit='count'),
-    Metric('credit.repaid', 'Credit repaid', 'Repayments received from customers (voided ones excluded).',
+    Metric('credit.repaid', gettext_lazy('Credit repaid'), gettext_lazy('Repayments received from customers (voided ones excluded).'),
            MetricGroup.CREDIT, 'credit_payments', Aggregation.SUM, _credit_payments, lambda: Sum('amount')),
-    Metric('credit.repayments', 'Number of repayments', 'Repayments received from customers.',
+    Metric('credit.repayments', gettext_lazy('Number of repayments'), gettext_lazy('Repayments received from customers.'),
            MetricGroup.CREDIT, 'credit_payments', Aggregation.COUNT, _credit_payments,
            lambda: Count('pk'), unit='count'),
 
     # ── tills ──
-    Metric('tills.shifts', 'Shifts closed', 'Till shifts closed with a counted drawer.',
+    Metric('tills.shifts', gettext_lazy('Shifts closed'), gettext_lazy('Till shifts closed with a counted drawer.'),
            MetricGroup.TILLS, 'shifts', Aggregation.COUNT, _closed_shifts, lambda: Count('pk'), unit='count'),
-    Metric('tills.variance', 'Cash over / short', 'Counted cash less expected cash; negative means short.',
+    Metric('tills.variance', gettext_lazy('Cash over / short'), gettext_lazy('Counted cash less expected cash; negative means short.'),
            MetricGroup.TILLS, 'shifts', Aggregation.SUM, _closed_shifts,
            lambda: Sum(_dec(F('counted_cash') - F('expected_cash')))),
-    Metric('tills.short', 'Cash short', 'Expected cash missing from drawers that came up short.',
+    Metric('tills.short', gettext_lazy('Cash short'), gettext_lazy('Expected cash missing from drawers that came up short.'),
            MetricGroup.TILLS, 'shifts', Aggregation.SUM, _closed_shifts,
            lambda: Sum(_dec(F('expected_cash') - F('counted_cash')), filter=Q(counted_cash__lt=F('expected_cash')))),
-    Metric('tills.short_shifts', 'Shifts short of cash', 'Closed shifts whose drawer was short.',
+    Metric('tills.short_shifts', gettext_lazy('Shifts short of cash'), gettext_lazy('Closed shifts whose drawer was short.'),
            MetricGroup.TILLS, 'shifts', Aggregation.COUNT, _closed_shifts,
            lambda: Count('pk', filter=Q(counted_cash__lt=F('expected_cash'))), unit='count'),
 ]
@@ -505,7 +506,7 @@ def _weekday(path):
 _HOURS = lambda ctx: [{'id': str(h), 'label': f'{h:02d}:00–{(h + 1) % 24:02d}:00'} for h in range(24)]  # noqa: E731
 _WEEKDAYS = lambda ctx: [  # noqa: E731
     {'id': str(i), 'label': d}
-    for i, d in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], 1)
+    for i, d in enumerate([gettext('Monday'), gettext('Tuesday'), gettext('Wednesday'), gettext('Thursday'), gettext('Friday'), gettext('Saturday'), gettext('Sunday')], 1)
 ]
 
 
@@ -533,8 +534,8 @@ def _expiry(batch_path):
 
 
 _EXPIRY_ITEMS = _choices([
-    ('expired', 'Expired'), ('soon', 'Expires within 30 days'), ('quarter', 'Expires in 31–90 days'),
-    ('later', 'Expires later'), ('none', 'Does not expire'),
+    ('expired', gettext_lazy('Expired')), ('soon', gettext_lazy('Expires within 30 days')), ('quarter', gettext_lazy('Expires in 31–90 days')),
+    ('later', gettext_lazy('Expires later')), ('none', gettext_lazy('Does not expire')),
 ])
 
 L = StockLedger.LedgerType
@@ -558,68 +559,68 @@ def _movement():
 
 
 _MOVEMENT_ITEMS = _choices([
-    ('received', 'Received from suppliers'), ('transfer_in', 'Transferred in'),
-    ('transfer_out', 'Transferred out'), ('sold', 'Sold'), ('sale_void', 'Returned by a voided sale'),
-    ('opening', 'Opening stock'), ('count', 'Stock count correction'), ('consumption', 'Internal use'),
-    ('correction', 'Wrong entry corrected'), ('wastage', 'Lost, damaged, expired or spoiled'),
+    ('received', gettext_lazy('Received from suppliers')), ('transfer_in', gettext_lazy('Transferred in')),
+    ('transfer_out', gettext_lazy('Transferred out')), ('sold', gettext_lazy('Sold')), ('sale_void', gettext_lazy('Returned by a voided sale')),
+    ('opening', gettext_lazy('Opening stock')), ('count', gettext_lazy('Stock count correction')), ('consumption', gettext_lazy('Internal use')),
+    ('correction', gettext_lazy('Wrong entry corrected')), ('wastage', gettext_lazy('Lost, damaged, expired or spoiled')),
 ])
 
 _STORE_PATHS = {s.id: f'{s.store}_id' for s in _SOURCES}
 
 _DIMENSIONS = [
-    Dimension('dx', 'Data', DimensionKind.DATA),
-    Dimension('pe', 'Period', DimensionKind.PERIOD),
-    Dimension('ou', 'Stores', DimensionKind.ORG_UNIT, group_by=_STORE_PATHS),
+    Dimension('dx', gettext_lazy('Data'), DimensionKind.DATA),
+    Dimension('pe', gettext_lazy('Period'), DimensionKind.PERIOD),
+    Dimension('ou', gettext_lazy('Stores'), DimensionKind.ORG_UNIT, group_by=_STORE_PATHS),
 
     # products
-    Dimension('product', 'Product', DimensionKind.DYNAMIC, group_by=_product_paths('id'),
+    Dimension('product', gettext_lazy('Product'), DimensionKind.DYNAMIC, group_by=_product_paths('id'),
               search=_search(Product, ('name', 'short_name', 'brand', 'barcode'), _product_label),
               count=_count(Product)),
-    Dimension('category', 'Category', DimensionKind.DYNAMIC, group_by=_product_paths('category_id'),
-              items=_category_items, blank_label='No category'),
-    Dimension('brand', 'Brand', DimensionKind.DYNAMIC, group_by=_product_paths('brand'),
-              items=_brand_items, blank_label='No brand'),
-    Dimension('vat_class', 'VAT class', DimensionKind.DYNAMIC,
+    Dimension('category', gettext_lazy('Category'), DimensionKind.DYNAMIC, group_by=_product_paths('category_id'),
+              items=_category_items, blank_label=gettext_lazy('No category')),
+    Dimension('brand', gettext_lazy('Brand'), DimensionKind.DYNAMIC, group_by=_product_paths('brand'),
+              items=_brand_items, blank_label=gettext_lazy('No brand')),
+    Dimension('vat_class', gettext_lazy('VAT class'), DimensionKind.DYNAMIC,
               group_by={**_product_paths('vat_class'), 'sales': 'vat_class'},
               items=_choices(Product.VatClass.choices)),
-    Dimension('expiry', 'Expiry (as of today)', DimensionKind.DYNAMIC,
+    Dimension('expiry', gettext_lazy('Expiry (as of today)'), DimensionKind.DYNAMIC,
               group_by={s: _expiry(path) for s, path in _BATCH_PATHS.items()}, items=_EXPIRY_ITEMS),
 
     # selling
-    Dimension('payment_method', 'Payment method', DimensionKind.DYNAMIC,
+    Dimension('payment_method', gettext_lazy('Payment method'), DimensionKind.DYNAMIC,
               group_by={'sales': 'sale__payment_method_id', 'receipts': 'payment_method_id',
                         'voids': 'payment_method_id', 'credit_payments': 'payment_method_id'},
               items=_payment_method_items),
-    Dimension('credit_sale', 'Paid or on credit', DimensionKind.DYNAMIC,
+    Dimension('credit_sale', gettext_lazy('Paid or on credit'), DimensionKind.DYNAMIC,
               group_by={'sales': _credit_sale('sale__credit_amount'), 'receipts': _credit_sale('credit_amount')},
-              items=_choices([('paid', 'Paid in full'), ('credit', 'Part or all on credit')])),
-    Dimension('cashier', 'Cashier', DimensionKind.DYNAMIC,
+              items=_choices([('paid', gettext_lazy('Paid in full')), ('credit', gettext_lazy('Part or all on credit'))])),
+    Dimension('cashier', gettext_lazy('Cashier'), DimensionKind.DYNAMIC,
               group_by={'sales': 'sale__cashier_id', 'receipts': 'cashier_id', 'voids': 'cashier_id',
                         'credit_payments': 'received_by_id', 'shifts': 'cashier_id'},
               items=_staff_items),
-    Dimension('customer', 'Customer', DimensionKind.DYNAMIC,
+    Dimension('customer', gettext_lazy('Customer'), DimensionKind.DYNAMIC,
               group_by={'sales': 'sale__customer_id', 'receipts': 'customer_id', 'credit_payments': 'customer_id'},
               search=_search(Customer, ('name', 'phone'), lambda c: c.name), count=_count(Customer),
-              blank_label='Walk-in (not registered)'),
-    Dimension('hour', 'Hour of day', DimensionKind.DYNAMIC,
+              blank_label=gettext_lazy('Walk-in (not registered)')),
+    Dimension('hour', gettext_lazy('Hour of day'), DimensionKind.DYNAMIC,
               group_by={'sales': _hour('sale__completed_at'), 'receipts': _hour('completed_at')},
               items=_HOURS),
-    Dimension('weekday', 'Day of week', DimensionKind.DYNAMIC,
+    Dimension('weekday', gettext_lazy('Day of week'), DimensionKind.DYNAMIC,
               group_by={'sales': _weekday('sale__completed_at'), 'receipts': _weekday('completed_at'),
                         'purchases': _weekday('invoice__received_date')},
               items=_WEEKDAYS),
 
     # buying
-    Dimension('supplier', 'Supplier', DimensionKind.DYNAMIC,
+    Dimension('supplier', gettext_lazy('Supplier'), DimensionKind.DYNAMIC,
               group_by={'purchases': 'invoice__supplier_id', 'supplier_payments': 'invoice__supplier_id'},
               items=_supplier_items),
-    Dimension('supplier_payment_method', 'Supplier payment method', DimensionKind.DYNAMIC,
+    Dimension('supplier_payment_method', gettext_lazy('Supplier payment method'), DimensionKind.DYNAMIC,
               group_by={'supplier_payments': 'method'}, items=_choices(SupplierPayment.Method.choices)),
 
     # stock
-    Dimension('movement', 'Stock movement', DimensionKind.DYNAMIC,
+    Dimension('movement', gettext_lazy('Stock movement'), DimensionKind.DYNAMIC,
               group_by={'stock_moves': _movement}, items=_MOVEMENT_ITEMS),
-    Dimension('ledger_type', 'Ledger entry type', DimensionKind.DYNAMIC,
+    Dimension('ledger_type', gettext_lazy('Ledger entry type'), DimensionKind.DYNAMIC,
               group_by={'stock_moves': 'ledger_type'}, items=_choices(L.choices)),
 ]
 DIMENSIONS: dict[str, Dimension] = {d.id: d for d in _DIMENSIONS}
@@ -632,8 +633,8 @@ FIRM = 'FIRM'
 
 def firm_label(ctx: Context) -> str:
     if ctx.store_ids is not None:
-        return 'All my stores'
-    return ctx.entity.name if ctx.entity is not None else 'All stores'
+        return gettext('All my stores')
+    return ctx.entity.name if ctx.entity is not None else gettext('All stores')
 
 
 def org_units(ctx: Context) -> dict[str, dict]:

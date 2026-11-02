@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js'
 // The Data Visualizer keeps its whole state in one serialisable
 // "visualization config" object, driven by `configReducer`, so a saved
 // visualization is this object stored as-is.
@@ -15,21 +16,25 @@ export const AXES = ['columns', 'rows', 'filters']
 // dataTransfer type for dragging a dimension onto the layout.
 export const DIM_MIME = 'application/x-duka-dimension'
 
-export const AXIS_LABELS = { columns: 'Columns', rows: 'Rows', filters: 'Filter' }
+export const AXIS_LABELS = {
+  get columns() { return t('Columns') }, get rows() { return t('Rows') }, get filters() { return t('Filter') },
+}
 
 // Charts read Columns as the series and Rows as the category (DHIS2's names).
-const CHART_AXIS_LABELS = { columns: 'Series', rows: 'Category', filters: 'Filter' }
+const CHART_AXIS_LABELS = {
+  get columns() { return t('Series') }, get rows() { return t('Category') }, get filters() { return t('Filter') },
+}
 
 // `series` / `category`: the most dimensions each axis takes.
 export const VISUALIZATION_TYPES = [
-  { id: 'PIVOT_TABLE', label: 'Pivot table' },
-  { id: 'COLUMN', label: 'Column chart', chart: true, series: 1, category: 1 },
-  { id: 'STACKED_COLUMN', label: 'Stacked column chart', chart: true, series: 1, category: 1 },
-  { id: 'BAR', label: 'Bar chart', chart: true, series: 1, category: 1 },
-  { id: 'LINE', label: 'Line chart', chart: true, series: 1, category: 1 },
-  { id: 'PIE', label: 'Pie chart', chart: true, series: 1, category: 0 },
-  { id: 'SINGLE_VALUE', label: 'Single value', chart: true, series: 1, category: 0 },
-]
+  { id: 'PIVOT_TABLE', name: 'Pivot table' },
+  { id: 'COLUMN', name: 'Column chart', chart: true, series: 1, category: 1 },
+  { id: 'STACKED_COLUMN', name: 'Stacked column chart', chart: true, series: 1, category: 1 },
+  { id: 'BAR', name: 'Bar chart', chart: true, series: 1, category: 1 },
+  { id: 'LINE', name: 'Line chart', chart: true, series: 1, category: 1 },
+  { id: 'PIE', name: 'Pie chart', chart: true, series: 1, category: 0 },
+  { id: 'SINGLE_VALUE', name: 'Single value', chart: true, series: 1, category: 0 },
+].map((type) => Object.defineProperty(type, 'label', { get() { return t(this.name) }, enumerable: true }))
 const TYPES_BY_ID = Object.fromEntries(VISUALIZATION_TYPES.map((t) => [t.id, t]))
 
 export const isChart = (type) => Boolean(TYPES_BY_ID[type]?.chart)
@@ -54,7 +59,9 @@ export const DEFAULT_OPTIONS = {
   targetLabel: 'Target',
 }
 
-export const FIXED_DIMENSION_LABELS = { dx: 'Data', pe: 'Period', ou: 'Stores' }
+export const FIXED_DIMENSION_LABELS = {
+  get dx() { return t('Data') }, get pe() { return t('Period') }, get ou() { return t('Stores') },
+}
 export const FIXED_DIMENSIONS = ['dx', 'pe', 'ou']
 export const TOTAL = '__total'
 
@@ -87,7 +94,7 @@ export function axisOf(config, dimId) {
 // Why `dim` can't go on `axis`, or null if it can.
 export function placementError(dim, axis) {
   if (!dim) return null
-  if (dim.filter_only && axis !== 'filters') return `${dim.label} can only be used as a filter.`
+  if (dim.filter_only && axis !== 'filters') return t('{name} can only be used as a filter.', { name: t(dim.label) })
   return null
 }
 
@@ -148,27 +155,27 @@ export function configReducer(state, action) {
 // (URLSearchParams) for /api/analytics/query/. Dimensions are sent columns
 // first, then rows, so the response's meta columns follow the layout.
 export function buildQuery(config, dimensionsById) {
-  const label = (id) => FIXED_DIMENSION_LABELS[id] ?? dimensionsById[id]?.label ?? id
+  const label = (id) => FIXED_DIMENSION_LABELS[id] ?? t(dimensionsById[id]?.label) ?? id
   const items = (id) => config.items[id] ?? []
 
   if (!axisOf(config, 'dx') || items('dx').length === 0) {
-    return { error: 'Choose at least one data item.' }
+    return { error: t('Choose at least one data item.') }
   }
   if (config.filters.includes('dx') && items('dx').length > 1) {
-    return { error: 'Data in Filter can hold only one item. Choose one, or move Data to another axis.' }
+    return { error: t('Data in Filter can hold only one item. Choose one, or move Data to another axis.') }
   }
   if (!axisOf(config, 'pe') || items('pe').length === 0) {
-    return { error: 'Choose at least one period.' }
+    return { error: t('Choose at least one period.') }
   }
 
   const params = new URLSearchParams()
   for (const id of [...config.columns, ...config.rows]) {
     const dim = dimensionsById[id]
-    if (dim?.filter_only) return { error: `${label(id)} can only be used as a filter.` }
+    if (dim?.filter_only) return { error: t('{name} can only be used as a filter.', { name: label(id) }) }
     // Dynamic dimensions without a selection show every item; the fixed ones
     // need an explicit selection.
     if (FIXED_DIMENSIONS.includes(id) && items(id).length === 0) {
-      return { error: `Choose at least one item for ${label(id)}.` }
+      return { error: t('Choose at least one item for {name}.', { name: label(id) }) }
     }
     params.append('dimension', `${id}:${items(id).join(';')}`)
   }
@@ -219,27 +226,27 @@ export function layoutProblem(config, dimensionLabel) {
   if (config.type === 'SINGLE_VALUE') {
     const ok = columns.length === 1 && columns[0] === 'dx' && rows.length === 0 && dxCount <= 1
     if (!ok) {
-      message = 'A single value shows one number: Series takes only Data, with one data item, and every other dimension goes in Filter.'
+      message = t('A single value shows one number: Series takes only Data, with one data item, and every other dimension goes in Filter.')
     }
   } else if (type.category === 0) {
     if (columns.length !== 1 || rows.length > 0) {
-      message = `A ${type.label.toLowerCase()} takes exactly one dimension in Series and none in Category.`
+      message = t('A {type} takes exactly one dimension in Series and none in Category.', { type: type.label.toLowerCase() })
     }
   } else if (columns.length > type.series || rows.length > type.category || columns.length + rows.length === 0) {
-    message = `A ${type.label.toLowerCase()} takes one dimension in Series and at most one in Category; other dimensions go in Filter.`
+    message = t('A {type} takes one dimension in Series and at most one in Category; other dimensions go in Filter.', { type: type.label.toLowerCase() })
   }
   if (!message && config.filters.includes('dx') && dxCount > 1) {
-    message = 'Data in Filter can hold only one item.'
+    message = t('Data in Filter can hold only one item.')
   }
   if (!message) return null
 
   const fixed = fixLayout(config)
   const moved = [...config.columns, ...config.rows].filter((d) => fixed.filters.includes(d))
   const parts = []
-  if (moved.length) parts.push(`move ${moved.map(dimensionLabel).join(', ')} to Filter`)
-  if (fixed.items.dx.length < dxCount) parts.push('keep only the first data item')
-  if (fixed.columns[0] !== config.columns[0] && !moved.length) parts.push(`put ${dimensionLabel(fixed.columns[0])} in Series`)
-  return { message, fixed, fixDescription: parts.join(' and ') || 'rearrange the layout' }
+  if (moved.length) parts.push(t('move {names} to Filter', { names: moved.map(dimensionLabel).join(', ') }))
+  if (fixed.items.dx.length < dxCount) parts.push(t('keep only the first data item'))
+  if (fixed.columns[0] !== config.columns[0] && !moved.length) parts.push(t('put {name} in Series', { name: dimensionLabel(fixed.columns[0]) }))
+  return { message, fixed, fixDescription: parts.join(` ${t('and')} `) || t('rearrange the layout') }
 }
 
 function fixLayout(config) {
@@ -285,12 +292,12 @@ const pad = (n) => String(n).padStart(2, '0')
 const isoDay = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`
 
 export const FIXED_PERIOD_TYPES = [
-  { id: 'DAY', label: 'Day' },
-  { id: 'WEEK', label: 'Week' },
-  { id: 'MONTH', label: 'Month' },
-  { id: 'QUARTER', label: 'Quarter' },
-  { id: 'YEAR', label: 'Year' },
-]
+  { id: 'DAY', name: 'Day' },
+  { id: 'WEEK', name: 'Week' },
+  { id: 'MONTH', name: 'Month' },
+  { id: 'QUARTER', name: 'Quarter' },
+  { id: 'YEAR', name: 'Year' },
+].map((type) => Object.defineProperty(type, 'label', { get() { return t(this.name) }, enumerable: true }))
 
 // Monday of ISO week 1 of `year`, as a UTC date.
 function isoWeekOne(year) {
@@ -317,10 +324,10 @@ export function periodLabel(id) {
     const start = weekStart(Number(m[1]), Number(m[2]))
     const end = new Date(start)
     end.setUTCDate(end.getUTCDate() + 6)
-    return `Week ${Number(m[2])} ${m[1]} (${start.getUTCDate()} ${MON[start.getUTCMonth()]} – ${end.getUTCDate()} ${MON[end.getUTCMonth()]})`
+    return `${t('Week {n} {year}', { n: Number(m[2]), year: m[1] })} (${start.getUTCDate()} ${t(MON[start.getUTCMonth()])} – ${end.getUTCDate()} ${t(MON[end.getUTCMonth()])})`
   }
-  if ((m = /^(\d{4})(0[1-9]|1[0-2])$/.exec(id))) return `${MONTHS[Number(m[2]) - 1]} ${m[1]}`
-  if ((m = /^(\d{4})(\d{2})(\d{2})$/.exec(id))) return `${Number(m[3])} ${MON[Number(m[2]) - 1]} ${m[1]}`
+  if ((m = /^(\d{4})(0[1-9]|1[0-2])$/.exec(id))) return `${t(MONTHS[Number(m[2]) - 1])} ${m[1]}`
+  if ((m = /^(\d{4})(\d{2})(\d{2})$/.exec(id))) return `${Number(m[3])} ${t(MON[Number(m[2]) - 1])} ${m[1]}`
   return id
 }
 

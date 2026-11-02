@@ -5,10 +5,29 @@ problem instead."""
 import logging
 from decimal import Decimal
 
+from django.utils import translation
+from django.utils.functional import Promise
+
 from .models import AuditEvent
 
 logger = logging.getLogger(__name__)
 Action = AuditEvent.Action
+
+
+class Summary(str):
+    """An audit summary that keeps its English template and values, so the
+    activity log can show it in each reader's language. The str itself is
+    the English text, which is what gets stored and searched."""
+
+    def __new__(cls, template, **params):
+        # Stored in English whatever the writer's language: translated
+        # labels among the values are resolved in English here.
+        with translation.override('en'):
+            params = {k: str(v) if isinstance(v, Promise) else v for k, v in params.items()}
+            summary = super().__new__(cls, template.format(**params))
+        summary.template = template
+        summary.params = {k: float(v) if isinstance(v, Decimal) else v for k, v in params.items()}
+        return summary
 
 
 def client_ip(request):
@@ -39,6 +58,8 @@ def record(action, summary, *, request=None, user=None, store=None, entity=None,
             user = request.user
         if entity is None:
             entity = store.entity if store is not None else getattr(user, 'entity', None)
+        if isinstance(summary, Summary):
+            data = {**(data or {}), '_summary': {'template': summary.template, 'params': summary.params}}
         AuditEvent.objects.create(
             action=action, summary=summary[:255], user=user,
             username=username or (user.username if user else ''),

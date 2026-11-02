@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import F, Q
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy
 
 from catalog.models import Product
 from core.models import Store
@@ -102,7 +103,7 @@ def allocate_fefo(store, product, qty):
         remaining -= take
     if remaining > 0:
         raise InsufficientStockError(
-            f'Not enough unexpired stock of {product} at {store}: short by {remaining}.',
+            gettext('Not enough unexpired stock of {product} at {store}: short by {remaining}.').format(product=product, store=store, remaining=remaining),
         )
     return plan
 
@@ -114,21 +115,21 @@ class StockLedger(models.Model):
     change, and what reports and Analytics read."""
 
     class LedgerType(models.TextChoices):
-        TRANSFER_IN = 'transfer_in', 'Transfer In'
-        TRANSFER_OUT = 'transfer_out', 'Transfer Out'
-        STOLEN = 'stolen', 'Stolen'
-        LOST = 'lost', 'Lost'
-        DAMAGED = 'damaged', 'Damaged'
-        EXPIRED = 'expired', 'Expired'
-        COLD_CHAIN_FAILURE = 'cold_chain_failure', 'Spoiled (fridge / freezer failure)'
-        WRONG_ENTRY = 'wrong_entry', 'Wrong Entry'
-        SOLD = 'sold', 'Sold'
-        SALE_VOID = 'sale_void', 'Sale voided'
-        OPENING_STOCK = 'opening_stock', 'Opening stock'
-        STOCK_COUNT = 'stock_count', 'Stock count correction'
-        DISCARD = 'discard', 'Discard'
-        CONSUMPTION = 'consumption', 'Consumption'
-        DISPOSE = 'dispose', 'Dispose'
+        TRANSFER_IN = 'transfer_in', gettext_lazy('Transfer In')
+        TRANSFER_OUT = 'transfer_out', gettext_lazy('Transfer Out')
+        STOLEN = 'stolen', gettext_lazy('Stolen')
+        LOST = 'lost', gettext_lazy('Lost')
+        DAMAGED = 'damaged', gettext_lazy('Damaged')
+        EXPIRED = 'expired', gettext_lazy('Expired')
+        COLD_CHAIN_FAILURE = 'cold_chain_failure', gettext_lazy('Spoiled (fridge / freezer failure)')
+        WRONG_ENTRY = 'wrong_entry', gettext_lazy('Wrong Entry')
+        SOLD = 'sold', gettext_lazy('Sold')
+        SALE_VOID = 'sale_void', gettext_lazy('Sale voided')
+        OPENING_STOCK = 'opening_stock', gettext_lazy('Opening stock')
+        STOCK_COUNT = 'stock_count', gettext_lazy('Stock count correction')
+        DISCARD = 'discard', gettext_lazy('Discard')
+        CONSUMPTION = 'consumption', gettext_lazy('Consumption')
+        DISPOSE = 'dispose', gettext_lazy('Dispose')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='ledger_entries')
@@ -161,7 +162,7 @@ class StockLedger(models.Model):
         new_qty = locked.qty_on_hand + qty_delta
         if new_qty < 0:
             raise InsufficientStockError(
-                f'{locked} has {locked.qty_on_hand} on hand; cannot apply {qty_delta}.',
+                gettext('{locked} has {qty_on_hand} on hand; cannot apply {qty_delta}.').format(locked=locked, qty_on_hand=locked.qty_on_hand, qty_delta=qty_delta),
             )
         entry = cls.objects.create(
             store=store, batch=locked, qty_delta=qty_delta, ledger_type=ledger_type,
@@ -181,14 +182,14 @@ class StockAdjustment(models.Model):
     shrinking stock."""
 
     class Reason(models.TextChoices):
-        EXPIRED = 'expired', 'Expired'
-        DAMAGED = 'damaged', 'Damaged / broken'
-        LOST = 'lost', 'Lost'
-        STOLEN = 'stolen', 'Stolen'
-        COLD_CHAIN_FAILURE = 'cold_chain_failure', 'Spoiled (fridge / freezer failure)'
-        CONSUMPTION = 'consumption', 'Internal use'
+        EXPIRED = 'expired', gettext_lazy('Expired')
+        DAMAGED = 'damaged', gettext_lazy('Damaged / broken')
+        LOST = 'lost', gettext_lazy('Lost')
+        STOLEN = 'stolen', gettext_lazy('Stolen')
+        COLD_CHAIN_FAILURE = 'cold_chain_failure', gettext_lazy('Spoiled (fridge / freezer failure)')
+        CONSUMPTION = 'consumption', gettext_lazy('Internal use')
         DISPOSE = 'dispose', 'Disposed (other)'
-        WRONG_ENTRY = 'wrong_entry', 'Correcting a wrong entry'
+        WRONG_ENTRY = 'wrong_entry', gettext_lazy('Correcting a wrong entry')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='stock_adjustments')
@@ -210,9 +211,9 @@ class StockAdjustment(models.Model):
     @transaction.atomic
     def apply(cls, *, batch, qty_delta, reason, note, user):
         if qty_delta == 0:
-            raise StockError('Quantity must not be zero.')
+            raise StockError(gettext('Quantity must not be zero.'))
         if qty_delta > 0 and reason != cls.Reason.WRONG_ENTRY:
-            raise StockError('Only "Correcting a wrong entry" can add stock; use Receiving for new stock.')
+            raise StockError(gettext('Only "Correcting a wrong entry" can add stock; use Receiving for new stock.'))
         entry = StockLedger.record(
             store=batch.store, batch=batch, qty_delta=qty_delta, ledger_type=reason, ref_type='stock_adjustment',
         )
@@ -237,10 +238,10 @@ class StockCount(models.Model):
     would show up as false shortages."""
 
     class Status(models.TextChoices):
-        DRAFT = 'draft', 'Counting'
-        SUBMITTED = 'submitted', 'Awaiting approval'
-        APPROVED = 'approved', 'Approved'
-        CANCELLED = 'cancelled', 'Cancelled'
+        DRAFT = 'draft', gettext_lazy('Counting')
+        SUBMITTED = 'submitted', gettext_lazy('Awaiting approval')
+        APPROVED = 'approved', gettext_lazy('Approved')
+        CANCELLED = 'cancelled', gettext_lazy('Cancelled')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='stock_counts')
@@ -263,7 +264,7 @@ class StockCount(models.Model):
 
     def _require(self, *statuses):
         if self.status not in statuses:
-            raise StockError(f'This count is {self.get_status_display().lower()}.')
+            raise StockError(gettext('This count is {lower}.').format(lower=self.get_status_display().lower()))
 
     @classmethod
     @transaction.atomic
@@ -285,10 +286,10 @@ class StockCount(models.Model):
         self._require(self.Status.DRAFT)
         lines = list(self.lines.select_related('batch'))
         if not lines:
-            raise StockError('There is nothing to count.')
+            raise StockError(gettext('There is nothing to count.'))
         uncounted = sum(1 for line in lines if line.counted_qty is None)
         if uncounted:
-            raise StockError(f'{uncounted} line(s) are not counted yet. Enter 0 for anything not on the shelf.')
+            raise StockError(gettext('{uncounted} line(s) are not counted yet. Enter 0 for anything not on the shelf.').format(uncounted=uncounted))
         for line in lines:
             line.expected_qty = line.batch.qty_on_hand if line.batch_id else 0
         StockCountLine.objects.bulk_update(lines, ['expected_qty'])

@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 from django.db.models import Exists, OuterRef, Q
+from django.utils.translation import gettext_lazy
 
 
 class PaymentMethod(models.Model):
@@ -13,9 +14,9 @@ class PaymentMethod(models.Model):
     (see payments/interfaces.py) without changing POS code."""
 
     class Implementation(models.TextChoices):
-        CASH = 'cash', 'Cash'
-        MOBILE_MONEY = 'mobile_money', 'Mobile Money'
-        BANK_TRANSFER = 'bank_transfer', 'Bank Transfer'
+        CASH = 'cash', gettext_lazy('Cash')
+        MOBILE_MONEY = 'mobile_money', gettext_lazy('Mobile Money')
+        BANK_TRANSFER = 'bank_transfer', gettext_lazy('Bank Transfer')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=64)

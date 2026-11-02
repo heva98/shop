@@ -1,8 +1,9 @@
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.translation import gettext
 from rest_framework import viewsets
 
-from audit.services import Action, record
+from audit.services import Action, Summary, record
 from core.models import Role
 from core.permissions import write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin, accessible_store_ids
@@ -43,21 +44,21 @@ class PriceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         price = serializer.save()
-        record(Action.PRICE_SET, f'{self._label(price)}: set to {price.unit_price:,.0f}', request=self.request,
+        record(Action.PRICE_SET, Summary('{label}: set to {unit_price:,.0f}', label=self._label(price), unit_price=price.unit_price), request=self.request,
                store=price.store, entity=price.entity, data={'product': price.product.name, 'new': price.unit_price})
 
     def perform_update(self, serializer):
         old = serializer.instance.unit_price
         price = serializer.save()
         if price.unit_price != old:
-            record(Action.PRICE_SET, f'{self._label(price)}: {old:,.0f} -> {price.unit_price:,.0f}',
+            record(Action.PRICE_SET, Summary('{label}: {old:,.0f} -> {unit_price:,.0f}', label=self._label(price), old=old, unit_price=price.unit_price),
                    request=self.request, store=price.store, entity=price.entity,
                    data={'product': price.product.name, 'old': old, 'new': price.unit_price})
 
     def perform_destroy(self, instance):
         label, store, entity, old = self._label(instance), instance.store, instance.entity, instance.unit_price
         instance.delete()
-        record(Action.PRICE_REMOVED, f'{label}: price {old:,.0f} removed', request=self.request,
+        record(Action.PRICE_REMOVED, Summary('{label}: price {old:,.0f} removed', label=label, old=old), request=self.request,
                store=store, entity=entity)
 
 
@@ -97,16 +98,16 @@ class PromotionViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         promotion = serializer.save(entity=self.request.user.entity)
-        record(Action.PROMOTION_CHANGED, f'Promotion added — {self._label(promotion)}', request=self.request,
+        record(Action.PROMOTION_CHANGED, Summary('Promotion added — {label}', label=self._label(promotion)), request=self.request,
                store=promotion.store, entity=promotion.entity)
 
     def perform_update(self, serializer):
         promotion = serializer.save()
-        state = '' if promotion.is_active else ' (switched off)'
-        record(Action.PROMOTION_CHANGED, f'Promotion changed — {self._label(promotion)}{state}', request=self.request,
+        state = '' if promotion.is_active else ' (switched off)'  # English: translated when the log is read
+        record(Action.PROMOTION_CHANGED, Summary('Promotion changed — {label}{state}', label=self._label(promotion), state=state), request=self.request,
                store=promotion.store, entity=promotion.entity)
 
     def perform_destroy(self, instance):
         label, store, entity = self._label(instance), instance.store, instance.entity
         instance.delete()
-        record(Action.PROMOTION_CHANGED, f'Promotion removed — {label}', request=self.request, store=store, entity=entity)
+        record(Action.PROMOTION_CHANGED, Summary('Promotion removed — {label}', label=label), request=self.request, store=store, entity=entity)

@@ -368,6 +368,26 @@ summary per store via `notifications.channels` (Email uses Django's real
 `send_mail`, routed through whatever `EMAIL_BACKEND` is configured —
 console in dev; SMS logs rather than calling a real gateway, see below).
 `deploy/systemd/shop-daily-summary.timer` runs it each evening.
+Each recipient gets it in their own language (`User.language`, saved
+whenever they switch language in the app).
+
+## Languages (English / Kiswahili)
+
+The API answers in the language the app sends in `Accept-Language`
+(`LocaleMiddleware`); English is the default. Messages are wrapped in
+`gettext` (in functions) or `gettext_lazy` (module and class level), with
+`{name}` placeholders filled by `.format()`. The Swahili lives in
+`locale/sw/LC_MESSAGES/django.po`, which also covers Django REST
+framework's own messages (it ships no Swahili).
+
+After adding or editing a message, update the `.po` and run
+`python manage.py compile_translations` (plain Python — Django's
+`compilemessages` needs GNU gettext). Commit both the `.po` and the `.mo`.
+
+Activity-log summaries are stored in English with their template
+(`audit.services.Summary`) and translated when the log is read, so each
+reader sees them in their own language; entries written before this show
+in English.
 
 ## Not implemented yet (flagged, not skipped)
 
