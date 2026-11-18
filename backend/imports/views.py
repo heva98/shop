@@ -22,7 +22,7 @@ from core.models import Entity, Role, Store
 from core.permissions import is_store_manager, roles
 from core.serializers import validate_accessible_store
 
-from .importers import IMPORTERS
+from .importers import IMPORTERS, columns_for
 from .parsing import ImportFileError, read_rows
 
 _MAX_BYTES = 5 * 1024 * 1024
@@ -35,17 +35,18 @@ def _importer_class(kind):
     return cls
 
 
-def _describe(cls):
+def _describe(cls, entity):
     return {
         'key': cls.key, 'title': cls.title, 'description': cls.description, 'needs_store': cls.needs_store,
-        'columns': [{'name': c.name, 'help': c.help, 'example': c.example, 'required': c.required} for c in cls.columns],
+        'columns': [{'name': c.name, 'help': c.help, 'example': c.example, 'required': c.required}
+                    for c in columns_for(cls, entity)],
     }
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def kinds(request):
-    return Response([_describe(cls) for cls in IMPORTERS.values()])
+    return Response([_describe(cls, request.user.entity) for cls in IMPORTERS.values()])
 
 
 @api_view(['GET'])
@@ -54,8 +55,9 @@ def template(request, kind):
     cls = _importer_class(kind)
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow([c.name for c in cls.columns])
-    writer.writerow([c.example for c in cls.columns])
+    columns = columns_for(cls, request.user.entity)
+    writer.writerow([c.name for c in columns])
+    writer.writerow([c.example for c in columns])
     response = HttpResponse('﻿' + out.getvalue(), content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{kind}-template.csv"'
     return response

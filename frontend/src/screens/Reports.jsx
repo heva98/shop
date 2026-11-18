@@ -7,6 +7,7 @@ import {
   getTransfersReport,
 } from '../api/reports.js'
 import { listAllCustomers } from '../api/credit.js'
+import { listAllControlledEntries } from '../api/controlled.js'
 import { fmt } from '../appData.js'
 import { client } from '../api/client.js'
 import ReportsHome from './ReportsHome.jsx'
@@ -222,6 +223,27 @@ const REPORTS = [
         ],
       },
     ],
+  },
+  {
+    id: 'controlled', title: 'Controlled drugs register', roles: MANAGEMENT, usesDates: true, feature: 'controlled_substances_register',
+    fetch: listAllControlledEntries,
+    description: 'Every controlled drug sold in the period: when, which batch, how much, to whom, on whose prescription and who sold it. Voided sales show as returns. Print it for inspection.',
+    summary: (d) => [
+      ['Entries', d.length],
+      ['Dispensed', d.filter((r) => r.kind === 'dispensed').length],
+      ['Returned', d.filter((r) => r.kind === 'returned').length],
+    ],
+    tables: (d) => [{
+      title: 'Register', rows: [...d].reverse(), columns: [
+        { label: 'Date', value: (r) => dateTime(r.recorded_at) }, { label: 'Store', value: (r) => r.store_name },
+        { label: 'Medicine', value: (r) => r.product_name }, { label: 'Batch', value: (r) => r.batch_no },
+        { label: 'Qty', value: (r) => r.qty, align: 'right' }, { label: 'Unit', value: (r) => r.unit },
+        { label: 'Patient', value: (r) => r.patient_name }, { label: 'Prescriber', value: (r) => r.prescriber_name },
+        { label: 'Prescription no.', value: (r) => r.prescription_ref }, { label: 'Sale no.', value: (r) => r.sale_number },
+        { label: 'Sold by', value: (r) => r.dispensed_by_name },
+        { label: 'Type', value: (r) => t(r.kind === 'returned' ? 'Returned' : 'Dispensed') },
+      ],
+    }],
   },
   {
     id: 'credit', title: 'Customer credit (madeni)', roles: MANAGERS, feature: 'customer_credit',

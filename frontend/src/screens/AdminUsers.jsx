@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import {
   createStoreRole, createUser, deleteStoreRole, listAllStoreRoles, listAllStores, listAllUsers, updateUser,
 } from '../api/core.js'
-import { GENDER_OPTIONS, ROLE_LABEL } from '../appData.js'
+import { GENDER_OPTIONS, roleLabels } from '../appData.js'
 import { t, tOptions, useT } from '../i18n/index.js'
 import { PHONE_DIGITS, localPhone, phoneInput } from '../lib/phone.js'
 
@@ -50,6 +50,7 @@ function errorLines(err) {
 export default function AdminUsers() {
   useT()
   const auth = useAuth()
+  const ROLE_LABEL = useMemo(() => roleLabels(auth.entity), [auth.entity])
   const { data: users, loading, error: loadError, refetch: refetchUsers } = useApi(() => listAllUsers(), [])
   const { data: storeRoles, refetch: refetchRoles } = useApi(() => listAllStoreRoles(), [])
   const { data: stores } = useApi(() => listAllStores(), [])
@@ -96,7 +97,7 @@ export default function AdminUsers() {
         scope: sr.store ? storeName[sr.store] ?? '—' : null,
       })),
     }))
-  }, [users, storeRoles, stores])
+  }, [users, storeRoles, stores, ROLE_LABEL])
 
   function closeForm() {
     setShowForm(false)

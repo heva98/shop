@@ -1112,7 +1112,7 @@ msgstr "Mwanamke"
 
 #: core/models.py
 msgid "General shop (duka)"
-msgstr "Duka la jumla"
+msgstr "Duka la kawaida"
 
 #: core/models.py
 msgid "Hardware"
@@ -2893,3 +2893,66 @@ msgstr "Weka bei unayouzia."
 
 msgid "Choose today, week, month or last_month."
 msgstr "Chagua leo, wiki, mwezi au mwezi uliopita."
+
+msgid "Grocery (fruits & vegetables)"
+msgstr "Mboga na matunda (gulio)"
+
+msgid "Bar / pub"
+msgstr "Baa"
+
+msgid "Electronics & phones"
+msgstr "Vifaa vya kielektroniki na simu"
+
+msgid "Clothing & textiles"
+msgstr "Nguo na vitambaa"
+
+msgid "Cosmetics & beauty"
+msgstr "Vipodozi na urembo"
+
+msgid "Stationery & books"
+msgstr "Vifaa vya ofisi na vitabu"
+
+msgid "ADDO (Accredited Drug Dispensing Outlet)"
+msgstr "ADDO (Duka la Dawa Muhimu)"
+
+msgid "Part I pharmacy"
+msgstr "Famasia ya Daraja la I (Part I)"
+
+msgid "Controlled"
+msgstr "Inadhibitiwa"
+
+msgid "Prescription only"
+msgstr "Kwa agizo la daktari pekee"
+
+msgid "Controlled drugs can only be sold by a pharmacist, a manager or the owner."
+msgstr "Dawa za kudhibitiwa zinaweza kuuzwa na mfamasia, meneja au mmiliki pekee."
+
+msgid "Controlled drugs register"
+msgstr "Rejista ya dawa za kudhibitiwa"
+
+msgid "Only for pharmacies. Change the type of business under Admin > Shop profile."
+msgstr "Kwa maduka ya dawa pekee. Badilisha aina ya biashara kwenye Usimamizi > Wasifu wa duka."
+
+msgid "TMDA registration number. Optional."
+msgstr "Namba ya usajili ya TMDA. Si lazima."
+
+msgid "The generic medicine, e.g. Paracetamol. Created if new."
+msgstr "Jina la jumla la dawa, mfano Paracetamol. Huundwa kama ni jipya."
+
+msgid "This generic medicine is not in your shop."
+msgstr "Jina hili la jumla la dawa halipo kwenye duka lako."
+
+msgid "yes / no: a controlled drug? Default no."
+msgstr "ndiyo / hapana: ni dawa ya kudhibitiwa? Kwa kawaida hapana."
+
+msgid "yes / no: needs a prescription (POM)? Default no."
+msgstr "ndiyo / hapana: inahitaji agizo la daktari (POM)? Kwa kawaida hapana."
+
+msgid "{name} is a controlled drug, and {store} is not set up to sell them. An owner can switch on the controlled drugs register under Settings > Features."
+msgstr "{name} ni dawa ya kudhibitiwa, na {store} halijawekwa kuziuza. Mmiliki anaweza kuwasha rejista ya dawa za kudhibitiwa kwenye Mipangilio > Vipengele."
+
+msgid "Selling controlled drugs, each recorded in the register with the patient and prescriber. Only a pharmacist, manager or owner can sell them. Switch off for a branch that does not stock them."
+msgstr "Kuuza dawa za kudhibitiwa, kila moja ikirekodiwa kwenye rejista pamoja na mgonjwa na aliyeandika agizo. Mfamasia, meneja au mmiliki pekee ndiye anaweza kuziuza. Zima kwa tawi lisilozihifadhi."
+
+msgid "Selling controlled drugs, each recorded in the register with the patient, prescriber and who sold it. Switch off for a branch that does not stock them."
+msgstr "Kuuza dawa za kudhibitiwa, kila moja ikirekodiwa kwenye rejista pamoja na mgonjwa, aliyeandika agizo na aliyeiuza. Zima kwa tawi lisilozihifadhi."

@@ -182,6 +182,12 @@ class Sale(models.Model):
         max_digits=12, decimal_places=2, default=0,
         help_text="The share of the total put on the customer's account instead of paid now.")
     customer_name = models.CharField(max_length=255, blank=True, help_text='Printed on the receipt.')
+    # Pharmacies: required when the sale has prescription-only or controlled
+    # medicine (Product.needs_prescription), and copied into the controlled
+    # drugs register (controlled_substances).
+    patient_name = models.CharField(max_length=255, blank=True)
+    prescriber_name = models.CharField(max_length=255, blank=True, help_text='The doctor or clinic on the prescription.')
+    prescription_ref = models.CharField(max_length=64, blank=True, help_text='Prescription number, if any.')
     discount_approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+',
         help_text="The manager who allowed a discount above the cashier's limit.",
@@ -286,6 +292,8 @@ class Sale(models.Model):
         self._require_status(self.Status.OPEN, gettext('add items to'))
         if product.entity_id != self.store.entity_id:
             raise SaleError(gettext("Product is not in this shop's catalog."))
+        if product.is_controlled_substance and not features.is_enabled('controlled_substances_register', store=self.store):
+            raise SaleError(gettext('{name} is a controlled drug, and {store} is not set up to sell them. An owner can switch on the controlled drugs register under Settings > Features.').format(name=product.name, store=self.store.name))
         sell_uom = uom if uom is not None and uom.pk != product.uom_id else None
         if sell_uom is not None and sell_uom.entity_id != product.entity_id:
             raise SaleError(gettext("Unit is not in this shop's catalog."))
@@ -414,10 +422,30 @@ class Sale(models.Model):
                 raise SaleError(
                     gettext('{name} already owes TZS {owing:,.0f}; their credit limit is TZS {credit_limit:,.0f}. Take at most TZS {max:,.0f} on credit.').format(name=customer.name, owing=owing, credit_limit=customer.credit_limit, max=max(customer.credit_limit - owing, 0)))
 
+    def _check_prescription(self, user, patient_name, prescriber_name, prescription_ref):
+        """(patient, prescriber, reference), stripped, for medicine that
+        needs a prescription (all optional). Empty for any other sale."""
+        products = {line.batch.product for line in self.lines.select_related('batch__product')}
+        if not any(p.needs_prescription for p in products):
+            return '', '', ''
+        patient, prescriber = (patient_name or '').strip(), (prescriber_name or '').strip()
+        return patient[:255], prescriber[:255], (prescription_ref or '').strip()[:64]
+
+    def _register(self, ledger_entry, line, user, rx, *, returned):
+        from controlled_substances.models import ControlledSubstanceEntry
+
+        ControlledSubstanceEntry.objects.create(
+            store=self.store, product=line.batch.product, ledger_entry=ledger_entry, sale=self,
+            kind=ControlledSubstanceEntry.Kind.RETURNED if returned else ControlledSubstanceEntry.Kind.DISPENSED,
+            qty=-line.qty if returned else line.qty, batch_no=line.batch.batch_no,
+            patient_name=rx[0], prescriber_name=rx[1], prescription_ref=rx[2], dispensed_by=user,
+        )
+
     @transaction.atomic
     def complete(self, *, user, payment_method, amount_tendered=None, payment_reference='',
                  customer=None, credit_amount=Decimal('0'), customer_name='', discount=Decimal('0'),
-                 discount_approver=None, shift=None, completed_at=None, enforce_limits=True):
+                 discount_approver=None, shift=None, completed_at=None, enforce_limits=True,
+                 patient_name='', prescriber_name='', prescription_ref=''):
         """Takes payment, deducts stock, numbers and locks the sale, then
         asks the store's fiscal driver for a receipt. Returns the
         FiscalResult so the till can show printed / failed / 'enter EFD
@@ -429,6 +457,13 @@ class Sale(models.Model):
         goes on `customer`'s account, and the payment method covers the
         rest. `enforce_limits=False` records an offline sale that already
         happened even if it broke those limits.
+
+        Pharmacies: for medicine that needs a prescription the till asks
+        for `patient_name`, `prescriber_name` and `prescription_ref`; they
+        are optional (the shop's choice), kept on the sale and copied into
+        the controlled drugs register with whoever sold it. Anyone who
+        can sell may sell a controlled drug, cashiers included (the shop's
+        choice); the store must have the register switched on.
 
         `shift` and `completed_at` are for a sale the till recorded
         offline: the cashier's shift it was rung up in (even if closed
@@ -444,6 +479,8 @@ class Sale(models.Model):
             raise SaleError(gettext('Open a shift before selling.'))
         now = timezone.now()
         completed_at = now if completed_at is None or completed_at > now else completed_at
+
+        rx = locked._check_prescription(user, patient_name, prescriber_name, prescription_ref)
 
         if not payment_method.is_active_for(locked.store.entity_id):
             raise SaleError(gettext('{name} is not enabled.').format(name=payment_method.name))
@@ -468,11 +505,13 @@ class Sale(models.Model):
                 raise SaleError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
             amount_tendered = payable
 
-        for line in locked.lines.select_related('batch'):
-            StockLedger.record(
+        for line in locked.lines.select_related('batch__product'):
+            entry = StockLedger.record(
                 store=locked.store, batch=line.batch, qty_delta=-line.qty,
                 ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id=locked.id,
             )
+            if line.batch.product.is_controlled_substance:
+                locked._register(entry, line, user, rx, returned=False)
 
         # Store row lock serializes numbering, so two tills can never be
         # handed the same receipt number.
@@ -490,6 +529,7 @@ class Sale(models.Model):
         locked.credit_amount = credit_amount
         locked.customer_name = (customer.name if customer is not None else (customer_name or '').strip())[:255]
         locked.discount_approved_by = approved_by
+        locked.patient_name, locked.prescriber_name, locked.prescription_ref = rx
         locked.completed_at = completed_at
         locked.save()
         self.refresh_from_db()
@@ -559,11 +599,14 @@ class Sale(models.Model):
         reason = (reason or '').strip()
         if not reason:
             raise SaleError(gettext('Give a reason for voiding this sale.'))
-        for line in locked.lines.select_related('batch'):
-            StockLedger.record(
+        for line in locked.lines.select_related('batch__product'):
+            entry = StockLedger.record(
                 store=locked.store, batch=line.batch, qty_delta=line.qty,
                 ledger_type=StockLedger.LedgerType.SALE_VOID, ref_type='sale', ref_id=locked.id,
             )
+            if line.batch.product.is_controlled_substance:
+                rx = (locked.patient_name, locked.prescriber_name, locked.prescription_ref)
+                locked._register(entry, line, user, rx, returned=True)
         locked.status = self.Status.VOIDED
         locked.voided_at = timezone.now()
         locked.voided_by = user

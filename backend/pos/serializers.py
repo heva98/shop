@@ -60,6 +60,7 @@ class SaleSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
             'id', 'store', 'status', 'number', 'cashier', 'cashier_name', 'shift',
             'payment_method', 'payment_method_name', 'amount_tendered', 'change_due', 'payment_reference',
             'customer', 'customer_name', 'customer_phone', 'credit_amount', 'paid_amount',
+            'patient_name', 'prescriber_name', 'prescription_ref',
             'efd_receipt_no', 'created_at', 'completed_at',
             'voided_at', 'voided_by_name', 'void_approved_by_name', 'void_reason',
             'lines', 'items', 'total', 'vat_total', 'discount_total',
@@ -67,7 +68,7 @@ class SaleSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
         read_only_fields = [
             'status', 'number', 'cashier', 'shift', 'payment_method', 'amount_tendered', 'payment_reference',
             'customer', 'customer_name', 'credit_amount', 'efd_receipt_no', 'completed_at',
-            'voided_at', 'void_reason',
+            'patient_name', 'prescriber_name', 'prescription_ref', 'voided_at', 'void_reason',
         ]
 
     @staticmethod
@@ -117,6 +118,10 @@ class CompleteSaleSerializer(serializers.Serializer):
                                        required=False, default=Decimal('0'))
     approver_username = serializers.CharField(required=False, allow_blank=True, default='')
     approver_password = serializers.CharField(required=False, allow_blank=True, default='', trim_whitespace=False)
+    # Pharmacies: for prescription-only and controlled medicine.
+    patient_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    prescriber_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    prescription_ref = serializers.CharField(max_length=64, required=False, allow_blank=True, default='')
 
 
 

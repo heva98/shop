@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Button, Card, Field, Icon, Input, NoticeBox, Tag } from '../components/ds/index.js'
+import { Button, Card, Field, Icon, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { createStore, deleteStore, listAllStores, updateStore } from '../api/core.js'
-import { t, useT } from '../i18n/index.js'
+import { OUTLET_CLASS_OPTIONS, isPharmacy } from '../appData.js'
+import { t, tOptions, useT } from '../i18n/index.js'
 
 const FIELD_LABEL = { name: 'Store name', address: 'Location' }
 
-const EMPTY_DRAFT = { name: '', address: '' }
+const EMPTY_DRAFT = { name: '', address: '', outlet_class: '' }
 
 function th() {
   return { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
@@ -40,6 +41,7 @@ export default function AdminStores() {
   const set = (field) => (e) => setDraft((d) => ({ ...d, [field]: e.target.value }))
   // Single shop: its one store is created and kept by the server.
   const isSingle = auth.entity?.store_mode === 'single'
+  const pharmacy = isPharmacy(auth.entity)
 
   async function run(storeId, fn, successText) {
     setBusyStoreId(storeId)
@@ -106,6 +108,7 @@ export default function AdminStores() {
             <tr>
               <th style={th()}>{t('Store')}</th>
               <th style={th()}>{t('Location')}</th>
+              {pharmacy && <th style={th()}>{t('Licence')}</th>}
               <th style={th()}>{t('Role')}</th>
               <th style={th()}>{t('Status')}</th>
               <th style={th()}>{t('Actions')}</th>
@@ -119,6 +122,15 @@ export default function AdminStores() {
               <tr key={st.id}>
                 <td style={td('var(--grey-900)')}>{st.name}</td>
                 <td style={td()}>{st.address || '—'}</td>
+                {pharmacy && (
+                  <td style={td()}>
+                    <Select
+                      value={st.outlet_class} aria-label={t('Licence')} disabled={busyStoreId === st.id}
+                      onChange={(e) => run(st.id, () => updateStore(st.id, { outlet_class: e.target.value }), t('Licence saved.'))}
+                      options={tOptions(OUTLET_CLASS_OPTIONS)}
+                    />
+                  </td>
+                )}
                 <td style={td()}>{st.is_main ? <Tag variant="neutral">{t('Main store')}</Tag> : <Tag>{t('Branch')}</Tag>}</td>
                 <td style={td()}>{st.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Inactive')}</Tag>}</td>
                 <td style={td()}>
@@ -143,6 +155,7 @@ export default function AdminStores() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 12 }}>
           <Field label={t('Store name')} required><Input value={draft.name} onChange={set('name')} placeholder={t('e.g. Branch #004 — Sinza')} /></Field>
           <Field label={t('Location')}><Input value={draft.address} onChange={set('address')} /></Field>
+          {pharmacy && <Field label={t('Licence')}><Select value={draft.outlet_class} onChange={set('outlet_class')} options={tOptions(OUTLET_CLASS_OPTIONS)} /></Field>}
         </div>
         <Button onClick={addStore} disabled={saving}><Icon name="add" size={16} /> {saving ? t('Adding…') : t('Add store')}</Button>
       </Card>}

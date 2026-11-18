@@ -82,7 +82,7 @@ class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = [
-            'id', 'entity', 'name', 'tin', 'address',
+            'id', 'entity', 'name', 'tin', 'address', 'outlet_class',
             'efd_device_id', 'is_active', 'is_main', 'created_at',
         ]
         # Defaults to the caller's own entity in StoreViewSet.perform_create.

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Button, Checkbox, Field, Icon, Input, Modal, NoticeBox, Select } from './ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { listAllCategories, listAllUnitsOfMeasure, quickAddProduct } from '../api/catalog.js'
+import { genericDrugId, listAllCategories, listAllGenericDrugs, listAllUnitsOfMeasure, quickAddProduct } from '../api/catalog.js'
+import { isPharmacy } from '../appData.js'
 import { apiErrorText } from '../lib/apiError.js'
 import { t, tOptions, useT } from '../i18n/index.js'
 
@@ -12,6 +13,7 @@ const VAT_OPTIONS = [
 const EMPTY = {
   name: '', uom: '', tracks_expiry: false, selling_price: '', buying_price: '', quantity: '', expiry_date: '',
   reorder_level: '', barcode: '', category: '', brand: '', size: '', vat_class: 'standard',
+  generic: '', is_prescription_only: false, is_controlled_substance: false, registration_number: '',
 }
 const number = (value) => value.replace(/[^\d.]/g, '')
 const orNull = (value) => (value === '' ? null : value)
@@ -27,6 +29,8 @@ export default function QuickAddProduct({ product = null, storeId = null, initia
   const auth = useAuth()
   const { data: uoms } = useApi(() => (product ? null : listAllUnitsOfMeasure()), [product])
   const { data: categories } = useApi(() => (product ? null : listAllCategories()), [product])
+  const pharmacy = isPharmacy(auth.entity)
+  const { data: generics } = useApi(() => (pharmacy && !product ? listAllGenericDrugs() : null), [pharmacy, product])
   const stores = auth.workplaces.filter((w) => w.store).map((w) => ({ value: w.store, label: w.store_name }))
   const [store, setStore] = useState(storeId ?? (stores.length === 1 ? stores[0].value : ''))
   const [draft, setDraft] = useState({ ...EMPTY, ...initial })
@@ -57,6 +61,11 @@ export default function QuickAddProduct({ product = null, storeId = null, initia
         ...(product ? { product: product.id } : {
           name: draft.name.trim(), uom, tracks_expiry: draft.tracks_expiry, barcode: draft.barcode.trim(),
           category: orNull(draft.category), brand: draft.brand, size: draft.size, vat_class: draft.vat_class,
+          ...(pharmacy ? {
+            generic_drug: await genericDrugId(draft.generic, auth.entity.id, generics ?? []),
+            is_prescription_only: draft.is_prescription_only, is_controlled_substance: draft.is_controlled_substance,
+            registration_number: draft.registration_number.trim(),
+          } : {}),
         }),
       }
       const result = await quickAddProduct(body)
@@ -102,8 +111,21 @@ export default function QuickAddProduct({ product = null, storeId = null, initia
         </div>
         <p className="quick-add-hint">{t('Per {unit}. The buying price lets the reports show your profit.', { unit: unitName || t('unit') })}</p>
 
+        {!product && pharmacy && (
+          <div className="quick-add-grid">
+            <Field label={t('Generic medicine')}>
+              <Input value={draft.generic} onChange={set('generic')} placeholder={t('e.g. Amoxicillin (leave empty if not a medicine)')} list="quick-add-generics" />
+              <datalist id="quick-add-generics">{(generics ?? []).map((g) => <option key={g.id} value={g.name} />)}</datalist>
+            </Field>
+            <Field label={t('Strength / pack')}><Input value={draft.size} onChange={set('size')} placeholder={t('e.g. 500mg tablet')} /></Field>
+          </div>
+        )}
         {!product && (
-          <Checkbox checked={draft.tracks_expiry} onChange={() => setDraft((d) => ({ ...d, tracks_expiry: !d.tracks_expiry }))} label={t('It has an expiry date (food, drinks, medicine, cosmetics)')} />
+          <div className="quick-add-checks">
+            <Checkbox checked={draft.tracks_expiry} onChange={() => setDraft((d) => ({ ...d, tracks_expiry: !d.tracks_expiry }))} label={t('It has an expiry date (food, drinks, medicine, cosmetics)')} />
+            {pharmacy && <Checkbox checked={draft.is_prescription_only} onChange={() => setDraft((d) => ({ ...d, is_prescription_only: !d.is_prescription_only }))} label={t('Prescription only (POM): the till notes the patient and prescriber')} />}
+            {pharmacy && <Checkbox checked={draft.is_controlled_substance} onChange={() => setDraft((d) => ({ ...d, is_controlled_substance: !d.is_controlled_substance }))} label={t('Controlled drug: every sale is recorded in the register')} />}
+          </div>
         )}
 
         {!storeId && stores.length > 1 && (
@@ -135,7 +157,9 @@ export default function QuickAddProduct({ product = null, storeId = null, initia
                   <Select value={draft.category} onChange={set('category')} options={[{ value: '', label: '—' }, ...(categories ?? []).map((c) => ({ value: c.id, label: c.name }))]} />
                 </Field>
                 <Field label={t('Brand')}><Input value={draft.brand} onChange={set('brand')} placeholder={t('e.g. Kilombero')} /></Field>
-                <Field label={t('Size')}><Input value={draft.size} onChange={set('size')} placeholder={t('e.g. 1 kg, 500 ml')} /></Field>
+                {pharmacy
+                  ? <Field label={t('TMDA registration no.')}><Input value={draft.registration_number} onChange={set('registration_number')} /></Field>
+                  : <Field label={t('Size')}><Input value={draft.size} onChange={set('size')} placeholder={t('e.g. 1 kg, 500 ml')} /></Field>}
                 <Field label={t('VAT')}><Select value={draft.vat_class} onChange={set('vat_class')} options={tOptions(VAT_OPTIONS)} /></Field>
               </div>
             )}

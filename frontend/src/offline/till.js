@@ -34,7 +34,7 @@ export function searchTill(snapshot, q, limit = 6) {
   if (!words.length) return []
   const out = []
   for (const p of snapshot.products) {
-    const text = `${p.name} ${p.short_name} ${p.brand} ${p.size} ${p.barcode} ${p.category_name}`.toLowerCase()
+    const text = `${p.name} ${p.short_name} ${p.brand} ${p.size} ${p.barcode} ${p.category_name} ${p.generic_name ?? ''}`.toLowerCase()
     if (words.every((w) => text.includes(w))) out.push(p)
     if (out.length >= limit) break
   }
@@ -60,6 +60,7 @@ export function sellOptions(snapshot, products, unsynced = {}) {
     const baseUnit = unitById[product.uom]
     const common = {
       productId: product.id, name: product.name, size: product.size, vatClass: product.vat_class, tracksExpiry: product.tracks_expiry,
+      genericName: product.generic_name ?? '', prescriptionOnly: Boolean(product.prescription_only), controlled: Boolean(product.controlled),
       stockAvailable,
     }
     const base = prices.find((p) => p.uom === null)

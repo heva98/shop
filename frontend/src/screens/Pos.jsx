@@ -13,6 +13,7 @@ import { apiErrorText } from '../lib/apiError.js'
 import { dateLocale, t, useT } from '../i18n/index.js'
 
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
+const NO_RX = { patient_name: '', prescriber_name: '', prescription_ref: '' }
 
 // cashiers type amounts like "10,000" or "10 000"; parseFloat alone would stop at the separator
 const parseAmount = (v) => parseFloat(String(v).replace(/[,\s]/g, '')) || 0
@@ -172,6 +173,7 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
   // or no stock) or { missing: text } (nothing matches); and the quick-add
   // form opened from it: { product?, initial? }.
   const [stuck, setStuck] = useState(null)
+  const [rx, setRx] = useState(NO_RX)
   const [fixing, setFixing] = useState(null)
   const isOwner = roles.includes('entity_admin')
 
@@ -231,6 +233,11 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
 
   function addToCart(s) {
     if (s.unitPrice === null || s.qtyAvailable <= 0) { setStuck({ option: s }); setQuery(''); return }
+    if (s.controlled && features?.controlled_substances_register === false) {
+      setErrorMessage(t('{name} is a controlled drug, and this branch is not set up to sell them. An owner can switch on the controlled drugs register under Settings > Features.', { name: s.name }))
+      setQuery('')
+      return
+    }
     setErrorMessage('')
     setStuck(null)
     setCart((prev) => {
@@ -251,7 +258,7 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
 
   function newSale() {
     setCart([]); setTendered(''); setReference(''); setErrorMessage(''); setCompleted(null)
-    setCustomerId(''); setOnCredit(false); setCreditInput(''); setDiscountInput('')
+    setCustomerId(''); setOnCredit(false); setCreditInput(''); setDiscountInput(''); setRx(NO_RX)
     setApprover({ username: '', password: '' })
   }
 
@@ -271,6 +278,9 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
   const payable = total - creditAmount
   const tenderedNum = parseAmount(tendered)
   const change = tenderedNum - payable
+  // Pharmacies: for prescription-only and controlled medicine the till asks
+  // for the patient and prescriber (optional).
+  const needsRx = cart.some((l) => l.prescriptionOnly || l.controlled)
   const canComplete = cart.length > 0 && method && !busy && approvalReady && !(needsApproval && offline)
     && !(onCredit && (!customer || overLimit))
     && (payable === 0 || (isCash ? tenderedNum >= payable : reference.trim().length > 0))
@@ -291,6 +301,7 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
       credit_amount: creditAmount,
       discount,
       efd_receipt_no: '',
+      ...(needsRx ? { patient_name: rx.patient_name.trim(), prescriber_name: rx.prescriber_name.trim(), prescription_ref: rx.prescription_ref.trim() } : {}),
     }
     const amountTendered = isCash ? (payable > 0 ? tenderedNum : 0) : payable
     const receipt = {
@@ -301,6 +312,8 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
       })),
       total, vat_total: vat, discount_total: discount, credit_amount: creditAmount, paid_amount: payable,
       customer_name: customer?.name ?? '', customer_phone: customer?.phone ?? '',
+      patient_name: needsRx ? rx.patient_name.trim() : '', prescriber_name: needsRx ? rx.prescriber_name.trim() : '',
+      prescription_ref: needsRx ? rx.prescription_ref.trim() : '',
       payment_method_name: method.name, payment_reference: paymentReference,
       amount_tendered: amountTendered, change_due: amountTendered - payable, efd_receipt_no: '',
     }
@@ -390,6 +403,8 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
                             {s.name}
                             <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{t('per {unit}', { unit: s.unitName })}</span>
                             {s.promotion && <Tag variant="positive">{t('Offer')}</Tag>}
+                            {s.controlled ? <Tag variant="negative">{t('Controlled')}</Tag> : s.prescriptionOnly && <Tag variant="warning">{t('Prescription')}</Tag>}
+                            {s.genericName && <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{s.genericName}</span>}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
                             {s.qtyAvailable > 0 ? t('{qty} {unit} in stock', { qty: s.qtyAvailable, unit: s.unitName }) : t('Out of stock')}
@@ -483,6 +498,21 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
                     )}
                   </div>
 
+                  {needsRx && (
+                    <div className="rx-box">
+                      <div className="rx-title"><Icon name="pharmacy" size={16} /> {t('Prescription')}</div>
+                      <p className="rx-hint">{t('This sale has medicine that needs a prescription. Note who it is for, if you wish (optional):')}</p>
+                      <Field label={t('Patient name')}>
+                        <Input value={rx.patient_name} onChange={(e) => setRx((r) => ({ ...r, patient_name: e.target.value }))} disabled={busy} />
+                      </Field>
+                      <Field label={t('Prescriber (doctor or clinic)')}>
+                        <Input value={rx.prescriber_name} onChange={(e) => setRx((r) => ({ ...r, prescriber_name: e.target.value }))} disabled={busy} />
+                      </Field>
+                      <Field label={t('Prescription number')}>
+                        <Input value={rx.prescription_ref} onChange={(e) => setRx((r) => ({ ...r, prescription_ref: e.target.value }))} disabled={busy} />
+                      </Field>
+                    </div>
+                  )}
                   <Field label={t('Discount on the sale (TZS)')}>
                     <Input value={discountInput} onChange={(e) => setDiscountInput(e.target.value)} placeholder="0" disabled={busy || cart.length === 0} />
                   </Field>
@@ -973,6 +1003,8 @@ function Receipt({ sale, entity, store }) {
       {sale.change_due !== null && sale.payment_reference === '' && line('Change due', fmt(Number(sale.change_due)))}
       {sale.payment_reference && line('Reference', sale.payment_reference)}
       {sale.customer_name && line('Customer', sale.customer_phone ? `${sale.customer_name} (${sale.customer_phone})` : sale.customer_name)}
+      {sale.patient_name && line('Patient', sale.patient_name)}
+      {sale.prescriber_name && line('Prescriber', sale.prescription_ref ? `${sale.prescriber_name} (Rx ${sale.prescription_ref})` : sale.prescriber_name)}
       <hr />
       <div style={{ textAlign: 'center', fontSize: 11 }}>
         {sale.efd_receipt_no ? `${t('EFD receipt no.')} ${sale.efd_receipt_no}` : t('Fiscal (EFD) receipt issued separately.')}

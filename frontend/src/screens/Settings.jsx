@@ -2,8 +2,8 @@ import { Children, useMemo, useState } from 'react'
 import { Button, Card, Checkbox, EmptyState, Field, Icon, Input, NoticeBox, PageHeader, Select, SubNav, Switch, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import {
-  createCategory, createProduct, createUnitOfMeasure, listAllCategories, listAllProducts,
-  listAllUnitsOfMeasure, updateProduct, updateUnitOfMeasure,
+  createCategory, createGenericDrug, createProduct, createUnitOfMeasure, listAllCategories, listAllGenericDrugs, listAllProducts,
+  listAllUnitsOfMeasure, updateGenericDrug, updateProduct, updateUnitOfMeasure,
 } from '../api/catalog.js'
 import { createSupplier, listAllSuppliers, updateSupplier } from '../api/receiving.js'
 import {
@@ -12,7 +12,7 @@ import {
 import { createStoreProduct, listAllStoreProducts, updateStoreProduct } from '../api/inventory.js'
 import { listPaymentMethods, updatePaymentMethod } from '../api/payments.js'
 import { listAllStores } from '../api/core.js'
-import { fmt } from '../appData.js'
+import { fmt, isPharmacy } from '../appData.js'
 import { apiErrorText } from '../lib/apiError.js'
 import ImportPanel from './SettingsImport.jsx'
 import QuickAddProduct from '../components/QuickAddProduct.jsx'
@@ -39,14 +39,17 @@ const VAT_LABEL = Object.fromEntries(VAT_OPTIONS.map((o) => [o.value, o.label]))
 
 export default function Settings({ entity, initialTab }) {
   useT()
-  const [tab, setTab] = useState(TABS.some((s) => s.key === initialTab) ? initialTab : 'products')
+  // Pharmacies also keep their generic medicines here.
+  const tabs = isPharmacy(entity) ? [TABS[0], { key: 'generics', label: 'Generic medicines' }, ...TABS.slice(1)] : TABS
+  const [tab, setTab] = useState(tabs.some((s) => s.key === initialTab) ? initialTab : 'products')
   return (
     <div>
       <PageHeader title={t('Settings')} subtitle={t('Your products, suppliers and prices, and how the system works for your shop.')} />
       <div className="ds-subnav-layout">
-        <SubNav label={t('Settings sections')} items={TABS.map((s) => ({ ...s, label: t(s.label), active: tab === s.key, select: () => setTab(s.key) }))} />
+        <SubNav label={t('Settings sections')} items={tabs.map((s) => ({ ...s, label: t(s.label), active: tab === s.key, select: () => setTab(s.key) }))} />
         <div className="ds-subnav-content">
           {tab === 'products' && <ProductsPanel entity={entity} />}
+          {tab === 'generics' && <GenericsPanel entity={entity} />}
           {tab === 'uom' && <UomPanel entity={entity} />}
           {tab === 'suppliers' && <SuppliersPanel entity={entity} />}
           {tab === 'pricing' && <PricingPanel entity={entity} />}
@@ -92,8 +95,12 @@ function ProductsPanel({ entity }) {
   const { data: categories, refetch: refetchCategories } = useApi(() => listAllCategories(), [])
   const { data: uoms } = useApi(() => listAllUnitsOfMeasure(), [])
   const [filter, setFilter] = useState('')
+  const pharmacy = isPharmacy(entity)
+  const { data: generics } = useApi(() => (pharmacy ? listAllGenericDrugs() : null), [pharmacy])
+  const genericName = useMemo(() => Object.fromEntries((generics ?? []).map((g) => [g.id, g.name])), [generics])
   const form = useForm({
     name: '', category: '', brand: '', size: '', uom: '', vat_class: 'standard', barcode: '', tracks_expiry: false,
+    generic_drug: '', is_prescription_only: false, is_controlled_substance: false, registration_number: '',
   })
   const categoryForm = useForm({ name: '', short_name: '', description: '' })
   const [quickAdd, setQuickAdd] = useState(false)
@@ -102,10 +109,11 @@ function ProductsPanel({ entity }) {
   const uomName = useMemo(() => Object.fromEntries((uoms ?? []).map((u) => [u.id, u.name])), [uoms])
   const q = filter.trim().toLowerCase()
   const visible = (products ?? []).filter((p) => !q || p.name.toLowerCase().includes(q) || p.barcode === filter.trim()
-    || p.brand.toLowerCase().includes(q) || (categoryName[p.category] ?? '').toLowerCase().includes(q))
+    || p.brand.toLowerCase().includes(q) || (categoryName[p.category] ?? '').toLowerCase().includes(q)
+    || (p.generic_drug_name ?? '').toLowerCase().includes(q))
 
   function save(d) {
-    const body = { ...d, entity: entity.id, category: d.category || null }
+    const body = { ...d, entity: entity.id, category: d.category || null, generic_drug: d.generic_drug || null }
     return d.id ? updateProduct(d.id, body) : createProduct(body)
   }
 
@@ -142,7 +150,13 @@ function ProductsPanel({ entity }) {
               <Select value={form.draft.category ?? ''} onChange={form.set('category')} options={[{ value: '', label: '—' }, ...(categories ?? []).map((c) => ({ value: c.id, label: c.name }))]} />
             </Field>
             <Field label={t('Brand')}><Input value={form.draft.brand} onChange={form.set('brand')} placeholder={t('e.g. Kilombero')} /></Field>
-            <Field label={t('Size')}><Input value={form.draft.size} onChange={form.set('size')} placeholder={t('e.g. 1 kg, 500 ml')} /></Field>
+            {pharmacy && (
+              <Field label={t('Generic medicine')}>
+                <Select value={form.draft.generic_drug ?? ''} onChange={form.set('generic_drug')} options={[{ value: '', label: t('— not a medicine —') }, ...(generics ?? []).map((g) => ({ value: g.id, label: g.name }))]} />
+              </Field>
+            )}
+            <Field label={pharmacy ? t('Strength / pack') : t('Size')}><Input value={form.draft.size} onChange={form.set('size')} placeholder={pharmacy ? t('e.g. 500mg tablet') : t('e.g. 1 kg, 500 ml')} /></Field>
+            {pharmacy && <Field label={t('TMDA registration no.')}><Input value={form.draft.registration_number ?? ''} onChange={form.set('registration_number')} /></Field>}
             <Field label={t('Stock unit (smallest unit sold)')} required>
               <Select value={form.draft.uom} onChange={form.set('uom')} options={(uoms ?? []).map((u) => ({ value: u.id, label: u.name }))} />
             </Field>
@@ -153,6 +167,8 @@ function ProductsPanel({ entity }) {
           </p>
           <div style={{ display: 'flex', gap: 24, margin: '12px 0' }}>
             <Checkbox checked={form.draft.tracks_expiry} onChange={form.toggle('tracks_expiry')} label={t('Perishable — has an expiry date')} />
+            {pharmacy && <Checkbox checked={form.draft.is_prescription_only} onChange={form.toggle('is_prescription_only')} label={t('Prescription only (POM)')} />}
+            {pharmacy && <Checkbox checked={form.draft.is_controlled_substance} onChange={form.toggle('is_controlled_substance')} label={t('Controlled drug')} />}
           </div>
           <FormActions form={form} onSave={() => form.submit(save, refetch)} disabled={!form.draft.name.trim() || !form.draft.uom} />
         </Card>
@@ -161,9 +177,13 @@ function ProductsPanel({ entity }) {
       <Table
         headers={['Product', 'Category', 'Unit', 'VAT', '', '']}
         rows={visible.map((p) => [
-          <><div style={{ color: 'var(--grey-900)' }}>{p.name}</div><div style={{ fontSize: 12 }}>{[p.brand, p.size, p.barcode].filter(Boolean).join(' · ')}</div></>,
+          <><div style={{ color: 'var(--grey-900)' }}>{p.name}</div><div style={{ fontSize: 12 }}>{[genericName[p.generic_drug], p.brand, p.size, p.barcode].filter(Boolean).join(' · ')}</div></>,
           categoryName[p.category] ?? '—', uomName[p.uom] ?? '', t(VAT_LABEL[p.vat_class]),
-          p.tracks_expiry ? <Tag key="exp" variant="neutral">{t('Perishable')}</Tag> : '',
+          <span key="tags" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {p.tracks_expiry && <Tag variant="neutral">{t('Perishable')}</Tag>}
+            {p.is_prescription_only && <Tag variant="warning">{t('Prescription')}</Tag>}
+            {p.is_controlled_substance && <Tag variant="negative">{t('Controlled')}</Tag>}
+          </span>,
           <Button key="edit" size="small" onClick={() => form.open(p)}>{t('Edit')}</Button>,
         ])}
         empty={products ? (
@@ -173,6 +193,36 @@ function ProductsPanel({ entity }) {
             action={<Button variant="primary" onClick={() => setQuickAdd(true)}><Icon name="add" size={16} /> {t('Add product')}</Button>}
           />
         ) : t('Loading…')}
+      />
+    </>
+  )
+}
+
+function GenericsPanel({ entity }) {
+  useT()
+  const { data: generics, refetch } = useApi(() => listAllGenericDrugs(), [])
+  const form = useForm({ name: '', short_name: '', description: '' })
+  const save = (d) => (d.id ? updateGenericDrug(d.id, d) : createGenericDrug({ ...d, entity: entity.id }))
+  return (
+    <>
+      <p style={introStyle}>
+        {t('The active ingredient each medicine is made of, e.g. Paracetamol or Amoxicillin. Link products to it, and the till finds every brand of a medicine when you search for the generic name.')}
+      </p>
+      <Button variant="primary" onClick={() => form.open()} style={{ marginBottom: 12 }}><Icon name="add" size={16} /> {t('Add generic medicine')}</Button>
+      {form.draft && (
+        <Card style={{ marginBottom: 12 }}>
+          <div style={gridStyle}>
+            <Field label={t('Name')} required><Input value={form.draft.name} onChange={form.set('name')} placeholder={t('e.g. Amoxicillin')} /></Field>
+            <Field label={t('Short name')}><Input value={form.draft.short_name} onChange={form.set('short_name')} placeholder={t('e.g. AMOX')} /></Field>
+            <Field label={t('Description')}><Input value={form.draft.description} onChange={form.set('description')} placeholder={t('e.g. Penicillin antibiotic')} /></Field>
+          </div>
+          <FormActions form={form} onSave={() => form.submit(save, refetch)} disabled={!form.draft.name.trim()} />
+        </Card>
+      )}
+      <Table
+        headers={['Name', 'Short name', 'Description', '']}
+        rows={(generics ?? []).map((g) => [g.name, g.short_name || '—', g.description || '—', <Button key="edit" size="small" onClick={() => form.open(g)}>{t('Edit')}</Button>])}
+        empty={generics ? t('No generic medicines yet. They are also created when you type a new one while adding a product.') : t('Loading…')}
       />
     </>
   )

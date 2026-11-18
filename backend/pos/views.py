@@ -253,7 +253,7 @@ class TillSnapshotView(APIView):
                 or (allowed is not None and store.pk not in set(allowed)):
             raise NotFound(gettext('Store not found.'))
         entity = store.entity
-        products = Product.objects.filter(entity=entity).select_related('uom', 'category')
+        products = Product.objects.filter(entity=entity).select_related('uom', 'category', 'generic_drug')
         price_store = store if entity.price_mode == Entity.PriceMode.STORE else None
         prices = {(p.product_id, p.uom_id): {'unit_price': p.unit_price, 'regular_price': p.unit_price, 'promotion': None}
                   for p in Price.objects.filter(entity=entity, store=price_store)}
@@ -277,6 +277,8 @@ class TillSnapshotView(APIView):
                 'id': str(p.pk), 'name': p.name, 'short_name': p.short_name, 'brand': p.brand, 'size': p.size,
                 'barcode': p.barcode, 'category_name': p.category.name if p.category_id else '',
                 'uom': str(p.uom_id), 'vat_class': p.vat_class, 'tracks_expiry': p.tracks_expiry,
+                'generic_name': p.generic_drug.name if p.generic_drug_id else '',
+                'prescription_only': p.is_prescription_only, 'controlled': p.is_controlled_substance,
             } for p in products],
             'units': UnitOfMeasureSerializer(UnitOfMeasure.objects.filter(entity=entity), many=True).data,
             'prices': [{'product': str(product), 'uom': str(uom) if uom else None, **row}

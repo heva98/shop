@@ -14,6 +14,20 @@ export const updateProduct = (id, data) => client.patch(`/api/catalog/products/$
 
 export const searchProducts = (search) => client.get('/api/catalog/products/', { search })
 export const listAllCategories = (params) => listAll('/api/catalog/categories/', params)
+
+// Pharmacies: generic medicines (Paracetamol, Amoxicillin…).
+export const listAllGenericDrugs = (params) => listAll('/api/catalog/generic-drugs/', params)
+export const createGenericDrug = (data) => client.post('/api/catalog/generic-drugs/', data)
+export const updateGenericDrug = (id, data) => client.patch(`/api/catalog/generic-drugs/${id}/`, data)
+
+/** The id of the generic medicine called `name`, created if the shop has none yet. */
+export async function genericDrugId(name, entityId, known = []) {
+  const clean = name.trim()
+  if (!clean) return null
+  const found = known.find((g) => g.name.toLowerCase() === clean.toLowerCase())
+  if (found) return found.id
+  return (await createGenericDrug({ name: clean, entity: entityId })).id
+}
 export const updateUnitOfMeasure = (id, data) => client.patch(`/api/catalog/units-of-measure/${id}/`, data)
 
 // The owner's first day (backend catalog/setup.py).

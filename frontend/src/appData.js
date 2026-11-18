@@ -20,13 +20,31 @@ export const NAV_DEFS = [
 
 export const ROLE_LABEL = { cashier: 'Cashier', storekeeper: 'Storekeeper', store_manager: 'Store manager', entity_admin: 'Owner' }
 
+export const isPharmacy = (entity) => entity?.business_type === 'pharmacy'
+
+/** Role names as a shop of this kind says them: in a pharmacy the
+ * storekeeper (receives and counts stock, may sell controlled drugs) is
+ * the pharmacist. */
+export function roleLabels(entity) {
+  return isPharmacy(entity) ? { ...ROLE_LABEL, storekeeper: 'Pharmacist' } : ROLE_LABEL
+}
+
+// Mirror core.Store.OutletClass: a pharmacy branch's licence.
+export const OUTLET_CLASS_OPTIONS = [
+  { value: '', label: 'Not set' },
+  { value: 'addo', label: 'ADDO (Accredited Drug Dispensing Outlet)' },
+  { value: 'part_i', label: 'Part I pharmacy' },
+]
+
 // Mirror core.Entity.BusinessType on the backend.
 export const BUSINESS_TYPE_OPTIONS = [
   { value: 'general', label: 'General shop (duka)' },
   { value: 'supermarket', label: 'Supermarket / minimarket' },
-  { value: 'wholesale', label: 'Wholesale' },
+  { value: 'grocery', label: 'Grocery (fruits & vegetables)' },
   { value: 'hardware', label: 'Hardware' },
   { value: 'pharmacy', label: 'Pharmacy / chemist' },
+  { value: 'bar', label: 'Bar / pub' },
+  { value: 'wholesale', label: 'Wholesale' },
   { value: 'electronics', label: 'Electronics & phones' },
   { value: 'clothing', label: 'Clothing & textiles' },
   { value: 'cosmetics', label: 'Cosmetics & beauty' },

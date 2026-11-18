@@ -25,13 +25,15 @@ class Entity(models.Model):
     class BusinessType(models.TextChoices):
         GENERAL = 'general', gettext_lazy('General shop (duka)')
         SUPERMARKET = 'supermarket', gettext_lazy('Supermarket / minimarket')
-        WHOLESALE = 'wholesale', gettext_lazy('Wholesale')
+        GROCERY = 'grocery', gettext_lazy('Grocery (fruits & vegetables)')
         HARDWARE = 'hardware', gettext_lazy('Hardware')
         PHARMACY = 'pharmacy', gettext_lazy('Pharmacy / chemist')
-        ELECTRONICS = 'electronics', 'Electronics & phones'
-        CLOTHING = 'clothing', 'Clothing & textiles'
-        COSMETICS = 'cosmetics', 'Cosmetics & beauty'
-        STATIONERY = 'stationery', 'Stationery & books'
+        BAR = 'bar', gettext_lazy('Bar / pub')
+        WHOLESALE = 'wholesale', gettext_lazy('Wholesale')
+        ELECTRONICS = 'electronics', gettext_lazy('Electronics & phones')
+        CLOTHING = 'clothing', gettext_lazy('Clothing & textiles')
+        COSMETICS = 'cosmetics', gettext_lazy('Cosmetics & beauty')
+        STATIONERY = 'stationery', gettext_lazy('Stationery & books')
         OTHER = 'other', gettext_lazy('Other')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -82,6 +84,13 @@ class Entity(models.Model):
         return self.name
 
     @property
+    def is_pharmacy(self):
+        """Pharmacies get medicine details on products, prescriptions at the
+        till, the controlled-drugs register and insurance (features with
+        pharmacy_only, core.features)."""
+        return self.business_type == self.BusinessType.PHARMACY
+
+    @property
     def is_single_store(self):
         return self.store_mode == self.StoreMode.SINGLE
 
@@ -97,12 +106,21 @@ class Entity(models.Model):
 
 
 class Store(models.Model):
+    class OutletClass(models.TextChoices):
+        # A pharmacy branch's licence (TMDA / Pharmacy Council). Recorded
+        # for the shop's own reference; the till does not restrict on it.
+        ADDO = 'addo', gettext_lazy('ADDO (Accredited Drug Dispensing Outlet)')
+        PART_I = 'part_i', gettext_lazy('Part I pharmacy')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name='stores')
     name = models.CharField(max_length=255)
     tin = models.CharField('TIN', max_length=32, blank=True)
     address = models.CharField(max_length=255, blank=True)
     efd_device_id = models.CharField(max_length=64, blank=True)
+    outlet_class = models.CharField(
+        max_length=10, choices=OutletClass.choices, blank=True,
+        help_text="Pharmacies only: the branch's licence. Blank for other kinds of shop.")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

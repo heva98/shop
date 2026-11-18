@@ -7,8 +7,19 @@ import { BUSINESS_TYPE_OPTIONS } from '../appData.js'
 import { PHONE_DIGITS, phoneInput } from '../lib/phone.js'
 import { t, tOptions, useT } from '../i18n/index.js'
 
-// The starter list (backend catalog/seed_data.py) is everyday duka goods.
-const STARTER_TYPES = ['general', 'supermarket', 'wholesale']
+// The kinds of business picked from a card; the rest are under "Other".
+// `starter`: an example of the starter products (backend catalog/seed_data.py
+// KITS), which every kind below has.
+const KINDS = [
+  { value: 'general', icon: 'store', label: 'General shop (duka)', hint: 'Everyday goods', starter: 'sugar, soda, flour, soap…' },
+  { value: 'supermarket', icon: 'pos', label: 'Supermarket / minimarket', hint: 'Many products, barcodes', starter: 'sugar, soda, flour, soap…' },
+  { value: 'grocery', icon: 'grocery', label: 'Grocery (fruits & vegetables)', hint: 'Sold by kg, bunch or piece', starter: 'tomatoes, onions, bananas, eggs…' },
+  { value: 'hardware', icon: 'tools', label: 'Hardware', hint: 'Building materials and tools', starter: 'cement, iron sheets, nails, pipes…' },
+  { value: 'pharmacy', icon: 'pharmacy', label: 'Pharmacy / chemist', hint: 'Medicines, prescriptions, expiry', starter: 'paracetamol, amoxicillin, ORS…' },
+  { value: 'bar', icon: 'bar', label: 'Bar / pub', hint: 'Drinks by bottle, crate or tot', starter: 'beer, spirits, soda, water…' },
+]
+const STARTER = { ...Object.fromEntries(KINDS.map((k) => [k.value, k.starter])), wholesale: 'sugar, soda, flour, soap…' }
+const OTHER_KINDS = BUSINESS_TYPE_OPTIONS.filter((o) => !KINDS.some((k) => k.value === o.value))
 const RESEND_SECONDS = 60
 
 const LABEL = {
@@ -59,7 +70,8 @@ export default function Signup({ onBack }) {
 
   const setShopField = (field) => (e) => setShop((s) => ({ ...s, [field]: e.target.value }))
   const setOwnerField = (field) => (e) => setOwner((o) => ({ ...o, [field]: field === 'phone' ? phoneInput(e.target.value) : e.target.value }))
-  const offersStarter = STARTER_TYPES.includes(shop.business_type)
+  const offersStarter = Boolean(STARTER[shop.business_type])
+  const [otherKind, setOtherKind] = useState(false)
 
   function shopProblems() {
     const problems = []
@@ -144,7 +156,35 @@ export default function Signup({ onBack }) {
         {step === 1 && (
           <>
             <Field label={t('Shop name')} required><Input value={shop.name} onChange={setShopField('name')} placeholder={t('e.g. Neema General Store')} prefixIcon="store" /></Field>
-            <Field label={t('Type of shop')}><Select value={shop.business_type} onChange={setShopField('business_type')} options={tOptions(BUSINESS_TYPE_OPTIONS)} /></Field>
+            <fieldset className="kind-picker">
+              <legend className="ds-label">{t('What kind of business is it?')}</legend>
+              <div className="kind-grid">
+                {KINDS.map((k) => (
+                  <button
+                    key={k.value} type="button" className="kind-card" aria-pressed={!otherKind && shop.business_type === k.value}
+                    onClick={() => { setOtherKind(false); setShop((s) => ({ ...s, business_type: k.value })) }}
+                  >
+                    <Icon name={k.icon} size={24} />
+                    <span className="kind-name">{t(k.label)}</span>
+                    <span className="kind-hint">{t(k.hint)}</span>
+                  </button>
+                ))}
+                <button
+                  type="button" className="kind-card" aria-pressed={otherKind}
+                  onClick={() => { setOtherKind(true); setShop((s) => ({ ...s, business_type: OTHER_KINDS[0].value })) }}
+                >
+                  <Icon name="apps" size={24} />
+                  <span className="kind-name">{t('Other')}</span>
+                  <span className="kind-hint">{t('Wholesale, electronics, clothing…')}</span>
+                </button>
+              </div>
+              {otherKind && (
+                <Select value={shop.business_type} onChange={setShopField('business_type')} options={tOptions(OTHER_KINDS)} aria-label={t('Type of shop')} />
+              )}
+              {shop.business_type === 'pharmacy' && (
+                <p className="kind-note">{t('Pharmacies also get prescriptions, the controlled-drugs register and insurance claims.')}</p>
+              )}
+            </fieldset>
             <LocationFields
               country={shop.country} region={shop.region} council={shop.council}
               onChange={(loc) => setShop((s) => ({ ...s, ...loc }))}
@@ -178,7 +218,7 @@ export default function Signup({ onBack }) {
             {offersStarter && (
               <Checkbox
                 checked={starter} onChange={() => setStarter((s) => !s)}
-                label={t('Add a few common products to start with (sugar, soda, flour…). You can edit or delete them.')}
+                label={t('Add a few common products to start with ({examples}). You can edit or delete them.', { examples: t(STARTER[shop.business_type]) })}
               />
             )}
             <p className="signup-resend">

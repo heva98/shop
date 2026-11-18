@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     'payments',
     'notifications',
     'credit',
+    'controlled_substances',
     'pricing',
     'analytics',
     'reports',

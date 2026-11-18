@@ -65,6 +65,23 @@ def convert_qty(qty, from_uom, to_uom):
     return rounded
 
 
+class GenericDrug(models.Model):
+    """Pharmacies: the active ingredient a medicine is a brand or
+    formulation of (Paracetamol, Amoxicillin…), so the till and reports can
+    find every product of one generic. Each shop keeps its own list."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name='generic_drugs')
+    name = models.CharField(max_length=255)
+    short_name = models.CharField(max_length=64, blank=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Product(models.Model):
     """Entity-wide master catalog — shared by every store *within one
     firm*, but never across firms. Per-store restriction/config lives in
@@ -97,6 +114,17 @@ class Product(models.Model):
         help_text='Perishable goods (food, drinks, cosmetics). Receiving then asks for an expiry date, '
                   'stock sells earliest-expiry first and expired stock cannot be sold.',
     )
+    # Pharmacies only (Entity.is_pharmacy); other shops leave these blank.
+    generic_drug = models.ForeignKey(
+        GenericDrug, null=True, blank=True, on_delete=models.SET_NULL, related_name='products',
+        help_text='The generic medicine this is, e.g. Paracetamol for "Panadol 500mg tablets".')
+    is_prescription_only = models.BooleanField(
+        'Prescription-only (POM)', default=False,
+        help_text='The till asks for the patient and prescriber (optional) when selling it.')
+    is_controlled_substance = models.BooleanField(
+        default=False,
+        help_text='Recorded in the controlled drugs register, with who sold it, on every sale.')
+    registration_number = models.CharField('TMDA registration no.', max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -115,3 +143,9 @@ class Product(models.Model):
             raise ValidationError({'category': gettext('This category is not in your shop.')})
         if self.uom_id and self.uom.entity_id != self.entity_id:
             raise ValidationError({'uom': gettext('This unit is not in your shop.')})
+        if self.generic_drug_id and self.generic_drug.entity_id != self.entity_id:
+            raise ValidationError({'generic_drug': gettext('This generic medicine is not in your shop.')})
+
+    @property
+    def needs_prescription(self):
+        return self.is_prescription_only or self.is_controlled_substance

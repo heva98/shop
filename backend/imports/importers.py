@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext, gettext_lazy
 
-from catalog.models import Category, Product, UnitConversionError, UnitOfMeasure, convert_qty
+from catalog.models import Category, GenericDrug, Product, UnitConversionError, UnitOfMeasure, convert_qty
 from core.models import Entity
 from inventory.models import StockBatch, StockLedger
 from pricing.models import Price
@@ -32,6 +32,12 @@ class Column:
     example: str
     required: bool = False
     aliases: tuple = ()
+    pharmacy: bool = False  # only offered to, and read for, pharmacies
+
+
+def columns_for(cls, entity):
+    """The columns of importer `cls` that `entity`'s kind of shop uses."""
+    return [c for c in cls.columns if not c.pharmacy or (entity is not None and entity.is_pharmacy)]
 
 
 @dataclass
@@ -143,6 +149,14 @@ class ProductImporter(Importer):
                aliases=('expires', 'tracks_expiry', 'has_expiry')),
         Column('barcode', gettext_lazy('Barcode printed on the pack.'), '6001234567890', aliases=('ean', 'code')),
         Column('selling_price', gettext_lazy('Price per unit, VAT included. Optional.'), '3200', aliases=('price',)),
+        Column('generic', gettext_lazy('The generic medicine, e.g. Paracetamol. Created if new.'), 'Amoxicillin',
+               aliases=('generic_name', 'generic_drug', 'inn'), pharmacy=True),
+        Column('prescription_only', gettext_lazy('yes / no: needs a prescription (POM)? Default no.'), 'yes',
+               aliases=('pom', 'rx', 'rx_only'), pharmacy=True),
+        Column('controlled', gettext_lazy('yes / no: a controlled drug? Default no.'), 'no',
+               aliases=('controlled_drug', 'controlled_substance'), pharmacy=True),
+        Column('tmda_no', gettext_lazy('TMDA registration number. Optional.'), 'TAN 21 HM 0123',
+               aliases=('tmda', 'registration_number', 'registration_no'), pharmacy=True),
     ]
     _VAT = {'exempt': Product.VatClass.EXEMPT, 'zero': Product.VatClass.ZERO_RATED,
             'zero_rated': Product.VatClass.ZERO_RATED, 'zero-rated': Product.VatClass.ZERO_RATED,
@@ -193,6 +207,17 @@ class ProductImporter(Importer):
         perishable = self.cell(row, 'perishable')
         if perishable or not existing:
             product.tracks_expiry = parse_bool(perishable, field=gettext('Perishable'))
+        if self.entity.is_pharmacy:
+            generic = self.cell(row, 'generic')
+            if generic:
+                product.generic_drug = (GenericDrug.objects.filter(entity=self.entity, name__iexact=generic).first()
+                                        or GenericDrug.objects.create(entity=self.entity, name=generic))
+            for col, attr, label in (('prescription_only', 'is_prescription_only', gettext('Prescription only')),
+                                     ('controlled', 'is_controlled_substance', gettext('Controlled'))):
+                if self.cell(row, col) or not existing:
+                    setattr(product, attr, parse_bool(self.cell(row, col), field=label))
+            if self.cell(row, 'tmda_no'):
+                product.registration_number = self.cell(row, 'tmda_no')
         if barcode:
             clash = Product.objects.filter(entity=self.entity, barcode=barcode).exclude(pk=product.pk).first()
             if clash:

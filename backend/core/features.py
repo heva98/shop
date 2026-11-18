@@ -32,6 +32,7 @@ class Feature:
     default: bool
     description: str
     multi_store_only: bool = False
+    pharmacy_only: bool = False
 
 
 FEATURES = [
@@ -41,6 +42,10 @@ FEATURES = [
             gettext_lazy('Entering supplier invoices. Switch off for a branch that only gets stock from the main store.')),
     Feature('customer_credit', gettext_lazy('Sales on credit'), ModuleRegistry.Scope.STORE, True,
             gettext_lazy("Putting sales on a registered customer's account (madeni) and taking their repayments. Set each customer's credit limit under Customers.")),
+    Feature('controlled_substances_register', gettext_lazy('Controlled drugs register'), ModuleRegistry.Scope.STORE, True,
+            gettext_lazy('Selling controlled drugs, each recorded in the register with the patient, prescriber '
+                         'and who sold it. Switch off for a branch that does not stock them.'),
+            pharmacy_only=True),
     Feature('transfer', gettext_lazy('Transfers between stores'), ModuleRegistry.Scope.ENTITY, True,
             gettext_lazy('Branches asking each other for stock, and sending stock between them.'),
             multi_store_only=True),
@@ -50,24 +55,31 @@ FEATURES = [
 FEATURES_BY_KEY = {f.key: f for f in FEATURES}
 
 SINGLE_STORE_REASON = gettext_lazy('Not available for a single shop. Switch to multiple stores under Admin > Shop profile.')
+PHARMACY_REASON = gettext_lazy('Only for pharmacies. Change the type of business under Admin > Shop profile.')
 
 
 def unavailable_reason(key, entity):
     """Why `key` can't be on for `entity` (an Entity), or None if it can."""
-    if FEATURES_BY_KEY[key].multi_store_only and entity is not None and entity.is_single_store:
+    feature = FEATURES_BY_KEY[key]
+    if feature.multi_store_only and entity is not None and entity.is_single_store:
         return SINGLE_STORE_REASON
+    if feature.pharmacy_only and entity is not None and not entity.is_pharmacy:
+        return PHARMACY_REASON
     return None
 
 
-def _blocked_by_single_store(feature, entity_id):
-    return feature.multi_store_only and Entity.objects.filter(
-        pk=entity_id, store_mode=Entity.StoreMode.SINGLE).exists()
+def _blocked_reason(feature, entity_id):
+    """unavailable_reason() from an entity id, looking the firm up only
+    for a feature that depends on it."""
+    if not (feature.multi_store_only or feature.pharmacy_only):
+        return None
+    return unavailable_reason(feature.key, Entity.objects.filter(pk=entity_id).first())
 
 
 def is_enabled(key, *, entity=None, store=None):
     feature = FEATURES_BY_KEY[key]
     entity_id = store.entity_id if store is not None else getattr(entity, 'id', entity)
-    if _blocked_by_single_store(feature, entity_id):
+    if _blocked_reason(feature, entity_id):
         return False
     rows = {row.store_id: row.enabled for row in ModuleEnablement.objects.filter(module__key=key, entity_id=entity_id)}
     if store is not None and feature.scope == ModuleRegistry.Scope.STORE and store.id in rows:
@@ -81,8 +93,9 @@ def require(key, *, entity=None, store=None):
     if not is_enabled(key, entity=entity, store=store):
         feature = FEATURES_BY_KEY[key]
         entity_id = store.entity_id if store is not None else getattr(entity, 'id', entity)
-        if _blocked_by_single_store(feature, entity_id):
-            raise PermissionDenied(gettext('{label}: {single_store_reason}').format(label=feature.label, single_store_reason=SINGLE_STORE_REASON))
+        reason = _blocked_reason(feature, entity_id)
+        if reason:
+            raise PermissionDenied(gettext('{label}: {single_store_reason}').format(label=feature.label, single_store_reason=reason))
         if store is not None and feature.scope == ModuleRegistry.Scope.STORE:
             raise PermissionDenied(gettext(
                 '{label} is switched off at {store}. An admin can switch it on under Settings > Features.',

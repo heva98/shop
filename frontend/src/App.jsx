@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BRAND_NAME, NAV_DEFS, ROLE_LABEL } from './appData.js'
+import { BRAND_NAME, NAV_DEFS, ROLE_LABEL, roleLabels } from './appData.js'
 import { HeaderBar, MobileHeader, MobileMenu, MobileTabBar, Sidebar } from './components/ds/index.js'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useOutbox, useOutboxSync } from './hooks/useOutbox.js'
@@ -29,7 +29,7 @@ const PLATFORM_NAV = [{ id: 'shops', label: 'Shops', icon: 'admin', section: 'Sy
 // Phone bottom tabs: the first three of these the role can see, then "More".
 const MOBILE_TABS = ['dashboard', 'pos', 'analytics', 'reports', 'stock']
 // "Owner · Cashier": every role held, most senior first.
-const rolesLabel = (roles) => Object.keys(ROLE_LABEL).reverse().filter((r) => roles.includes(r)).map((r) => t(ROLE_LABEL[r])).join(' · ')
+const rolesLabel = (roles, labels = ROLE_LABEL) => Object.keys(labels).reverse().filter((r) => roles.includes(r)).map((r) => t(labels[r])).join(' · ')
 
 export default function App() {
   const auth = useAuth()
@@ -80,12 +80,13 @@ export default function App() {
   const screen = state.screen === 'profile' || navItems.some((n) => n.id === state.screen) ? state.screen : navItems[0].id
   const storeId = workplace?.store ?? null
   const storeName = workplace?.store_name ?? null
-  const roleLabel = workplace ? rolesLabel(workplace.roles) : null
+  const labels = roleLabels(auth.entity)
+  const roleLabel = workplace ? rolesLabel(workplace.roles, labels) : null
   const storeLabel = isPlatform ? t('System administration') : workplace
     ? (workplace.store_name ?? `${t('All stores')} — ${auth.entity?.name ?? ''}`)
     : (auth.entity?.name ?? '')
   const workplaceOptions = auth.workplaces.map((w) => ({
-    label: `${w.store_name ?? t('All stores')} — ${rolesLabel(w.roles)}`, value: w.key, entity: !w.store,
+    label: `${w.store_name ?? t('All stores')} — ${rolesLabel(w.roles, labels)}`, value: w.key, entity: !w.store,
   }))
   const profile = auth.profile
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')

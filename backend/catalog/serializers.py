@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from core.serializers import validate_owned_entity
 
-from .models import Category, Product, UnitOfMeasure
+from .models import Category, GenericDrug, Product, UnitOfMeasure
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -24,15 +24,26 @@ class UnitOfMeasureSerializer(serializers.ModelSerializer):
         return validate_owned_entity(entity, self.context.get('request'))
 
 
+class GenericDrugSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GenericDrug
+        fields = ['id', 'entity', 'name', 'short_name', 'description']
+
+    def validate_entity(self, entity):
+        return validate_owned_entity(entity, self.context.get('request'))
+
+
 class ProductSerializer(serializers.ModelSerializer):
     uom_name = serializers.CharField(source='uom.name', read_only=True, default='')
     category_name = serializers.CharField(source='category.name', read_only=True, default='')
+    generic_drug_name = serializers.CharField(source='generic_drug.name', read_only=True, default='')
 
     class Meta:
         model = Product
         fields = [
             'id', 'entity', 'category', 'category_name', 'name', 'short_name', 'description', 'brand', 'size',
-            'vat_class', 'uom', 'uom_name', 'barcode', 'tracks_expiry', 'created_at',
+            'vat_class', 'uom', 'uom_name', 'barcode', 'tracks_expiry', 'generic_drug', 'generic_drug_name',
+            'is_prescription_only', 'is_controlled_substance', 'registration_number', 'created_at',
         ]
         # Barcode uniqueness is checked in validate() with a message that
         # names the clashing product, instead of DRF's generic one.
@@ -45,6 +56,7 @@ class ProductSerializer(serializers.ModelSerializer):
         entity = attrs.get('entity', getattr(self.instance, 'entity', None))
         category = attrs.get('category', getattr(self.instance, 'category', None))
         uom = attrs.get('uom', getattr(self.instance, 'uom', None))
+        generic = attrs.get('generic_drug', getattr(self.instance, 'generic_drug', None))
         barcode = (attrs.get('barcode') or '').strip()
         if 'barcode' in attrs:
             attrs['barcode'] = barcode
@@ -61,4 +73,7 @@ class ProductSerializer(serializers.ModelSerializer):
             if uom is not None and uom.entity_id != entity.id:
                 raise serializers.ValidationError(
                     {'uom': gettext('This unit is not in your shop.')})
+            if generic is not None and generic.entity_id != entity.id:
+                raise serializers.ValidationError(
+                    {'generic_drug': gettext('This generic medicine is not in your shop.')})
         return attrs

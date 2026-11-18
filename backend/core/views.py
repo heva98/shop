@@ -241,7 +241,8 @@ def features(request):
                 'stores': {str(s.id): is_enabled(f.key, store=s) for s in stores}
                 if f.scope == ModuleRegistry.Scope.STORE else {},
             }
-            for f in FEATURES
+            # A pharmacy's switches mean nothing to any other kind of shop.
+            for f in FEATURES if not (f.pharmacy_only and not entity.is_pharmacy)
         ],
         'stores': [{'id': str(s.id), 'name': s.name, 'is_active': s.is_active} for s in stores],
     })

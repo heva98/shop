@@ -362,3 +362,19 @@ th.sortable{cursor:default}
 .rh-empty{margin:0;font-size:14px;color:var(--muted)}
 .rh-hint{margin:10px 0 0;font-size:13px;line-height:20px;color:var(--fg-subtle)}
 @media (max-width:480px){.rh-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Sign-up: kind of business (screens/Signup.jsx) */
+.kind-picker{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+.kind-picker legend{padding:0;margin-bottom:8px}
+.kind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kind-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface-card);color:var(--blue-600);font:inherit;text-align:left;cursor:pointer;min-height:96px}
+.kind-card:hover{border-color:var(--blue-500)}
+.kind-card[aria-pressed="true"]{border-color:var(--blue-600);background:var(--blue-050);box-shadow:0 0 0 1px var(--blue-600) inset}
+.kind-name{font-size:14px;font-weight:600;line-height:19px;color:var(--ink)}
+.kind-hint{font-size:12px;line-height:17px;color:var(--muted)}
+.kind-note{margin:0;font-size:13px;line-height:20px;color:var(--blue-600)}
+
+/* Till: prescription details (screens/Pos.jsx) */
+.rx-box{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:var(--radius-sm);background:var(--tint-blue)}
+.rx-title{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--navy-800)}
+.rx-hint{margin:0;font-size:13px;line-height:19px;color:var(--muted)}
