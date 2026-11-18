@@ -170,7 +170,7 @@ export default function AdminUsers() {
 
     setSaving(true)
     try {
-      const { confirmPassword, assignments, password, ...profile } = draft
+      const { confirmPassword: _confirmPassword, assignments: _assignments, password, ...profile } = draft
       const payload = password ? { ...profile, password } : profile
       const user = editing ? await updateUser(editing.id, payload) : await createUser(payload)
       try {

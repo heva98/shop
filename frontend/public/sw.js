@@ -6,20 +6,30 @@
 const CACHE = 'duka-erp-app-v1'
 const SHELL = '/index.html'
 
+// Every script and stylesheet of this deploy, from asset-list.json (written
+// by the build, see vite.config.js). Screens load on demand, so it is more
+// than what index.html references; without the list (the dev server) fall
+// back to those.
+async function buildAssets(html) {
+  try {
+    const response = await fetch('/asset-list.json', { cache: 'no-cache' })
+    if (response.ok) return new Set(await response.json())
+  } catch { /* offline or dev: use the page's own references */ }
+  return new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]))
+}
+
 // The page's own scripts and styles load before this worker first runs, so
-// save them now too: whatever index.html references under /assets/.
+// save them now too, along with the screens it may open later.
 async function saveShell() {
   const cache = await caches.open(CACHE)
   const response = await fetch(SHELL, { cache: 'no-cache' })
   const html = await response.clone().text()
   await cache.put(SHELL, response)
-  const assets = new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]))
+  const assets = await buildAssets(html)
   const missing = []
   for (const path of assets) if (!(await cache.match(path))) missing.push(path)
   await cache.addAll(missing)
-  // Drop the previous deploy's files; their names never come back. (The
-  // build is one script + one stylesheet; if it is ever code-split, lazy
-  // chunks need saving here too, or they won't open offline.)
+  // Drop the previous deploy's files; their names never come back.
   for (const req of await cache.keys()) {
     const { pathname } = new URL(req.url)
     if (pathname.startsWith('/assets/') && /\.(js|css)$/.test(pathname) && !assets.has(pathname)) await cache.delete(req)

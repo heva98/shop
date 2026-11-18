@@ -52,7 +52,7 @@ function ownerProblems(owner, { needsPassword = true } = {}) {
   return problems
 }
 
-const ownerPayload = ({ confirmPassword, ...owner }) => ({ ...owner, daily_sms_time: owner.daily_sms_time || null })
+const ownerPayload = ({ confirmPassword: _confirmPassword, ...owner }) => ({ ...owner, daily_sms_time: owner.daily_sms_time || null })
 
 /** "18:00:00" → "18:00"; blank → the server's DAILY_SUMMARY_TIME. */
 const smsTimeLabel = (value) => (value ? value.slice(0, 5) : t('default time'))

@@ -1,5 +1,10 @@
+import hashlib
+import json
+
 from django.contrib.auth import authenticate
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
+from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext
 from rest_framework import status, viewsets
@@ -13,8 +18,9 @@ from catalog.models import Product, UnitOfMeasure
 from catalog.serializers import UnitOfMeasureSerializer
 from core import features
 from core.models import Entity, Role, Store
+from core.money import money
 from core.permissions import is_store_manager, write_roles
-from core.queryset_scoping import TenantScopedQuerySetMixin, accessible_store_ids
+from core.queryset_scoping import TenantScopedQuerySetMixin, can_access_store
 from credit.models import Customer, with_balances
 from inventory.models import StockBatch, sellable_batches
 from payments.models import PaymentMethod
@@ -54,12 +60,8 @@ def _payment(data, request, store):
 def _audit_discount(request, sale):
     """A discount over the cashier's limit is recorded with whoever
     allowed it — a manager at the till, or nobody (an offline sale)."""
-    discount = sale.discount_total
-    if not discount:
-        return
-    gross = sale.total + discount
-    limit = sale.store.entity.cashier_discount_limit
-    if discount * 100 <= gross * limit:
+    discount, gross, _limit, over_limit = sale.discount_check()
+    if not over_limit:
         return
     by = sale.discount_approved_by
     if by:
@@ -244,16 +246,36 @@ class TillSnapshotView(APIView):
     today (a running promotion's price where there is one), sellable
     stock, payment methods, credit customers with what they owe, and the
     caller's open shift. The till refreshes it whenever it's online and
-    records what it sells against it (POST /sales/record/)."""
+    records what it sells against it (POST /sales/record/).
+
+    The catalog (products and units) is most of the payload and changes
+    rarely, so it carries a `catalog_version`. A till that sends back the
+    version it holds (?catalog=<version>) gets `products` and `units` as
+    null when they are unchanged, and keeps its own copy. Stock is summed
+    per product and expiry date: all the till needs to tell what is
+    sellable today, in fewer rows than one per batch."""
+
+    @staticmethod
+    def _catalog(entity):
+        products = [{
+            'id': str(p.pk), 'name': p.name, 'short_name': p.short_name, 'brand': p.brand, 'size': p.size,
+            'barcode': p.barcode, 'category_name': p.category.name if p.category_id else '',
+            'uom': str(p.uom_id), 'vat_class': p.vat_class, 'tracks_expiry': p.tracks_expiry,
+            'generic_name': p.generic_drug.name if p.generic_drug_id else '',
+            'prescription_only': p.is_prescription_only, 'controlled': p.is_controlled_substance,
+        } for p in Product.objects.filter(entity=entity).select_related('uom', 'category', 'generic_drug')]
+        units = UnitOfMeasureSerializer(UnitOfMeasure.objects.filter(entity=entity), many=True).data
+        payload = json.dumps([products, units], cls=DjangoJSONEncoder, sort_keys=True)
+        return products, units, hashlib.sha256(payload.encode()).hexdigest()[:16]
 
     def get(self, request):
         store = Store.objects.filter(pk=request.query_params.get('store')).select_related('entity').first()
-        allowed = accessible_store_ids(request.user)
-        if store is None or (not request.user.is_superuser and store.entity_id != request.user.entity_id) \
-                or (allowed is not None and store.pk not in set(allowed)):
+        if store is None or not can_access_store(request.user, store):
             raise NotFound(gettext('Store not found.'))
         entity = store.entity
-        products = Product.objects.filter(entity=entity).select_related('uom', 'category', 'generic_drug')
+        products, units, catalog_version = self._catalog(entity)
+        if request.query_params.get('catalog') == catalog_version:
+            products = units = None
         price_store = store if entity.price_mode == Entity.PriceMode.STORE else None
         prices = {(p.product_id, p.uom_id): {'unit_price': p.unit_price, 'regular_price': p.unit_price, 'promotion': None}
                   for p in Price.objects.filter(entity=entity, store=price_store)}
@@ -261,8 +283,10 @@ class TillSnapshotView(APIView):
         for promo in reversed(list(Promotion.running(store=store))):
             row = prices.setdefault((promo.product_id, promo.uom_id), {'regular_price': None})
             row.update(unit_price=promo.promo_price, promotion=promo.name)
-        batches = sellable_batches(StockBatch.objects.filter(store=store))
-        shift = Shift.objects.filter(store=store, cashier=request.user, closed_at__isnull=True).first()
+        stock = (sellable_batches(StockBatch.objects.filter(store=store))
+                 .values('product_id', 'expiry_date').annotate(qty=Sum('qty_on_hand'))
+                 .order_by('product_id', 'expiry_date'))
+        shift = Shift.open_for(store=store, cashier=request.user).first()
         customers = (with_balances(Customer.objects.filter(entity=entity, is_active=True))
                      if features.is_enabled('customer_credit', store=store) else Customer.objects.none())
         shift_data = None
@@ -273,18 +297,13 @@ class TillSnapshotView(APIView):
             'store_details': {'id': str(store.pk), 'name': store.name, 'address': store.address, 'tin': store.tin},
             'generated_at': timezone.now(),
             'cashier_discount_limit': entity.cashier_discount_limit,
-            'products': [{
-                'id': str(p.pk), 'name': p.name, 'short_name': p.short_name, 'brand': p.brand, 'size': p.size,
-                'barcode': p.barcode, 'category_name': p.category.name if p.category_id else '',
-                'uom': str(p.uom_id), 'vat_class': p.vat_class, 'tracks_expiry': p.tracks_expiry,
-                'generic_name': p.generic_drug.name if p.generic_drug_id else '',
-                'prescription_only': p.is_prescription_only, 'controlled': p.is_controlled_substance,
-            } for p in products],
-            'units': UnitOfMeasureSerializer(UnitOfMeasure.objects.filter(entity=entity), many=True).data,
+            'catalog_version': catalog_version,
+            'products': products,
+            'units': units,
             'prices': [{'product': str(product), 'uom': str(uom) if uom else None, **row}
                        for (product, uom), row in prices.items()],
-            'stock': [{'product': str(b.product_id), 'qty_on_hand': b.qty_on_hand, 'expiry_date': b.expiry_date}
-                      for b in batches],
+            'stock': [{'product': str(row['product_id']), 'qty_on_hand': money(row['qty']), 'expiry_date': row['expiry_date']}
+                      for row in stock],
             'payment_methods': PaymentMethodSerializer(PaymentMethod.active_for(entity), many=True,
                                                        context={'entity': entity}).data,
             'customers': [{'id': str(c.pk), 'name': c.name, 'phone': c.phone, 'owing': c.owing,
@@ -310,13 +329,13 @@ class ShiftViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         store = serializer.validated_data['store']
         features.require('pos_sale', store=store)
-        if Shift.objects.filter(store=store, cashier=self.request.user, closed_at__isnull=True).exists():
+        if Shift.open_for(store=store, cashier=self.request.user).exists():
             raise SaleError(gettext('You already have an open shift at this store.'))
         serializer.save(cashier=self.request.user)
 
-    def _with_summary(self, shift):
+    def _with_summary(self, shift, summary=None):
         data = self.get_serializer(shift).data
-        data['summary'] = shift.summary()
+        data['summary'] = shift.summary() if summary is None else summary
         return data
 
     def retrieve(self, request, *args, **kwargs):
@@ -336,11 +355,10 @@ class ShiftViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
             raise PermissionDenied(gettext("Only the shift's own cashier or a store manager can close it."))
         serializer = CloseShiftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        shift.close(counted_cash=serializer.validated_data['counted_cash'], note=serializer.validated_data['note'])
-        z = shift.summary()
+        z = shift.close(counted_cash=serializer.validated_data['counted_cash'], note=serializer.validated_data['note'])
         record(Action.SHIFT_CLOSED,
                Summary('Shift of {username} closed: {sales_count} sales, difference {variance:,.0f}', username=shift.cashier.username, sales_count=z["sales_count"], variance=z["variance"]),
                request=request, store=shift.store,
                data={'shift': str(shift.id), 'expected_cash': z['expected_cash'], 'counted_cash': z['counted_cash'],
                      'variance': z['variance']})
-        return Response(self._with_summary(shift))
+        return Response(self._with_summary(shift, z))

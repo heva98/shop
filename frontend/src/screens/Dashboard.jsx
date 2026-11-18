@@ -1,9 +1,13 @@
+import { lazy, Suspense } from 'react'
 import { Button, NoticeBox, PageHeader, StatCard } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { getDashboard } from '../api/reports.js'
-import PinnedVisualizations from './analytics/PinnedVisualizations.jsx'
 import GettingStarted from './GettingStarted.jsx'
 import { useT } from '../i18n/index.js'
+
+// Pinned charts bring in the charting library: loaded after the dashboard's
+// own numbers, so it isn't part of the app's first download.
+const PinnedVisualizations = lazy(() => import('./analytics/PinnedVisualizations.jsx'))
 
 
 /** storeId null = an entity_admin's firm-wide view across every store. */
@@ -64,7 +68,9 @@ export default function Dashboard({ storeId, storeName, goTo, canGo = () => true
           />
         ))}
       </div>
-      {canGo('analytics') && <PinnedVisualizations onOpen={(viz) => goTo('analytics', { viz })} />}
+      {canGo('analytics') && (
+        <Suspense fallback={null}><PinnedVisualizations onOpen={(viz) => goTo('analytics', { viz })} /></Suspense>
+      )}
     </div>
   )
 }

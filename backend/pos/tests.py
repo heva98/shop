@@ -449,6 +449,8 @@ class ShiftTests(PosTestBase):
         self.assertEqual(z['cash_sales'], Decimal('5900.00'))
         self.assertEqual(z['expected_cash'], Decimal('15900.00'))
         self.assertEqual(z['variance'], Decimal('-100.00'))
+        # The report returned on closing is the one the closed shift gives later.
+        self.assertEqual(z, Shift.objects.get(pk=shift_id).summary())
         self.assertFalse(Shift.objects.get(id=shift_id).is_open)
 
         after = self.new_sale(qty='1')
@@ -593,6 +595,29 @@ class OfflineSaleTests(PosTestBase):
         self.assertEqual(response.data['prices'][0]['unit_price'], Decimal('1180.00'))
         self.assertEqual(sum(b['qty_on_hand'] for b in response.data['stock']), Decimal('52'))
         self.assertIsNotNone(response.data['shift'])
+
+    def test_till_snapshot_leaves_out_an_unchanged_catalog(self):
+        url, store = '/api/pos/till/', str(self.store.id)
+        version = self.client.get(url, {'store': store}).data['catalog_version']
+        same = self.client.get(url, {'store': store, 'catalog': version}).data
+        self.assertIsNone(same['products'])
+        self.assertIsNone(same['units'])
+        self.assertEqual(same['catalog_version'], version)
+        self.assertTrue(same['stock'])  # stock and prices always come
+
+        self.product.name = 'Paracetamol 500mg'
+        self.product.save()
+        changed = self.client.get(url, {'store': store, 'catalog': version}).data
+        self.assertNotEqual(changed['catalog_version'], version)
+        self.assertEqual([p['name'] for p in changed['products']], ['Paracetamol 500mg'])
+
+    def test_till_snapshot_sums_stock_per_product_and_expiry_date(self):
+        StockBatch.objects.create(store=self.store, product=self.product, batch_no='SOON-2',
+                                  expiry_date=self.expires_soon.expiry_date, qty_on_hand=Decimal('3'))
+        stock = self.client.get('/api/pos/till/', {'store': str(self.store.id)}).data['stock']
+        by_expiry = {row['expiry_date']: row['qty_on_hand'] for row in stock}
+        self.assertEqual(len(stock), 2)
+        self.assertEqual(by_expiry[self.expires_soon.expiry_date], Decimal('5'))
 
     def test_till_snapshot_of_another_firms_store_is_not_found(self):
         other = Store.objects.create(entity=Entity.objects.create(name='Firm B'), name='B')

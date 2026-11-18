@@ -71,11 +71,25 @@ function buildUrl(path, params) {
   return url.toString()
 }
 
+/** The headers an API call sends: the sign-in token and, for a JSON call,
+ * the app's language, which the server answers in (errors, labels,
+ * statements). */
+function apiHeaders(token, { json = true } = {}) {
+  const headers = json ? { Accept: 'application/json', 'Accept-Language': getLanguage() } : {}
+  if (token) headers.Authorization = `Token ${token}`
+  return headers
+}
+
+/** Raises an ApiError for a failed response whose body may or may not be
+ * JSON, ending the session first if the server rejected the token. */
+async function rejectResponse(response, token) {
+  endSessionIfRejected(response, token)
+  throw new ApiError(response.status, await response.json().catch(() => null))
+}
+
 async function request(method, path, { params, body, signal, timeout } = {}) {
   const token = getToken()
-  // The server answers (errors, labels, statements) in the app's language.
-  const headers = { Accept: 'application/json', 'Accept-Language': getLanguage() }
-  if (token) headers.Authorization = `Token ${token}`
+  const headers = apiHeaders(token)
 
   // FormData (file uploads) must NOT be JSON-encoded and must NOT get an
   // explicit Content-Type — the browser sets its own multipart boundary,
@@ -123,20 +137,16 @@ export const client = {
 /** Fetches every page of a DRF-paginated list endpoint and returns the flat array. */
 export async function listAll(path, params) {
   const token = getToken()
-  // The server answers (errors, labels, statements) in the app's language.
-  const headers = { Accept: 'application/json', 'Accept-Language': getLanguage() }
-  if (token) headers.Authorization = `Token ${token}`
+  const headers = apiHeaders(token)
 
-  let results = []
+  const results = []
   let next = buildUrl(path, params)
   while (next) {
     const response = await send(next, { headers })
-    if (!response.ok) {
-      endSessionIfRejected(response, token)
-      throw new ApiError(response.status, await response.json().catch(() => null))
-    }
+    if (!response.ok) await rejectResponse(response, token)
     const page = await response.json()
-    results = results.concat(page.results)
+    // push, not concat: concat copies the whole list again for every page.
+    for (const row of page.results) results.push(row)
     next = page.next
   }
   return results
@@ -146,12 +156,8 @@ export async function listAll(path, params) {
  * carry the sign-in token. */
 export async function download(path, params, filename) {
   const token = getToken()
-  const headers = token ? { Authorization: `Token ${token}` } : {}
-  const response = await send(buildUrl(path, params), { headers })
-  if (!response.ok) {
-    endSessionIfRejected(response, token)
-    throw new ApiError(response.status, await response.json().catch(() => null))
-  }
+  const response = await send(buildUrl(path, params), { headers: apiHeaders(token, { json: false }) })
+  if (!response.ok) await rejectResponse(response, token)
   const url = URL.createObjectURL(await response.blob())
   const a = Object.assign(document.createElement('a'), { href: url, download: filename })
   document.body.appendChild(a)

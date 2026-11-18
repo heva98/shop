@@ -13,6 +13,7 @@ import {
 import { fmt } from '../appData.js'
 import { apiErrorText } from '../lib/apiError.js'
 import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 const RESOLUTIONS = [
   { value: 'return_to_sender', label: 'It never left: put it back in stock at the sending store' },
@@ -249,19 +250,15 @@ function AskForStock({ store, isHub, isMain, mainName, onPosted }) {
   useT()
   const picker = useLines()
   const [note, setNote] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
   const ready = picker.lines.length > 0 && picker.lines.every((l) => Number(l.qty) > 0)
 
-  async function post() {
-    setBusy(true); setError('')
-    try {
+  function post() {
+    return run(async () => {
       await createEnquiry({ requesting_store: store, note, lines: picker.lines.map((l) => ({ product: l.product, qty_requested: l.qty })) })
       picker.clear(); setNote('')
       onPosted()
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not post the request.')))
-    } finally { setBusy(false) }
+    }, t('Could not post the request.'))
   }
   return (
     <Card style={{ maxWidth: 640 }}>
@@ -282,8 +279,7 @@ function SendStock({ store, stores, onSent }) {
   const picker = useLines()
   const [to, setTo] = useState('')
   const [note, setNote] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
   const ready = to && picker.lines.length > 0 && picker.lines.every((l) => Number(l.qty) > 0 && Number(l.qty) <= (l.available ?? Infinity))
 
   // Unexpired stock at this store, shown next to each quantity.
@@ -295,15 +291,12 @@ function SendStock({ store, stores, onSent }) {
   }
   const linesWithStock = { ...picker, lines: picker.lines.map((l) => ({ ...l, available: availability[l.product] })) }
 
-  async function send() {
-    setBusy(true); setError('')
-    try {
+  function send() {
+    return run(async () => {
       await sendTransfer({ fromStore: store, toStore: to, note, lines: picker.lines.map((l) => ({ product: l.product, qty: l.qty })) })
       picker.clear(); setNote(''); setTo('')
       onSent()
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not send the stock.')))
-    } finally { setBusy(false) }
+    }, t('Could not send the stock.'))
   }
   return (
     <Card style={{ maxWidth: 720 }}>

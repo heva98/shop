@@ -29,13 +29,14 @@ from rest_framework.response import Response
 
 from catalog.models import Product
 from core.models import Role
+from core.money import VAT_RATE, ZERO, money
 from core.permissions import roles
 from credit.models import Customer, with_balances
 from inventory.models import StoreProduct
-from pos.models import VAT_RATE, Sale, SaleLine
+from pos.models import Sale, SaleLine
 from receiving.models import ReceivingInvoice
 
-from .views import _ZERO, _money, _sale_totals, _stores, _usable_stock
+from .queries import sale_totals, stores_for, usable_stock
 
 PERIODS = ('today', 'week', 'month', 'last_month')
 NOT_SELLING_DAYS = 30
@@ -68,7 +69,7 @@ def _completed(stores, start, end):
 @api_view(['GET'])
 @permission_classes([roles(Role.STORE_MANAGER, Role.ENTITY_ADMIN)])
 def summary(request):
-    stores = _stores(request)
+    stores = stores_for(request)
     period = request.query_params.get('period') or 'today'
     if period not in PERIODS:
         raise ValidationError({'period': gettext('Choose today, week, month or last_month.')})
@@ -79,7 +80,7 @@ def summary(request):
     lines = (SaleLine.objects.filter(sale__in=_completed(stores, start, end))
              .values('amount', 'qty', 'vat_class', 'batch__unit_cost', 'batch__product_id',
                      'batch__product__name', 'batch__product__uom__name'))
-    total = sales_ex_vat = cost = _ZERO
+    total = sales_ex_vat = cost = ZERO
     by_product, unknown_cost = {}, set()
     for line in lines:
         amount = line['amount']
@@ -90,34 +91,34 @@ def summary(request):
         if line['batch__unit_cost'] == 0:
             unknown_cost.add(pid)
         row = by_product.setdefault(pid, {'product': line['batch__product__name'],
-                                          'unit': line['batch__product__uom__name'], 'qty': _ZERO, 'value': _ZERO})
+                                          'unit': line['batch__product__uom__name'], 'qty': ZERO, 'value': ZERO})
         row['qty'] += line['qty']
         row['value'] += amount
     count = _completed(stores, start, end).count()
     previous = (SaleLine.objects.filter(sale__in=_completed(stores, prev_start, prev_end))
-                .aggregate(t=Sum('amount'))['t'] or _ZERO)
+                .aggregate(t=Sum('amount'))['t'] or ZERO)
 
     payments = {}
-    for sale in _sale_totals(_completed(stores, start, end).select_related('payment_method')):
-        for name, _impl, amount in sale.payment_split(sale.sale_total or _ZERO):
-            payments[name] = payments.get(name, _ZERO) + amount
+    for sale in sale_totals(_completed(stores, start, end).select_related('payment_method')):
+        for name, _impl, amount in sale.payment_split(sale.sale_total or ZERO):
+            payments[name] = payments.get(name, ZERO) + amount
 
     by_day = []
     if start != end:
         daily = dict(
             _completed(stores, start, end).annotate(day=TruncDate('completed_at')).values('day')
             .annotate(t=Sum('lines__amount')).values_list('day', 't'))
-        by_day = [{'date': start + timedelta(days=i), 'total': _money(daily.get(start + timedelta(days=i)))}
+        by_day = [{'date': start + timedelta(days=i), 'total': money(daily.get(start + timedelta(days=i)))}
                   for i in range((end - start).days + 1)]
 
     # Stock as of today, whatever the period (as the stock report).
-    levels = _usable_stock(stores, today)
+    levels = usable_stock(stores, today)
     names = Product.objects.select_related('uom').in_bulk({pid for (_s, pid) in levels}
                                                          | set(StoreProduct.objects.filter(store__in=stores, enabled=True)
                                                                .values_list('product_id', flat=True)))
     running_low = []
     for sp in StoreProduct.objects.filter(store__in=stores, enabled=True).select_related('store'):
-        usable = levels.get((sp.store_id, sp.product_id), [_ZERO])[0]
+        usable = levels.get((sp.store_id, sp.product_id), [ZERO])[0]
         if usable <= sp.reorder_level and sp.product_id in names:
             product = names[sp.product_id]
             running_low.append({'product': product.name, 'unit': product.uom.name, 'store': sp.store.name,
@@ -130,7 +131,7 @@ def summary(request):
     ).values_list('batch__product_id', flat=True).distinct())
     on_hand = {}
     for (_store, pid), (usable, _expired, _cost) in levels.items():
-        on_hand[pid] = on_hand.get(pid, _ZERO) + usable
+        on_hand[pid] = on_hand.get(pid, ZERO) + usable
     not_selling = sorted(
         ({'product': names[pid].name, 'unit': names[pid].uom.name, 'qty': qty}
          for pid, qty in on_hand.items() if qty > 0 and pid not in sold_recently and pid in names),
@@ -140,7 +141,7 @@ def summary(request):
     owing = [c.owing for c in customers if c.owing > 0]
     invoices = (ReceivingInvoice.objects.filter(store__in=stores, status=ReceivingInvoice.Status.RECEIVED)
                 .prefetch_related('lines', 'payments'))
-    supplier_owed = supplier_overdue = _ZERO
+    supplier_owed = supplier_overdue = ZERO
     for inv in invoices:
         balance = inv.balance
         if balance > 0:
@@ -148,21 +149,21 @@ def summary(request):
             if (inv.due_date or inv.received_date) < today:
                 supplier_overdue += balance
 
-    margin = _money(sales_ex_vat) - _money(cost)
+    margin = money(sales_ex_vat) - money(cost)
     return Response({
         'period': period, 'start': start, 'end': end, 'previous_start': prev_start, 'previous_end': prev_end,
-        'sales': {'total': _money(total), 'count': count, 'average': _money(total / count) if count else _money(0),
-                  'previous_total': _money(previous)},
-        'profit': {'sales_ex_vat': _money(sales_ex_vat), 'cost': _money(cost), 'margin': margin,
-                   'margin_pct': round(float(margin / _money(sales_ex_vat) * 100), 1) if sales_ex_vat else None,
+        'sales': {'total': money(total), 'count': count, 'average': money(total / count) if count else money(0),
+                  'previous_total': money(previous)},
+        'profit': {'sales_ex_vat': money(sales_ex_vat), 'cost': money(cost), 'margin': margin,
+                   'margin_pct': round(float(margin / money(sales_ex_vat) * 100), 1) if sales_ex_vat else None,
                    'products_without_cost': len(unknown_cost)},
         'by_day': by_day,
-        'payments': [{'name': n, 'total': _money(v)} for n, v in sorted(payments.items(), key=lambda kv: -kv[1])],
-        'best_sellers': [{**r, 'value': _money(r['value'])}
+        'payments': [{'name': n, 'total': money(v)} for n, v in sorted(payments.items(), key=lambda kv: -kv[1])],
+        'best_sellers': [{**r, 'value': money(r['value'])}
                          for r in sorted(by_product.values(), key=lambda r: -r['value'])[:5]],
         'running_low': {'count': len(running_low), 'out_count': sum(1 for r in running_low if r['status'] == 'out'),
                         'rows': running_low[:8]},
         'not_selling': {'days': NOT_SELLING_DAYS, 'count': len(not_selling), 'rows': not_selling[:5]},
-        'customers_owe': {'total': _money(sum(owing, _ZERO)), 'count': len(owing)},
-        'you_owe': {'total': _money(supplier_owed), 'overdue': _money(supplier_overdue)},
+        'customers_owe': {'total': money(sum(owing, ZERO)), 'count': len(owing)},
+        'you_owe': {'total': money(supplier_owed), 'overdue': money(supplier_overdue)},
     })

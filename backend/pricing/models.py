@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext
 
-from catalog.models import Product, UnitOfMeasure
+from catalog.models import Product, UnitOfMeasure, sell_unit
 from core.models import Entity, Store
 
 
@@ -159,7 +159,7 @@ def effective_price(*, store, product, uom=None, on=None):
     """(unit_price, promotion) the till charges at `store` today for one
     `uom` of `product`: a running promotion's price when there is one,
     else the regular Price. (None, None) when neither is set."""
-    sell_uom = uom if uom is not None and uom.pk != product.uom_id else None
+    sell_uom = sell_unit(product, uom)
     promotion = Promotion.running(store=store, on=on).filter(product=product, uom=sell_uom).first()
     if promotion is not None:
         return promotion.promo_price, promotion

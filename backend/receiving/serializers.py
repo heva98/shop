@@ -1,6 +1,7 @@
 from django.utils.translation import gettext
 from rest_framework import serializers
 
+from core.models import display_name
 from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned, validate_owned_entity
 
 from .models import ReceivingInvoice, ReceivingInvoiceLine, Supplier, SupplierPayment
@@ -52,7 +53,7 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'recorded_by_name', 'created_at']
 
     def get_recorded_by_name(self, payment):
-        return payment.recorded_by.get_full_name() or payment.recorded_by.username
+        return display_name(payment.recorded_by)
 
 
 class ReceivingInvoiceSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):

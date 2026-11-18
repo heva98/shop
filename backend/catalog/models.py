@@ -65,6 +65,13 @@ def convert_qty(qty, from_uom, to_uom):
     return rounded
 
 
+def sell_unit(product, uom):
+    """The unit a line is sold or priced in, normalised: None when `uom` is
+    missing or is the product's own unit, so "per its own unit" has a
+    single representation everywhere (Price, Promotion, SaleLine)."""
+    return uom if uom is not None and uom.pk != product.uom_id else None
+
+
 class GenericDrug(models.Model):
     """Pharmacies: the active ingredient a medicine is a brand or
     formulation of (Paracetamol, Amoxicillin…), so the till and reports can

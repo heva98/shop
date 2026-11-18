@@ -3,6 +3,8 @@ import json
 from django.utils.translation import gettext
 from rest_framework import serializers
 
+from core.models import display_name
+
 from .models import SavedVisualization, VisualizationType
 from .registry import unavailable_references
 
@@ -62,8 +64,7 @@ class SavedVisualizationSerializer(serializers.ModelSerializer):
         return self.context['analytics']
 
     def get_created_by_name(self, obj):
-        user = obj.created_by
-        return user.get_full_name() or user.username
+        return display_name(obj.created_by)
 
     def get_is_owner(self, obj):
         return obj.created_by_id == self.context['request'].user.id

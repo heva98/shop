@@ -13,10 +13,17 @@ const key = (userId, storeId) => `till:${userId}:${storeId}`
 export const loadTill = (userId, storeId) => kvGet(key(userId, storeId))
 
 /** Fetches a fresh copy; under the outbox lock, so stock never reflects a
- * sale halfway through being recorded. */
+ * sale halfway through being recorded. The catalog (products, units) is
+ * only sent when it changed since the copy saved here: the server answers
+ * null for both when the saved catalog_version is still current. */
 export function refreshTill(userId, storeId) {
   return withLock(async () => {
-    const snapshot = await getTillSnapshot(storeId)
+    const saved = await kvGet(key(userId, storeId)).catch(() => null)
+    const hasCatalog = Boolean(saved?.catalog_version && saved.products && saved.units)
+    const fresh = await getTillSnapshot(storeId, hasCatalog ? saved.catalog_version : undefined)
+    const snapshot = fresh.products === null || fresh.units === null
+      ? { ...fresh, products: saved.products, units: saved.units }
+      : fresh
     await kvSet(key(userId, storeId), snapshot)
     return snapshot
   })

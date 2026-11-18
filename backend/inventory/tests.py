@@ -75,6 +75,21 @@ class StockBatchTenantIsolationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('store', response.data)
 
+    def test_a_role_counts_only_at_the_store_it_is_held_at(self):
+        """Storekeeper at Store 1 but only a cashier at Store 2: storekeeper
+        work is allowed at Store 1 and refused at Store 2, both for a new
+        batch and for changing an existing one."""
+        StoreRole.objects.create(user=self.storekeeper_store_1, store=self.store_2, role=Role.CASHIER)
+        self.client.force_authenticate(self.storekeeper_store_1)
+        payload = {'product': str(self.product.id), 'expiry_date': '2030-01-01'}
+        at_1 = self.client.post('/api/inventory/batches/', {**payload, 'store': str(self.store_1.id), 'batch_no': 'OK'})
+        self.assertEqual(at_1.status_code, status.HTTP_201_CREATED, at_1.data)
+        at_2 = self.client.post('/api/inventory/batches/', {**payload, 'store': str(self.store_2.id), 'batch_no': 'NO'})
+        self.assertEqual(at_2.status_code, status.HTTP_403_FORBIDDEN)
+        edit_2 = self.client.patch(f'/api/inventory/batches/{self.batch_2.id}/', {'batch_no': 'RENAMED'})
+        self.assertEqual(edit_2.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.get('/api/inventory/batches/').status_code, status.HTTP_200_OK)
+
     def test_entity_admin_can_create_batch_for_any_store_in_their_entity(self):
         self.client.force_authenticate(self.entity_admin)
         response = self.client.post('/api/inventory/batches/', {

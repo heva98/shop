@@ -2,6 +2,7 @@ from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product
+from core.models import display_name
 from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned
 
 from .models import StockAdjustment, StockBatch, StockCount, StockCountLine, StockLedger, StoreProduct
@@ -45,10 +46,6 @@ class StockLedgerSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-def _name(user):
-    return (user.get_full_name() or user.username) if user else ''
-
-
 class StockAdjustmentSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='batch.product.name', read_only=True)
     batch_no = serializers.CharField(source='batch.batch_no', read_only=True)
@@ -63,7 +60,7 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['store']
 
     def get_created_by_name(self, obj):
-        return _name(obj.created_by)
+        return display_name(obj.created_by)
 
     def get_value_at_cost(self, obj):
         return obj.qty_delta * obj.batch.unit_cost
@@ -112,13 +109,13 @@ class StockCountSerializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'created_at', 'submitted_at', 'approved_at']
 
     def get_created_by_name(self, obj):
-        return _name(obj.created_by)
+        return display_name(obj.created_by)
 
     def get_submitted_by_name(self, obj):
-        return _name(obj.submitted_by)
+        return display_name(obj.submitted_by)
 
     def get_approved_by_name(self, obj):
-        return _name(obj.approved_by)
+        return display_name(obj.approved_by)
 
     def validate_store(self, store):
         return validate_accessible_store(store, self.context.get('request'))

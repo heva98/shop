@@ -1,3 +1,4 @@
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
 
 from .models import Role, StoreRole
@@ -9,14 +10,32 @@ def accessible_store_ids(user):
     Returns None to mean "every store in the user's entity" — granted to
     Django superusers and to entity_admin StoreRole holders, whose
     permissions are entity-wide by design (see StoreRole docstring).
-    Otherwise returns the queryset of store ids the user has a StoreRole
-    at, which may be empty for a user with no assignment yet.
+    Otherwise returns the list of store ids the user has a StoreRole at,
+    which may be empty for a user with no assignment yet.
+
+    One query: every scoped request calls this at least once (often from
+    both the queryset and the serializer), so it reads the user's roles
+    together instead of checking for entity_admin first.
     """
     if user.is_superuser:
         return None
-    if StoreRole.objects.filter(user=user, role=Role.ENTITY_ADMIN).exists():
-        return None
-    return StoreRole.objects.filter(user=user).values_list('store_id', flat=True)
+    store_ids = []
+    for role, store_id in StoreRole.objects.filter(user=user).values_list('role', 'store_id'):
+        if role == Role.ENTITY_ADMIN:
+            return None
+        store_ids.append(store_id)
+    return store_ids
+
+
+def can_access_store(user, store):
+    """Whether `user` may act at `store`: it is in their own entity and they
+    hold a role there (or are entity-wide). Superusers may act anywhere."""
+    if user.is_superuser:
+        return True
+    if store.entity_id != user.entity_id:
+        return False
+    store_ids = accessible_store_ids(user)
+    return store_ids is None or store.id in store_ids
 
 
 class TenantScopedQuerySetMixin:
@@ -28,7 +47,8 @@ class TenantScopedQuerySetMixin:
     Subclasses set:
       entity_field: ORM lookup from the model to core.Entity's id, e.g.
         'entity_id', 'store__entity_id', 'user__entity_id', or 'pk' when
-        the viewset's own model *is* Entity. Required.
+        the viewset's own model *is* Entity. Required: a viewset that
+        forgets it fails loudly rather than serving every firm's rows.
       store_fields: ORM lookups from the model to core.Store's id that
         should be OR-ed together, e.g. ('store_id',) or
         ('from_store_id', 'to_store_id'). Leave unset for models that
@@ -38,11 +58,11 @@ class TenantScopedQuerySetMixin:
     store_fields = ()
 
     def get_queryset(self):
+        if self.entity_field is None:
+            raise ImproperlyConfigured(f'{type(self).__name__} must set entity_field to be tenant-scoped.')
         qs = super().get_queryset()
         user = self.request.user
         if user.is_superuser:
-            return qs
-        if self.entity_field is None:
             return qs
         entity_id = user.entity_id
         if entity_id is None:
@@ -51,7 +71,6 @@ class TenantScopedQuerySetMixin:
         if self.store_fields:
             store_ids = accessible_store_ids(user)
             if store_ids is not None:
-                store_ids = list(store_ids)
                 store_q = Q()
                 for field in self.store_fields:
                     store_q |= Q(**{f'{field}__in': store_ids})

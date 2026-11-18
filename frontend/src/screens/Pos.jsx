@@ -1,22 +1,24 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button, Card, Checkbox, Field, Icon, Input, NoticeBox, PageHeader, Radio, Select, Tag } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
-import { useApi } from '../hooks/useApi.js'
 import { useOutbox, useTill } from '../hooks/useOutbox.js'
 import { isTransient } from '../api/client.js'
-import { recordFiscalReceipt, voidSale, listAllSales, openShift, closeShift } from '../api/pos.js'
-import { discard, placeSale, retryRejected, setUnsentEfdNumber, subscribe, unsyncedStock } from '../offline/outbox.js'
+import { openShift } from '../api/pos.js'
+import { placeSale, unsyncedStock } from '../offline/outbox.js'
 import { findByBarcode, searchTill, sellOptions } from '../offline/till.js'
 import { fmt } from '../appData.js'
 import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import { apiErrorText } from '../lib/apiError.js'
 import { dateLocale, t, useT } from '../i18n/index.js'
+import CloseShift from './pos/CloseShift.jsx'
+import { CompletedSale } from './pos/CompletedSale.jsx'
+import { parseAmount, removeBtnStyle, stepBtnStyle, summaryRowStyle, tdStyle, thStyle } from './pos/format.js'
+import { Receipt, ZReport } from './pos/Printouts.jsx'
+import { ShiftSales, UnsentSales } from './pos/ShiftSales.jsx'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
 const NO_RX = { patient_name: '', prescriber_name: '', prescription_ref: '' }
-
-// cashiers type amounts like "10,000" or "10 000"; parseFloat alone would stop at the separator
-const parseAmount = (v) => parseFloat(String(v).replace(/[,\s]/g, '')) || 0
 
 // crypto.randomUUID needs a secure context; getRandomValues doesn't.
 function newId() {
@@ -27,8 +29,6 @@ function newId() {
   const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('')
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
-
-const offlineNo = (sale) => sale.id.slice(0, 8).toUpperCase()
 
 export default function Pos({ storeId, userId, roles, entity, features, goTo, canGo = () => false }) {
   useT()
@@ -63,19 +63,15 @@ export default function Pos({ storeId, userId, roles, entity, features, goTo, ca
 function OpenShift({ storeId, offline, onOpened }) {
   useT()
   const [openingFloat, setOpeningFloat] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
 
-  async function submit() {
-    setBusy(true); setError('')
-    try {
+  function submit() {
+    return run(async () => {
       await openShift(storeId, parseAmount(openingFloat))
       await onOpened()
-    } catch (err) {
-      setError(isTransient(err)
-        ? t('No connection. Opening a shift needs the connection; once it is open, the till keeps selling offline.')
-        : apiErrorText(err, t('Could not open the shift.')))
-    } finally { setBusy(false) }
+    }, (err) => isTransient(err)
+      ? t('No connection. Opening a shift needs the connection; once it is open, the till keeps selling offline.')
+      : apiErrorText(err, t('Could not open the shift.')))
   }
 
   return (
@@ -611,415 +607,3 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
     </div>
   )
 }
-
-function CompletedSale({ sale, onUpdated, onPrint, onNewSale }) {
-  useT()
-  return (
-    <>
-      <NoticeBox variant="valid" title={sale.offline ? t('Sale saved on this till') : t('Sale #{n} complete', { n: sale.number })}>
-        {Number(sale.credit_amount) > 0
-          ? <>{t('{amount} on {name}’s account', { amount: fmt(Number(sale.credit_amount)), name: sale.customer_name })}{Number(sale.paid_amount) > 0 && <>, {t('{amount} paid by {method}', { amount: fmt(Number(sale.paid_amount)), method: t(sale.payment_method_name) })}</>}.</>
-          : <>{t('{amount} paid by {method}', { amount: fmt(Number(sale.total)), method: t(sale.payment_method_name) })}.</>}
-        {sale.change_due !== null && Number(sale.change_due) > 0 && <> {t('Give change:')} <b>{fmt(Number(sale.change_due))}</b>.</>}
-        {sale.offline && <div style={{ marginTop: 4 }}>{t('No connection right now: it is sent, and gets its receipt number, as soon as the connection returns.')}</div>}
-      </NoticeBox>
-      <EfdReceiptEntry sale={sale} onUpdated={onUpdated} />
-      <Button onClick={onPrint}><Icon name="download" size={16} /> {t('Print receipt')}</Button>
-      <Button variant="primary" onClick={onNewSale} style={{ width: '100%', height: 43 }}>{t('New sale')}</Button>
-    </>
-  )
-}
-
-/** The till can't talk to the store's EFD machine (see
- * fiscal.drivers.manual_efd): the cashier rings the sale up on it and
- * types the printed receipt number in here. For a sale not yet sent, the
- * number is kept with it and sent along. */
-function EfdReceiptEntry({ sale, onUpdated }) {
-  useT()
-  const [number, setNumber] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  if (sale.efd_receipt_no) {
-    return <div style={{ fontSize: 13, color: 'var(--grey-700)' }}>{t('EFD receipt no.')} <b>{sale.efd_receipt_no}</b></div>
-  }
-  async function save() {
-    setBusy(true); setError('')
-    try {
-      if (sale.offline && await setUnsentEfdNumber(sale.id, number.trim())) {
-        onUpdated({ ...sale, efd_receipt_no: number.trim() })
-        return
-      }
-      onUpdated(await recordFiscalReceipt(sale.id, number.trim()))
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not save the EFD receipt number.')))
-    } finally { setBusy(false) }
-  }
-  return (
-    <div style={{ padding: 12, background: 'var(--grey-100)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 13, color: 'var(--grey-900)' }}>
-        {t('Issue this sale on the EFD machine ({amount}), then enter the receipt number it prints.', { amount: fmt(Number(sale.total)) })}
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder={t('EFD receipt no.')} />
-        <Button onClick={save} disabled={busy || !number.trim()}>{t('Save')}</Button>
-      </div>
-      {error && <div style={{ fontSize: 12, color: 'var(--status-error)' }}>{error}</div>}
-    </div>
-  )
-}
-
-/** Sales on this till the cloud refused when they were sent (e.g. its
- * stock figures show too little left), and sales another cashier left
- * waiting. A refused sale stays here until someone fixes the cause and
- * retries it, or discards it. */
-function UnsentSales({ records, userId }) {
-  useT()
-  const [busyId, setBusyId] = useState(null)
-  const rejected = records.filter((r) => r.status === 'rejected')
-  const othersWaiting = records.filter((r) => r.status === 'pending' && r.userId !== userId).length
-  if (!rejected.length && !othersWaiting) return null
-
-  async function retry(record) {
-    setBusyId(record.id)
-    try { await retryRejected(record, userId) } finally { setBusyId(null) }
-  }
-  function remove(record) {
-    if (!window.confirm(t('Discard this {amount} sale? It will not count in takings or come off stock. Only do this if the sale was reversed: money returned and goods back on the shelf.', { amount: fmt(Number(record.receipt.total)) }))) return
-    discard(record)
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-      {rejected.length > 0 && (
-        <NoticeBox variant="error" title={t(rejected.length === 1 ? '{n} sale made on this till could not be recorded' : '{n} sales made on this till could not be recorded', { n: rejected.length })}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-            {rejected.map((r) => (
-              <div key={r.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ flex: '1 1 240px' }}>
-                  {new Date(r.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })} · {fmt(Number(r.receipt.total))}: {r.error}
-                </span>
-                {r.userId === userId
-                  ? <Button size="small" onClick={() => retry(r)} disabled={busyId === r.id}>{t('Try again')}</Button>
-                  : <span style={{ fontSize: 12 }}>{t('Rung up by another cashier: they can retry it here.')}</span>}
-                <Button size="small" variant="destructive" onClick={() => remove(r)} disabled={busyId === r.id}>{t('Discard')}</Button>
-              </div>
-            ))}
-            <div style={{ fontSize: 12 }}>{t('Fix the cause first, for example by receiving the stock that was sold, then try again.')}</div>
-          </div>
-        </NoticeBox>
-      )}
-      {othersWaiting > 0 && (
-        <NoticeBox variant="info">
-          {t(othersWaiting === 1 ? '{n} sale by another cashier is saved on this till. It is sent when that cashier next signs in here.' : '{n} sales by another cashier are saved on this till. They are sent when that cashier next signs in here.', { n: othersWaiting })}
-        </NoticeBox>
-      )}
-    </div>
-  )
-}
-
-function ShiftSales({ shift, unsent, isManager, onPrint, onChanged }) {
-  useT()
-  const { data, loading, error, refetch: refetchSales } = useApi(() => listAllSales({ shift: shift.id }), [shift.id])
-  const sales = (data ?? []).filter((s) => s.status !== 'open')
-  const refetch = () => { refetchSales(); onChanged() }
-  const [voiding, setVoiding] = useState(null)
-  const [efdFor, setEfdFor] = useState(null)
-
-  // A waiting sale that just got recorded moves from the till's list to the server's.
-  useEffect(() => subscribe((e) => { if (e.synced) refetchSales() }), [refetchSales])
-
-  if (loading && !data && !unsent.length) return <NoticeBox variant="info">{t('Loading…')}</NoticeBox>
-  return (
-    <div className="ds-table-card">
-      {error && (
-        <NoticeBox variant="warning" style={{ margin: 16 }}>
-          {isTransient(error) ? t('Offline: only the sales still saved on this till are shown.') : apiErrorText(error, t('Could not load the shift’s sales.'))}
-        </NoticeBox>
-      )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-        <thead>
-          <tr>
-            <th style={thStyle('left')}>{t('No.')}</th><th style={thStyle('left')}>{t('Time')}</th><th style={thStyle('left')}>{t('Paid by')}</th>
-            <th style={thStyle('right')}>{t('Total')}</th><th style={thStyle('left')}>{t('EFD receipt')}</th><th style={thStyle('left')}>{t('Status')}</th><th style={thStyle('right')} />
-          </tr>
-        </thead>
-        <tbody>
-          {[...unsent].reverse().map((r) => (
-            <tr key={r.id}>
-              <td style={tdStyle('left', true)}>{offlineNo(r.receipt)}</td>
-              <td style={tdStyle('left', true)}>{new Date(r.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</td>
-              <td style={tdStyle('left', true)}><PaidBy sale={r.receipt} /></td>
-              <td style={{ ...tdStyle('right', true), color: 'var(--grey-900)' }}>{fmt(Number(r.receipt.total))}</td>
-              <td style={tdStyle('left', true)}>
-                {r.receipt.efd_receipt_no || (efdFor === r.id
-                  ? <EfdReceiptEntry sale={r.receipt} onUpdated={() => setEfdFor(null)} />
-                  : <Button size="small" onClick={() => setEfdFor(r.id)}>{t('Enter')}</Button>)}
-              </td>
-              <td style={tdStyle('left', true)}>
-                {r.status === 'rejected' ? <Tag variant="negative">{t('Not recorded')}</Tag> : <Tag variant="neutral">{t('Waiting to send')}</Tag>}
-              </td>
-              <td style={{ ...tdStyle('right', true), whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => onPrint(r.receipt)}>{t('Print')}</Button>
-              </td>
-            </tr>
-          ))}
-          {sales.map((s) => (
-            <tr key={s.id}>
-              <td style={tdStyle('left', true)}>#{s.number}</td>
-              <td style={tdStyle('left', true)}>{new Date(s.completed_at).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</td>
-              <td style={tdStyle('left', true)}><PaidBy sale={s} /></td>
-              <td style={{ ...tdStyle('right', true), color: 'var(--grey-900)' }}>{fmt(Number(s.total))}</td>
-              <td style={tdStyle('left', true)}>
-                {s.efd_receipt_no || (s.status === 'completed' && (efdFor === s.id
-                  ? <EfdReceiptEntry sale={s} onUpdated={() => { setEfdFor(null); refetch() }} />
-                  : <Button size="small" onClick={() => setEfdFor(s.id)}>{t('Enter')}</Button>))}
-              </td>
-              <td style={tdStyle('left', true)}>
-                {s.status === 'voided'
-                  ? <><Tag variant="negative">{t('Voided')}</Tag><div style={{ fontSize: 12, marginTop: 2 }}>{s.void_reason}</div></>
-                  : <Tag variant="positive">{t('Completed')}</Tag>}
-              </td>
-              <td style={{ ...tdStyle('right', true), whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => onPrint(s)}>{t('Print')}</Button>{' '}
-                {s.status === 'completed' && <Button size="small" variant="destructive" onClick={() => setVoiding(s)}>{t('Void')}</Button>}
-              </td>
-            </tr>
-          ))}
-          {sales.length === 0 && unsent.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: 'var(--fg-subtle)', fontSize: 14 }}>{t('No sales in this shift yet.')}</td></tr>}
-        </tbody>
-      </table>
-      {voiding && <VoidDialog sale={voiding} isManager={isManager} onClose={() => setVoiding(null)} onVoided={() => { setVoiding(null); refetch() }} />}
-    </div>
-  )
-}
-
-function PaidBy({ sale }) {
-  useT()
-  const credit = Number(sale.credit_amount)
-  return (
-    <>
-      {credit > 0 ? (Number(sale.paid_amount) > 0 ? `${t(sale.payment_method_name)} + ${t('credit')}` : t('On credit')) : t(sale.payment_method_name)}
-      {credit > 0 && <div style={{ fontSize: 12 }}>{sale.customer_name}</div>}
-      {sale.payment_reference && <div style={{ fontSize: 12 }}>{sale.payment_reference}</div>}
-    </>
-  )
-}
-
-function VoidDialog({ sale, isManager, onClose, onVoided }) {
-  useT()
-  const [reason, setReason] = useState('')
-  const [approverUsername, setApproverUsername] = useState('')
-  const [approverPassword, setApproverPassword] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    setBusy(true); setError('')
-    try {
-      await voidSale(sale.id, { reason, approverUsername, approverPassword })
-      onVoided()
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not void the sale.')))
-    } finally { setBusy(false) }
-  }
-
-  return (
-    <div style={{ padding: 16, borderTop: '1px solid var(--grey-300)', display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 480 }}>
-      <div style={{ fontSize: 15, fontWeight: 500 }}>{t('Void sale #{n} ({amount})', { n: sale.number, amount: fmt(Number(sale.total)) })}</div>
-      <div style={{ fontSize: 13, color: 'var(--fg-muted)' }}>
-        {t('The items go back into stock and the sale is excluded from takings.')}{' '}
-        {sale.efd_receipt_no
-          ? t('Return the customer’s money and cancel EFD receipt {no} on the EFD machine.', { no: sale.efd_receipt_no })
-          : t('Return the customer’s money.')}
-        {Number(sale.credit_amount) > 0 && <> {t('The {amount} on {name}’s account is cleared.', { amount: fmt(Number(sale.credit_amount)), name: sale.customer_name })}</>}
-      </div>
-      <Field label={t('Reason')} required><Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('e.g. Wrong item sold')} /></Field>
-      {!isManager && (
-        <>
-          <div style={{ fontSize: 13, color: 'var(--grey-700)' }}>{t('A store manager must approve by entering their own login:')}</div>
-          <Field label={t('Manager username')}><Input value={approverUsername} onChange={(e) => setApproverUsername(e.target.value)} /></Field>
-          <Field label={t('Manager password')}><Input type="password" value={approverPassword} onChange={(e) => setApproverPassword(e.target.value)} /></Field>
-        </>
-      )}
-      {error && <NoticeBox variant="error">{error}</NoticeBox>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Button variant="destructive" onClick={submit} disabled={busy || !reason.trim()}>{t('Void sale')}</Button>
-        <Button onClick={onClose} disabled={busy}>{t('Cancel')}</Button>
-      </div>
-    </div>
-  )
-}
-
-/** Closing needs every sale of the shift recorded in the cloud first, or
- * the Z-report and the drawer count would leave them out. */
-function CloseShift({ shift, unsent, onClosed }) {
-  useT()
-  const [counted, setCounted] = useState('')
-  const [note, setNote] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    setBusy(true); setError('')
-    try {
-      onClosed(await closeShift(shift.id, parseAmount(counted), note))
-    } catch (err) {
-      setError(isTransient(err)
-        ? t('No connection. Closing a shift needs the connection, so the Z-report includes every sale.')
-        : apiErrorText(err, t('Could not close the shift.')))
-    } finally { setBusy(false) }
-  }
-
-  return (
-    <div style={{ maxWidth: 440 }}>
-      <Card>
-        <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px' }}>
-          {t('Count all the cash in the drawer, including the opening float and cash repayments from credit customers. Mobile money and bank payments are not in the drawer. The system compares your count with what it expects and prints the end-of-shift (Z) report.')}
-        </p>
-        {unsent.length > 0 && (
-          <NoticeBox variant="warning" title={t(unsent.length === 1 ? '{n} sale has not been sent yet' : '{n} sales have not been sent yet', { n: unsent.length })} style={{ marginBottom: 12 }}>
-            {t('The shift can be closed once every sale on this till has been recorded. Stay connected while they are sent, and deal with any that could not be recorded.')}
-          </NoticeBox>
-        )}
-        <Field label={t('Cash counted in drawer')} required><Input value={counted} onChange={(e) => setCounted(e.target.value)} placeholder="0" /></Field>
-        <Field label={t('Note (optional)')} style={{ marginTop: 12 }}><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('e.g. explanation for any difference')} /></Field>
-        {error && <NoticeBox variant="error" style={{ marginTop: 12 }}>{error}</NoticeBox>}
-        <Button variant="primary" onClick={submit} disabled={busy || counted.trim() === '' || unsent.length > 0} style={{ marginTop: 16, width: '100%', height: 43 }}>{t('Close shift')}</Button>
-      </Card>
-    </div>
-  )
-}
-
-function ZReport({ shift, entity, store, onDone }) {
-  useT()
-  const z = shift.summary
-  const variance = Number(z.variance)
-  return (
-    <div style={{ maxWidth: 520 }}>
-      <PageHeader title={t('Shift closed')} subtitle={t('Summary of the shift you just closed.')} />
-      {variance !== 0 && (
-        <NoticeBox variant="warning" title={variance < 0 ? t('Drawer is short by {amount}', { amount: fmt(-variance) }) : t('Drawer is over by {amount}', { amount: fmt(variance) })} style={{ marginBottom: 16 }}>
-          {t('Expected {expected}, counted {counted}.', { expected: fmt(Number(z.expected_cash)), counted: fmt(Number(z.counted_cash)) })}
-        </NoticeBox>
-      )}
-      <Card><ZReportBody shift={shift} entity={entity} store={store} /></Card>
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <Button onClick={() => window.print()}><Icon name="download" size={16} /> {t('Print Z-report')}</Button>
-        <Button variant="primary" onClick={onDone}>{t('Done')}</Button>
-      </div>
-      <PrintArea kind="receipt"><ZReportBody shift={shift} entity={entity} store={store} /></PrintArea>
-    </div>
-  )
-}
-
-function ZReportBody({ shift, entity, store }) {
-  useT()
-  const z = shift.summary
-  const row = (label, value, bold) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0', fontWeight: bold ? 600 : 400 }}><span>{t(label)}</span><span>{value}</span></div>
-  )
-  return (
-    <div>
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <div style={{ fontWeight: 600 }}>{entity?.name}</div>
-        <div style={{ fontSize: 12 }}>{store?.name}</div>
-        <div style={{ fontWeight: 600, marginTop: 6 }}>{t('END OF SHIFT (Z) REPORT')}</div>
-      </div>
-      {row('Cashier', shift.cashier_name)}
-      {row('Opened', new Date(shift.opened_at).toLocaleString(dateLocale()))}
-      {row('Closed', shift.closed_at ? new Date(shift.closed_at).toLocaleString(dateLocale()) : '—')}
-      <hr />
-      {row('Sales', z.sales_count)}
-      {z.by_payment_method.map((m) => <Fragment key={m.payment_method}>{row(`  ${t(m.payment_method)} (${m.count})`, fmt(Number(m.total)))}</Fragment>)}
-      {row('Gross sales', fmt(Number(z.gross_total)), true)}
-      {row('VAT included', fmt(Number(z.vat_total)))}
-      {Number(z.discount_total) > 0 && row('Discounts given', fmt(Number(z.discount_total)))}
-      {row(t('Voided sales ({n})', { n: z.void_count }), fmt(Number(z.void_total)))}
-      {z.credit_repayments.length > 0 && (
-        <>
-          <hr />
-          {row('Credit repayments', '', true)}
-          {z.credit_repayments.map((m) => <Fragment key={m.payment_method}>{row(`  ${t(m.payment_method)} (${m.count})`, fmt(Number(m.total)))}</Fragment>)}
-        </>
-      )}
-      <hr />
-      {row('Opening float', fmt(Number(z.opening_float)))}
-      {row('Cash sales', fmt(Number(z.cash_sales)))}
-      {Number(z.cash_repayments) > 0 && row('Cash repayments', fmt(Number(z.cash_repayments)))}
-      {row('Expected cash', fmt(Number(z.expected_cash)), true)}
-      {row('Counted cash', z.counted_cash === null ? '—' : fmt(Number(z.counted_cash)))}
-      {row('Difference', z.variance === null ? '—' : fmt(Number(z.variance)), true)}
-      {shift.closing_note && <div style={{ fontSize: 12, marginTop: 6 }}>{t('Note')}: {shift.closing_note}</div>}
-    </div>
-  )
-}
-
-function Receipt({ sale, entity, store }) {
-  useT()
-  const line = (left, right, bold) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontWeight: bold ? 600 : 400 }}><span>{t(left)}</span><span style={{ whiteSpace: 'nowrap' }}>{right}</span></div>
-  )
-  const total = Number(sale.total)
-  const vat = Number(sale.vat_total)
-  // FEFO can split one item over several batches; the customer sees one line per product and unit.
-  const items = Object.values(sale.lines.reduce((acc, l) => {
-    const key = `${l.product}:${l.sell_uom ?? ''}`
-    acc[key] ??= { key, name: l.product_name, unit: l.unit_name, qty: 0, amount: 0, unitPrice: Number(l.unit_price) }
-    acc[key].qty += Number(l.sell_qty)
-    acc[key].amount += Number(l.amount) + Number(l.discount ?? 0)
-    return acc
-  }, {}))
-  return (
-    <div>
-      <div style={{ textAlign: 'center' }}>
-        {entity?.logo && <img src={entity.logo} alt="" style={{ maxWidth: '40mm', maxHeight: '18mm', marginBottom: 4 }} />}
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{entity?.name}</div>
-        {store && <div>{store.name}{store.address ? `, ${store.address}` : ''}</div>}
-        {(store?.tin || entity?.tin) && <div>TIN: {store?.tin || entity?.tin}</div>}
-      </div>
-      <hr />
-      {line(sale.number ? t('Receipt #{n}', { n: sale.number }) : t('Receipt {n} (offline)', { n: offlineNo(sale) }), new Date(sale.completed_at).toLocaleString(dateLocale()))}
-      {line('Served by', sale.cashier_name)}
-      {sale.status === 'voided' && <div style={{ fontWeight: 600, textAlign: 'center' }}>*** {t('VOIDED')} ***</div>}
-      <hr />
-      {items.map((it) => (
-        <div key={it.key} style={{ marginBottom: 2 }}>
-          <div>{it.name}</div>
-          {line(`  ${Math.round(it.qty * 100) / 100} ${it.unit} x ${Math.round(it.unitPrice).toLocaleString('en-US')}`, Math.round(it.amount).toLocaleString('en-US'))}
-        </div>
-      ))}
-      <hr />
-      {Number(sale.discount_total) > 0 && line('Discount', `− ${fmt(Number(sale.discount_total))}`)}
-      {line('TOTAL', fmt(total), true)}
-      {line('VAT included (18%)', fmt(vat))}
-      {Number(sale.credit_amount) > 0 && (
-        <>
-          {line('On account', fmt(Number(sale.credit_amount)))}
-          {line('Paid now', fmt(Number(sale.paid_amount)))}
-        </>
-      )}
-      {(!Number(sale.credit_amount) || Number(sale.paid_amount) > 0) && line('Paid by', t(sale.payment_method_name))}
-      {sale.amount_tendered !== null && sale.payment_reference === '' && line('Tendered', fmt(Number(sale.amount_tendered)))}
-      {sale.change_due !== null && sale.payment_reference === '' && line('Change due', fmt(Number(sale.change_due)))}
-      {sale.payment_reference && line('Reference', sale.payment_reference)}
-      {sale.customer_name && line('Customer', sale.customer_phone ? `${sale.customer_name} (${sale.customer_phone})` : sale.customer_name)}
-      {sale.patient_name && line('Patient', sale.patient_name)}
-      {sale.prescriber_name && line('Prescriber', sale.prescription_ref ? `${sale.prescriber_name} (Rx ${sale.prescription_ref})` : sale.prescriber_name)}
-      <hr />
-      <div style={{ textAlign: 'center', fontSize: 11 }}>
-        {sale.efd_receipt_no ? `${t('EFD receipt no.')} ${sale.efd_receipt_no}` : t('Fiscal (EFD) receipt issued separately.')}
-        <div>{t('Thank you for shopping with us. Karibu tena!')}</div>
-      </div>
-    </div>
-  )
-}
-
-function thStyle(align, width) {
-  return { width, textAlign: align, fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: align === 'center' ? '12px 8px' : '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-}
-function tdStyle(align, wide) {
-  return { padding: wide ? '14px 16px' : '14px 8px', borderBottom: '1px solid var(--grey-300)', textAlign: align || 'center', fontSize: 14, color: 'var(--fg-subtle)' }
-}
-const stepBtnStyle = { width: 24, height: 24, borderRadius: 'var(--radius-sm)', border: '1px solid var(--grey-500)', background: 'var(--white)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }
-const removeBtnStyle = { width: 24, height: 24, borderRadius: 'var(--radius-sm)', border: 0, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fill: 'var(--status-error)', color: 'var(--status-error)' }
-const summaryRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--grey-700)', padding: '4px 0' }

@@ -61,5 +61,5 @@ class AuditEventViewSet(viewsets.ReadOnlyModelViewSet):
         qs = qs.filter(entity_id=user.entity_id)
         store_ids = accessible_store_ids(user)
         if store_ids is not None:
-            qs = qs.filter(store_id__in=list(store_ids))
+            qs = qs.filter(store_id__in=store_ids)
         return qs

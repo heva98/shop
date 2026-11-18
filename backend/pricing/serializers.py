@@ -37,7 +37,7 @@ class PriceSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({'store': gettext('This branch is not in your shop.')})
                 if request and not is_privileged:
                     store_ids = accessible_store_ids(request.user)
-                    if store_ids is not None and store.id not in list(store_ids):
+                    if store_ids is not None and store.id not in store_ids:
                         raise serializers.ValidationError(
                             {'store': gettext('You do not have access to this store.')})
             elif store is not None:
@@ -108,7 +108,7 @@ class PromotionSerializer(serializers.ModelSerializer):
                 if store.entity_id != entity.id:
                     raise serializers.ValidationError({'store': gettext('Not one of your stores.')})
                 store_ids = accessible_store_ids(request.user) if request else None
-                if store_ids is not None and store.id not in list(store_ids):
+                if store_ids is not None and store.id not in store_ids:
                     raise serializers.ValidationError({'store': gettext('You do not have access to this store.')})
         if starts_on and ends_on and ends_on < starts_on:
             raise serializers.ValidationError({'ends_on': gettext('The promotion must end on or after the day it starts.')})

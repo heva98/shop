@@ -19,6 +19,7 @@ import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import NotificationsPanel from './SettingsNotifications.jsx'
 import FeaturesPanel from './SettingsFeatures.jsx'
 import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 const TABS = [
   { key: 'products', label: 'Products' },
@@ -68,23 +69,19 @@ export default function Settings({ entity, initialTab }) {
 /** Shared add/edit form state: `save` gets the draft and returns a promise. */
 function useForm(initial) {
   const [draft, setDraft] = useState(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, setError, run } = useAsyncAction()
   return {
     draft, error, busy,
     open: (values) => { setDraft({ ...initial, ...values }); setError('') },
     close: () => setDraft(null),
     set: (field) => (e) => setDraft((d) => ({ ...d, [field]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e })),
     toggle: (field) => () => setDraft((d) => ({ ...d, [field]: !d[field] })),
-    async submit(save, onDone) {
-      setBusy(true); setError('')
-      try {
+    submit(save, onDone) {
+      return run(async () => {
         await save(draft)
         setDraft(null)
         onDone?.()
-      } catch (err) {
-        setError(apiErrorText(err, t('Could not save.')))
-      } finally { setBusy(false) }
+      }, t('Could not save.'))
     },
   }
 }

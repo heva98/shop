@@ -21,7 +21,7 @@ from notifications.models import NotificationLog, SmsMessage
 from notifications.modules import channel_enabled
 from notifications.sms_audiences import default_summary_time
 from notifications.sms_jobs import daily_sales_sms_run
-from reports.views import summarize_day
+from reports.queries import summarize_day
 
 logger = logging.getLogger('notifications.daily_summaries')
 

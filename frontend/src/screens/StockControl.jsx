@@ -8,8 +8,8 @@ import {
   saveStockCount, startStockCount, stockCountAction, writeOffExpired,
 } from '../api/inventory.js'
 import { fmt } from '../appData.js'
-import { apiErrorText } from '../lib/apiError.js'
 import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 const statusTag = (status) => ({
   draft: <Tag>{t('Counting')}</Tag>, submitted: <Tag variant="neutral">{t('Awaiting approval')}</Tag>,
@@ -24,20 +24,16 @@ export function StockTake({ storeId, storeName, isManager }) {
   useT()
   const { data: counts, refetch: refetchList } = useApi(() => listStockCounts({ store: storeId }), [storeId])
   const [openId, setOpenId] = useState(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
   const active = (counts?.results ?? []).find((c) => c.status === 'draft' || c.status === 'submitted')
   const shownId = openId ?? active?.id ?? null
 
-  async function start() {
-    setBusy(true); setError('')
-    try {
+  function start() {
+    return run(async () => {
       const count = await startStockCount({ store: storeId })
       setOpenId(count.id)
       refetchList()
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not start the count.')))
-    } finally { setBusy(false) }
+    }, t('Could not start the count.'))
   }
 
   if (shownId) {
@@ -68,8 +64,7 @@ function CountSheet({ id, storeName, isManager, onClose, onChanged }) {
   useT()
   const { data: count, refetch } = useApi(() => getStockCount(id), [id])
   const [entries, setEntries] = useState({}) // line id -> typed value
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
   const [filter, setFilter] = useState('')
   const [found, setFound] = useState(null)
 
@@ -82,15 +77,12 @@ function CountSheet({ id, storeName, isManager, onClose, onChanged }) {
   const counting = count?.status === 'draft'
   const reviewing = count && count.status !== 'draft'
 
-  async function act(fn, fallback) {
-    setBusy(true); setError('')
-    try {
+  function act(fn, fallback) {
+    return run(async () => {
       await fn()
       refetch()
       onChanged()
-    } catch (err) {
-      setError(apiErrorText(err, t(fallback)))
-    } finally { setBusy(false) }
+    }, t(fallback))
   }
   const save = () => saveStockCount(id, count.lines.map((l) => ({
     id: l.id, counted_qty: entries[l.id] === '' || entries[l.id] === undefined ? null : entries[l.id].replace(/[,\s]/g, ''),
@@ -248,23 +240,19 @@ export function WriteOffs({ storeId, isManager }) {
   const { data: history, refetch: refetchHistory } = useApi(() => listAdjustments({ store: storeId }), [storeId])
   const [filter, setFilter] = useState('')
   const [form, setForm] = useState(null) // {batch, qty, reason, note, add}
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, setError, run } = useAsyncAction()
   const today = new Date().toISOString().slice(0, 10)
   const withStock = (batches ?? []).filter((b) => Number(b.qty_on_hand) > 0)
   const expired = withStock.filter((b) => b.expiry_date && b.expiry_date < today)
   const q = filter.trim().toLowerCase()
   const visible = withStock.filter((b) => !q || b.product_name.toLowerCase().includes(q) || b.batch_no.toLowerCase().includes(q))
 
-  async function act(fn, fallback) {
-    setBusy(true); setError('')
-    try {
+  function act(fn, fallback) {
+    return run(async () => {
       await fn()
       setForm(null)
       refetchBatches(); refetchHistory()
-    } catch (err) {
-      setError(apiErrorText(err, t(fallback)))
-    } finally { setBusy(false) }
+    }, t(fallback))
   }
   function submit() {
     const qty = Number(String(form.qty).replace(/[,\s]/g, ''))

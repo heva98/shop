@@ -1,6 +1,8 @@
 from django.utils.translation import gettext
 from rest_framework import serializers
 
+from core.models import display_name
+
 from .models import NotificationLog, SmsBatch, SmsConfiguration, SmsMessage, SmsTemplate
 from .sms_segments import count_segments
 from .sms_templates import PLACEHOLDERS, TemplateSyntaxError, check_template
@@ -71,8 +73,7 @@ class SmsBatchSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_created_by_name(self, obj):
-        user = obj.created_by
-        return (user.get_full_name() or user.username) if user else ''
+        return display_name(obj.created_by)
 
 
 class SmsBatchDetailSerializer(SmsBatchSerializer):

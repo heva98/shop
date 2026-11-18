@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Card, ChartCanvas, Chip, EmptyState, NoticeBox, PageHeader, StatCard } from '../components/ds/index.js'
+import { Card, Chip, EmptyState, NoticeBox, PageHeader, StatCard } from '../components/ds/index.js'
+import ChartCanvas from '../components/ds/ChartCanvas.jsx'
 import { chartColors, moneyTick } from '../components/ds/chartTheme.js'
 import DataVisualizer from './analytics/DataVisualizer.jsx'
 import { useApi } from '../hooks/useApi.js'

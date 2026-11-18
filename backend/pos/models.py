@@ -7,16 +7,15 @@ from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.translation import gettext, gettext_lazy
 
-from catalog.models import Product, convert_qty
+from catalog.models import Product, convert_qty, sell_unit
 from core import features
 from core.models import Store
+from core.money import ZERO, money, split, vat_portion
 from fiscal.drivers.manual_efd import get_fiscal_driver
 from fiscal.interfaces import FiscalSaleLine, FiscalSubmission
 from fiscal.models import FiscalReceipt
 from inventory.models import StockLedger, allocate_fefo
 from payments.models import PaymentMethod
-
-VAT_RATE = Decimal('0.18')
 
 
 class SaleError(Exception):
@@ -26,20 +25,26 @@ class SaleError(Exception):
     InsufficientStockError."""
 
 
-def _money(value):
-    return Decimal(value).quantize(Decimal('0.01'))
+def _payment_rows(entries):
+    """{method name: {payment_method, implementation, count, total}} from
+    (name, implementation, amount) triples."""
+    rows = {}
+    for name, implementation, amount in entries:
+        row = rows.setdefault(name, {'payment_method': name, 'implementation': implementation, 'count': 0, 'total': ZERO})
+        row['count'] += 1
+        row['total'] += amount
+    return rows
 
 
-def _split(amount, weights):
-    """`amount` shared out in proportion to `weights`, to the cent, with the
-    last share taking the remainder so the shares always add up exactly."""
-    total = sum(weights, Decimal('0'))
-    shares, left = [], _money(amount)
-    for i, weight in enumerate(weights):
-        share = left if i == len(weights) - 1 else _money(amount * weight / total)
-        shares.append(share)
-        left -= share
-    return shares
+def _customer_payments():
+    # credit.models imports this module, so CustomerPayment is looked up late.
+    from credit.models import CustomerPayment
+
+    return CustomerPayment.objects.all()
+
+
+def _cash_total(rows):
+    return sum((r['total'] for r in rows.values() if r['implementation'] == PaymentMethod.Implementation.CASH), ZERO)
 
 
 class Shift(models.Model):
@@ -77,63 +82,81 @@ class Shift(models.Model):
     def is_open(self):
         return self.closed_at is None
 
+    @classmethod
+    def open_for(cls, *, store, cashier):
+        """The cashier's open shift at the store (at most one, see the
+        constraint above), as a queryset: .first() / .exists()."""
+        return cls.objects.filter(store=store, cashier=cashier, closed_at__isnull=True)
+
+    @classmethod
+    def with_summary_data(cls, queryset):
+        """`queryset` with everything summary() reads prefetched, so a list
+        of shifts costs a fixed number of queries instead of three each."""
+        return queryset.prefetch_related(
+            models.Prefetch('sales', queryset=Sale.objects.filter(
+                status__in=[Sale.Status.COMPLETED, Sale.Status.VOIDED],
+            ).select_related('payment_method', 'customer').prefetch_related('lines'), to_attr='_summary_sales'),
+            models.Prefetch('credit_payments', queryset=_customer_payments().filter(
+                voided_at__isnull=True,
+            ).select_related('payment_method'), to_attr='_summary_payments'),
+        )
+
+    def _summary_inputs(self):
+        """(completed sales, voided sales, unvoided credit repayments): from
+        with_summary_data()'s prefetch when there is one, else queried."""
+        if hasattr(self, '_summary_sales'):
+            sales = self._summary_sales
+            completed = [s for s in sales if s.status == Sale.Status.COMPLETED]
+            voided = [s for s in sales if s.status == Sale.Status.VOIDED]
+            return completed, voided, self._summary_payments
+        completed = list(self.sales.filter(status=Sale.Status.COMPLETED)
+                         .select_related('payment_method', 'customer').prefetch_related('lines'))
+        voided = list(self.sales.filter(status=Sale.Status.VOIDED).prefetch_related('lines'))
+        payments = list(self.credit_payments.filter(voided_at__isnull=True).select_related('payment_method'))
+        return completed, voided, payments
+
     def summary(self):
         """The Z-report: totals by payment method, VAT, discounts, voids,
         credit repayments taken at the till, and the cash the drawer should
         hold. Voided sales are listed but never counted as takings."""
-        completed = list(self.sales.filter(status=Sale.Status.COMPLETED)
-                         .select_related('payment_method', 'customer').prefetch_related('lines'))
-        voided = list(self.sales.filter(status=Sale.Status.VOIDED).prefetch_related('lines'))
+        completed, voided, payments = self._summary_inputs()
+        by_method = _payment_rows(entry for sale in completed for entry in sale.payment_split())
+        repayments = _payment_rows(
+            (p.payment_method.name, p.payment_method.implementation, p.amount) for p in payments)
 
-        by_method = {}
-        for sale in completed:
-            for name, implementation, amount in sale.payment_split():
-                row = by_method.setdefault(name, {
-                    'payment_method': name, 'implementation': implementation, 'count': 0, 'total': Decimal('0'),
-                })
-                row['count'] += 1
-                row['total'] += amount
-
-        repayments = {}
-        for payment in self.credit_payments.filter(voided_at__isnull=True).select_related('payment_method'):
-            row = repayments.setdefault(payment.payment_method.name, {
-                'payment_method': payment.payment_method.name,
-                'implementation': payment.payment_method.implementation, 'count': 0, 'total': Decimal('0'),
-            })
-            row['count'] += 1
-            row['total'] += payment.amount
-
-        def cash(rows):
-            return sum((r['total'] for r in rows.values() if r['implementation'] == 'cash'), Decimal('0'))
-
-        cash_sales, cash_repayments = cash(by_method), cash(repayments)
+        cash_sales, cash_repayments = _cash_total(by_method), _cash_total(repayments)
         expected_cash = self.opening_float + cash_sales + cash_repayments
         return {
             'sales_count': len(completed),
-            'gross_total': _money(sum((s.total for s in completed), Decimal('0'))),
-            'vat_total': _money(sum((s.vat_total for s in completed), Decimal('0'))),
-            'discount_total': _money(sum((s.discount_total for s in completed), Decimal('0'))),
-            'by_payment_method': [{**r, 'total': _money(r['total'])} for r in by_method.values()],
-            'credit_repayments': [{**r, 'total': _money(r['total'])} for r in repayments.values()],
+            'gross_total': money(sum((s.total for s in completed), ZERO)),
+            'vat_total': money(sum((s.vat_total for s in completed), ZERO)),
+            'discount_total': money(sum((s.discount_total for s in completed), ZERO)),
+            'by_payment_method': [{**r, 'total': money(r['total'])} for r in by_method.values()],
+            'credit_repayments': [{**r, 'total': money(r['total'])} for r in repayments.values()],
             'void_count': len(voided),
-            'void_total': _money(sum((s.total for s in voided), Decimal('0'))),
-            'opening_float': _money(self.opening_float),
-            'cash_sales': _money(cash_sales),
-            'cash_repayments': _money(cash_repayments),
-            'expected_cash': _money(expected_cash),
-            'counted_cash': None if self.counted_cash is None else _money(self.counted_cash),
-            'variance': None if self.counted_cash is None else _money(self.counted_cash - (self.expected_cash or expected_cash)),
+            'void_total': money(sum((s.total for s in voided), ZERO)),
+            'opening_float': money(self.opening_float),
+            'cash_sales': money(cash_sales),
+            'cash_repayments': money(cash_repayments),
+            'expected_cash': money(expected_cash),
+            'counted_cash': None if self.counted_cash is None else money(self.counted_cash),
+            'variance': None if self.counted_cash is None else money(self.counted_cash - (self.expected_cash or expected_cash)),
         }
 
     @transaction.atomic
     def close(self, *, counted_cash, note=''):
+        """Closes the shift and returns its final Z-report (summary()),
+        built once: the drawer count only adds the counted cash and the
+        difference to what the report already showed."""
         if not self.is_open:
             raise SaleError(gettext('This shift is already closed.'))
-        self.expected_cash = self.summary()['expected_cash']
+        z = self.summary()
+        self.expected_cash = z['expected_cash']
         self.counted_cash = counted_cash
         self.closing_note = note
         self.closed_at = timezone.now()
         self.save(update_fields=['expected_cash', 'counted_cash', 'closing_note', 'closed_at'])
+        return {**z, 'counted_cash': money(counted_cash), 'variance': money(counted_cash - self.expected_cash)}
 
 
 class Sale(models.Model):
@@ -224,20 +247,20 @@ class Sale(models.Model):
 
     @property
     def total(self):
-        return sum((line.line_total for line in self.lines.all()), start=Decimal('0'))
+        return sum((line.line_total for line in self.lines.all()), start=ZERO)
 
     @property
     def discount_total(self):
-        return sum((line.discount for line in self.lines.all()), start=Decimal('0'))
+        return sum((line.discount for line in self.lines.all()), start=ZERO)
 
     @property
     def vat_total(self):
         """Shelf prices are VAT-inclusive, so the VAT is the 18/118 share
         of every standard-rated line (after its discount)."""
-        return _money(sum(
-            (line.line_total * VAT_RATE / (1 + VAT_RATE)
+        return money(sum(
+            (vat_portion(line.line_total)
              for line in self.lines.all() if line.vat_class == Product.VatClass.STANDARD),
-            start=Decimal('0'),
+            start=ZERO,
         ))
 
     @property
@@ -250,7 +273,7 @@ class Sale(models.Model):
     def change_due(self):
         if self.amount_tendered is None:
             return None
-        return _money(self.amount_tendered - self.paid_amount)
+        return money(self.amount_tendered - self.paid_amount)
 
     def payment_split(self, total=None):
         """[(name, implementation, amount)]: how the sale was paid. The part
@@ -263,6 +286,16 @@ class Sale(models.Model):
         if self.credit_amount:
             parts.append((gettext('On credit'), 'credit', self.credit_amount))
         return parts
+
+    def discount_check(self):
+        """(discount, gross, limit, over_limit) for the discount on this sale:
+        whether it is more than the entity's cashier_discount_limit (a
+        percentage of the gross). The one place that rule is written, for
+        enforcing it at the till and for auditing it afterwards."""
+        discount = self.discount_total
+        gross = self.total + discount
+        limit = self.store.entity.cashier_discount_limit
+        return discount, gross, limit, bool(discount) and discount * 100 > gross * limit
 
     def _require_status(self, status, action):
         if self.status != status:
@@ -277,7 +310,7 @@ class Sale(models.Model):
         return effective_price(store=self.store, product=product, uom=uom)[0]
 
     @transaction.atomic
-    def add_product(self, *, product, qty, uom=None, unit_price=None, discount=Decimal('0')):
+    def add_product(self, *, product, qty, uom=None, unit_price=None, discount=ZERO):
         """Adds qty of product, in `uom` (default: the product's own unit),
         to the cart at the store's own selling price for that unit
         (pricing.Price, or a running pricing.Promotion — never a price sent
@@ -294,7 +327,7 @@ class Sale(models.Model):
             raise SaleError(gettext("Product is not in this shop's catalog."))
         if product.is_controlled_substance and not features.is_enabled('controlled_substances_register', store=self.store):
             raise SaleError(gettext('{name} is a controlled drug, and {store} is not set up to sell them. An owner can switch on the controlled drugs register under Settings > Features.').format(name=product.name, store=self.store.name))
-        sell_uom = uom if uom is not None and uom.pk != product.uom_id else None
+        sell_uom = sell_unit(product, uom)
         if sell_uom is not None and sell_uom.entity_id != product.entity_id:
             raise SaleError(gettext("Unit is not in this shop's catalog."))
         if unit_price is None:
@@ -303,8 +336,8 @@ class Sale(models.Model):
             unit = f' per {sell_uom.name}' if sell_uom else ''
             raise SaleError(
                 gettext('{name} has no selling price{unit} set. Ask a manager to set one under Settings > Selling prices.').format(name=product.name, unit=unit))
-        gross = _money(unit_price * qty)
-        discount = _money(discount or 0)
+        gross = money(unit_price * qty)
+        discount = money(discount or 0)
         if discount < 0 or discount > gross:
             raise SaleError(gettext('The discount on {name} must be between 0 and TZS {gross:,.0f}.').format(name=product.name, gross=gross))
 
@@ -314,11 +347,11 @@ class Sale(models.Model):
         # its share of the quantity, amount and discount, and the last takes
         # the remainder so the lines always add up to exactly qty x price.
         weights = [Decimal(batch_qty) for _, batch_qty in plan]
-        quantities = [_money(Decimal(qty) * w / base_qty) for w in weights[:-1]]
-        quantities.append(Decimal(qty) - sum(quantities, Decimal('0')))
+        quantities = [money(Decimal(qty) * w / base_qty) for w in weights[:-1]]
+        quantities.append(Decimal(qty) - sum(quantities, ZERO))
         lines = []
         for (batch, batch_qty), line_qty, line_gross, line_discount in zip(
-                plan, quantities, _split(gross, weights), _split(discount, weights)):
+                plan, quantities, split(gross, weights), split(discount, weights)):
             lines.append(SaleLine.objects.create(
                 sale=self, batch=batch, qty=batch_qty, sell_uom=sell_uom, sell_qty=line_qty,
                 unit_price=unit_price, discount=line_discount, amount=line_gross - line_discount,
@@ -349,15 +382,14 @@ class Sale(models.Model):
         price_changes = []
         for item in items:
             product, uom, charged = item['product'], item.get('uom'), item['unit_price']
-            sell_uom = uom if uom is not None and uom.pk != product.uom_id else None
-            price = sale.current_price(product, sell_uom)
+            price = sale.current_price(product, sell_unit(product, uom))
             if price is not None and price != charged:
                 if strict:
                     raise SaleError(
                         gettext('The price of {name} has changed to TZS {price:,.0f}. The cart now shows the new price: check the total with the customer.').format(name=product.name, price=price))
                 price_changes.append({'product': product.name, 'charged': charged, 'current': price})
             sale.add_product(product=product, qty=item['qty'], uom=uom, unit_price=None if strict else charged,
-                             discount=item.get('discount') or Decimal('0'))
+                             discount=item.get('discount') or ZERO)
         result = sale.complete(user=user, shift=shift, completed_at=completed_at, enforce_limits=strict, **payment)
         if efd_receipt_no:
             # A duplicate or mistyped number must not lose the sale: it can
@@ -378,12 +410,12 @@ class Sale(models.Model):
         """A discount off the whole sale, shared over the lines in
         proportion to their amounts so every line (and the VAT on it)
         reflects what was really charged."""
-        discount = _money(discount)
+        discount = money(discount)
         lines = list(self.lines.all())
-        total = sum((line.amount for line in lines), Decimal('0'))
+        total = sum((line.amount for line in lines), ZERO)
         if discount < 0 or discount > total:
             raise SaleError(gettext('The discount must be between 0 and TZS {total:,.0f}.').format(total=total))
-        for line, share in zip(lines, _split(discount, [line.amount for line in lines])):
+        for line, share in zip(lines, split(discount, [line.amount for line in lines])):
             line.discount += share
             line.amount -= share
             line.save(update_fields=['discount', 'amount'])
@@ -394,12 +426,8 @@ class Sale(models.Model):
         the authority gave it."""
         from core.permissions import is_store_manager
 
-        discount = self.discount_total
-        if not discount:
-            return None
-        gross = self.total + discount
-        limit = self.store.entity.cashier_discount_limit
-        if discount * 100 <= gross * limit or is_store_manager(user, self.store):
+        discount, _gross, limit, over_limit = self.discount_check()
+        if not over_limit or is_store_manager(user, self.store):
             return None
         if approver is not None and is_store_manager(approver, self.store):
             return approver
@@ -472,54 +500,27 @@ class Sale(models.Model):
         locked._require_status(self.Status.OPEN, 'complete')
         if not locked.lines.exists():
             raise SaleError(gettext('The cart is empty.'))
-
-        if shift is None or shift.store_id != locked.store_id or shift.cashier_id != user.pk:
-            shift = Shift.objects.filter(store=locked.store, cashier=user, closed_at__isnull=True).first()
-        if shift is None:
-            raise SaleError(gettext('Open a shift before selling.'))
+        shift = locked._selling_shift(user, shift)
         now = timezone.now()
         completed_at = now if completed_at is None or completed_at > now else completed_at
-
         rx = locked._check_prescription(user, patient_name, prescriber_name, prescription_ref)
 
+        # The checks run in this order so the cashier sees the same first
+        # problem whichever way the sale arrives.
         if not payment_method.is_active_for(locked.store.entity_id):
             raise SaleError(gettext('{name} is not enabled.').format(name=payment_method.name))
         if discount:
             locked._apply_sale_discount(discount)
-        approved_by = None
-        if enforce_limits:
-            approved_by = locked._check_discount_limit(user, discount_approver)
+        approved_by = locked._check_discount_limit(user, discount_approver) if enforce_limits else None
         total = locked.total
-        credit_amount = _money(credit_amount or 0)
+        credit_amount = money(credit_amount or 0)
         locked._check_credit(customer, credit_amount, total, enforce_limits)
-        payable = total - credit_amount
-        if payment_method.implementation == PaymentMethod.Implementation.CASH:
-            if payable == 0 and amount_tendered is None:
-                amount_tendered = Decimal('0')
-            if amount_tendered is None or amount_tendered < payable:
-                raise SaleError(gettext('Amount tendered must cover the total of TZS {payable:,.0f}.').format(payable=payable))
-            payment_reference = ''
-        else:
-            payment_reference = (payment_reference or '').strip()
-            if payable > 0 and not payment_reference:
-                raise SaleError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
-            amount_tendered = payable
+        amount_tendered, payment_reference = locked._check_payment(
+            payment_method, total - credit_amount, amount_tendered, payment_reference)
 
-        for line in locked.lines.select_related('batch__product'):
-            entry = StockLedger.record(
-                store=locked.store, batch=line.batch, qty_delta=-line.qty,
-                ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id=locked.id,
-            )
-            if line.batch.product.is_controlled_substance:
-                locked._register(entry, line, user, rx, returned=False)
-
-        # Store row lock serializes numbering, so two tills can never be
-        # handed the same receipt number.
-        Store.objects.select_for_update().get(pk=locked.store_id)
-        last = Sale.objects.filter(store_id=locked.store_id).aggregate(n=Max('number'))['n'] or 0
-
+        locked._deduct_stock(user, rx)
         locked.status = self.Status.COMPLETED
-        locked.number = last + 1
+        locked.number = locked._next_number()
         locked.cashier = user
         locked.shift = shift
         locked.payment_method = payment_method
@@ -534,6 +535,49 @@ class Sale(models.Model):
         locked.save()
         self.refresh_from_db()
         return self.retry_fiscal()
+
+    def _selling_shift(self, user, shift):
+        """`shift` when it is the user's own at this store (an offline sale
+        names the one it was rung up in, even if closed since), else the
+        user's open shift here. Refuses when there is neither."""
+        if shift is None or shift.store_id != self.store_id or shift.cashier_id != user.pk:
+            shift = Shift.open_for(store=self.store, cashier=user).first()
+        if shift is None:
+            raise SaleError(gettext('Open a shift before selling.'))
+        return shift
+
+    @staticmethod
+    def _check_payment(payment_method, payable, amount_tendered, payment_reference):
+        """(amount_tendered, payment_reference) to record. Cash must cover
+        what is payable and carries no reference; any other method needs a
+        transaction reference and is taken for exactly the amount due."""
+        if payment_method.implementation == PaymentMethod.Implementation.CASH:
+            if payable == 0 and amount_tendered is None:
+                amount_tendered = Decimal('0')
+            if amount_tendered is None or amount_tendered < payable:
+                raise SaleError(gettext('Amount tendered must cover the total of TZS {payable:,.0f}.').format(payable=payable))
+            return amount_tendered, ''
+        payment_reference = (payment_reference or '').strip()
+        if payable > 0 and not payment_reference:
+            raise SaleError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
+        return payable, payment_reference
+
+    def _deduct_stock(self, user, rx):
+        """Takes every line off its batch, and enters controlled drugs in
+        the register with the prescription details `rx`."""
+        for line in self.lines.select_related('batch__product'):
+            entry = StockLedger.record(
+                store=self.store, batch=line.batch, qty_delta=-line.qty,
+                ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id=self.id,
+            )
+            if line.batch.product.is_controlled_substance:
+                self._register(entry, line, user, rx, returned=False)
+
+    def _next_number(self):
+        """The store's next receipt number. The store row lock serializes
+        numbering, so two tills can never be handed the same number."""
+        Store.objects.select_for_update().get(pk=self.store_id)
+        return (Sale.objects.filter(store_id=self.store_id).aggregate(n=Max('number'))['n'] or 0) + 1
 
     def retry_fiscal(self):
         """Re-attempts fiscalization only — no stock movement. This is
@@ -643,7 +687,7 @@ class SaleLine(models.Model):
         if self.sell_qty is None:
             self.sell_qty = self.qty
         if self.amount is None:
-            self.amount = _money(self.unit_price * self.sell_qty) - (self.discount or 0)
+            self.amount = money(self.unit_price * self.sell_qty) - (self.discount or 0)
         super().save(*args, **kwargs)
 
     @property

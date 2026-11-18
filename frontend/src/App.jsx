@@ -1,23 +1,42 @@
-import { useEffect, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useState } from 'react'
 import { BRAND_NAME, NAV_DEFS, ROLE_LABEL, roleLabels } from './appData.js'
-import { HeaderBar, MobileHeader, MobileMenu, MobileTabBar, Sidebar } from './components/ds/index.js'
+import { HeaderBar, MobileHeader, MobileMenu, MobileTabBar, NoticeBox, Sidebar } from './components/ds/index.js'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useOutbox, useOutboxSync } from './hooks/useOutbox.js'
+// Signing in, the dashboard and the till are in the first download; every
+// other screen loads when first opened (the service worker keeps them all
+// for offline use, see public/sw.js), so the till starts faster.
 import Login from './screens/Login.jsx'
 import Dashboard from './screens/Dashboard.jsx'
 import Pos from './screens/Pos.jsx'
-import Stock from './screens/Stock.jsx'
-import Receiving from './screens/Receiving.jsx'
-import Enquiries from './screens/Enquiries.jsx'
-import Customers from './screens/Customers.jsx'
-import Analytics from './screens/Analytics.jsx'
-import Reports from './screens/Reports.jsx'
-import Settings from './screens/Settings.jsx'
-import Admin from './screens/Admin.jsx'
-import MyProfile from './screens/MyProfile.jsx'
 import ChangePassword from './screens/ChangePassword.jsx'
-import PlatformShops from './screens/PlatformShops.jsx'
 import { t, useT } from './i18n/index.js'
+
+const Stock = lazy(() => import('./screens/Stock.jsx'))
+const Receiving = lazy(() => import('./screens/Receiving.jsx'))
+const Enquiries = lazy(() => import('./screens/Enquiries.jsx'))
+const Customers = lazy(() => import('./screens/Customers.jsx'))
+const Analytics = lazy(() => import('./screens/Analytics.jsx'))
+const Reports = lazy(() => import('./screens/Reports.jsx'))
+const Settings = lazy(() => import('./screens/Settings.jsx'))
+const Admin = lazy(() => import('./screens/Admin.jsx'))
+const MyProfile = lazy(() => import('./screens/MyProfile.jsx'))
+const PlatformShops = lazy(() => import('./screens/PlatformShops.jsx'))
+
+/** A screen whose code could not be downloaded (no connection before the
+ * service worker saved it): say so instead of a blank page. Rendered with
+ * key={screen}, so choosing another screen starts afresh and tries again. */
+class ScreenLoadBoundary extends Component {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    return this.state.failed ? <NoticeBox variant="warning">{t('No connection to the server.')}</NoticeBox> : this.props.children
+  }
+}
 
 const ADMIN_NAV = [
   { key: 'profile', label: 'Shop profile' }, { key: 'stores', label: 'Stores' }, { key: 'users', label: 'Users & roles' },
@@ -157,6 +176,8 @@ export default function App() {
 
         <main className="app-main">
           <div className="app-main-inner">
+            <ScreenLoadBoundary key={screen}>
+            <Suspense fallback={<NoticeBox variant="info">{t('Loading…')}</NoticeBox>}>
             {screen === 'dashboard' && <Dashboard storeId={storeId} storeName={storeName} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} roles={roles} entity={auth.entity} />}
             {screen === 'pos' && <Pos storeId={storeId} userId={profile?.id} roles={roles} entity={auth.entity} features={features} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
             {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} roles={roles} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
@@ -169,6 +190,8 @@ export default function App() {
             {screen === 'admin' && <Admin nav={adminNav} tab={state.adminTab} />}
             {screen === 'shops' && <PlatformShops />}
             {screen === 'profile' && <MyProfile onDone={closeProfile} />}
+            </Suspense>
+            </ScreenLoadBoundary>
           </div>
         </main>
         <MobileTabBar tabs={mobileTabs} active={screen} onSelect={goTo} onMore={openMenu} />

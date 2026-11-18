@@ -3,15 +3,11 @@ from decimal import Decimal
 from django.utils.translation import gettext
 from rest_framework import serializers
 
-from core.models import Store
+from core.models import Store, display_name
 from core.serializers import validate_accessible_store
 from payments.models import PaymentMethod
 
 from .models import Customer, CustomerPayment
-
-
-def _name(user):
-    return (user.get_full_name() or user.username) if user else ''
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -64,10 +60,10 @@ class CustomerPaymentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_received_by_name(self, payment):
-        return _name(payment.received_by)
+        return display_name(payment.received_by)
 
     def get_voided_by_name(self, payment):
-        return _name(payment.voided_by)
+        return display_name(payment.voided_by)
 
 
 class ReceivePaymentSerializer(serializers.Serializer):

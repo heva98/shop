@@ -71,7 +71,7 @@ def validate_accessible_store(store, request):
     if store is None or request is None or request.user.is_superuser:
         return store
     store_ids = accessible_store_ids(request.user)
-    if store_ids is not None and store.id not in list(store_ids):
+    if store_ids is not None and store.id not in store_ids:
         raise serializers.ValidationError(gettext('You do not have access to this store.'))
     return store
 

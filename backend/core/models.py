@@ -174,6 +174,14 @@ class User(AbstractUser):
         ordering = ['username']
 
 
+def display_name(user):
+    """How a user is named on screens, receipts and reports: their full
+    name, else their username; '' for no user."""
+    if user is None:
+        return ''
+    return user.get_full_name() or user.username
+
+
 class StoreRole(models.Model):
     """A user's role, scoped to one store — except entity_admin rows, whose
     permissions are evaluated entity-wide and leave store null."""

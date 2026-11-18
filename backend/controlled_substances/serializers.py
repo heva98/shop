@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.models import display_name
+
 from .models import ControlledSubstanceEntry
 
 
@@ -20,5 +22,4 @@ class ControlledSubstanceEntrySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_dispensed_by_name(self, entry):
-        user = entry.dispensed_by
-        return (user.get_full_name() or user.username) if user else ''
+        return display_name(entry.dispensed_by)

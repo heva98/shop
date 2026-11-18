@@ -23,7 +23,7 @@ def _acts_for(user, store):
     """Whether `user` may act as `store` — holds a role there, or is
     entity-wide (entity_admin, superuser)."""
     ids = accessible_store_ids(user)
-    return ids is None or store.id in list(ids)
+    return ids is None or store.id in ids
 
 
 def _lines(transfer):

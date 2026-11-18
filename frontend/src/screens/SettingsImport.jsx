@@ -5,6 +5,7 @@ import { listImportKinds, runImport, downloadImportTemplate } from '../api/impor
 import { listAllStores } from '../api/core.js'
 import { apiErrorText } from '../lib/apiError.js'
 import { useT } from '../i18n/index.js'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 /** Onboarding from a spreadsheet: pick what to import, preview it (nothing
  * is saved), fix any rows the preview flags, then import. Imports are
@@ -18,8 +19,7 @@ export default function ImportPanel({ entity }) {
   const [file, setFile] = useState(null)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, setError, run } = useAsyncAction()
 
   const kind = kinds?.find((k) => k.key === kindKey)
   const pricesPerStore = entity.price_mode === 'store' && ['products', 'prices'].includes(kindKey)
@@ -30,16 +30,15 @@ export default function ImportPanel({ entity }) {
     setKindKey(key); setResult(null); setError(''); setFile(null); setFileInputKey((k) => k + 1)
   }
 
-  async function submit(commit) {
-    setBusy(true); setError('')
-    try {
+  function submit(commit) {
+    return run(async () => {
       const response = await runImport(kindKey, { file, store: needsStore ? store : undefined, commit })
       setResult(response)
       if (response.committed) { setFile(null); setFileInputKey((k) => k + 1) }
-    } catch (err) {
+    }, (err) => {
       setResult(null)
-      setError(apiErrorText(err, t('Could not read the file.')))
-    } finally { setBusy(false) }
+      return apiErrorText(err, t('Could not read the file.'))
+    })
   }
 
   return (

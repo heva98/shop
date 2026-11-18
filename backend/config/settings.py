@@ -146,6 +146,13 @@ DATABASES = {
         conn_max_age=600,
     )
 }
+if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    # SQLite ignores select_for_update(), which receipt numbering and stock
+    # movements rely on to serialize two tills. IMMEDIATE transactions take
+    # the write lock when the transaction starts instead, so concurrent
+    # sales queue up (for up to `timeout` seconds) rather than both reading
+    # the same stock or the same last receipt number. Postgres needs neither.
+    DATABASES['default'].setdefault('OPTIONS', {}).update({'transaction_mode': 'IMMEDIATE', 'timeout': 20})
 
 
 # Password validation

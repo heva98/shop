@@ -1,12 +1,17 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
 
 from core.models import Entity, Role, Store, StoreRole, User
+from credit.models import Customer, CustomerPayment
 from inventory.models import StockBatch, StoreProduct
+from pos.models import Shift
 from pos.tests import PosTestBase
+from reports.queries import usable_stock
 
 
 class ReportTests(PosTestBase):
@@ -75,3 +80,77 @@ class ReportTests(PosTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data['summary']['value'], Decimal('-800.00'))
         self.assertEqual(response.data['rows'][0]['note'], 'Dropped')
+
+
+    def _shifts_report(self):
+        self.client.force_authenticate(self.manager)
+        response = self.client.get('/api/reports/shifts/', {'store': str(self.store.id)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['shifts']
+
+    def _closed_shift_with_a_sale(self, user):
+        shift_id = self.open_shift(user)
+        sale = self.new_sale(qty='1')
+        self.assertEqual(self.complete(sale['id']).status_code, status.HTTP_200_OK)
+        self.client.post(f'/api/pos/shifts/{shift_id}/close/', {'counted_cash': '11000'})
+
+    def test_shifts_report_matches_each_shifts_own_z_report(self):
+        customer = Customer.objects.create(entity=self.entity, name='Mama Neema', phone='255712000001')
+        CustomerPayment.receive(customer=customer, store=self.store, amount=Decimal('500'),
+                                payment_method=self.cash, user=self.cashier)
+        self._closed_shift_with_a_sale(self.manager)
+        rows = self._shifts_report()
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            expected = Shift.objects.get(pk=row['id']).summary()
+            self.assertEqual({key: row[key] for key in expected}, expected)
+        cashier_row = next(r for r in rows if r['cashier'] == 'cashier')
+        self.assertEqual(cashier_row['cash_repayments'], Decimal('500.00'))
+        self.assertEqual(cashier_row['void_count'], 1)
+
+    def test_shifts_report_queries_do_not_grow_with_the_number_of_shifts(self):
+        self._shifts_report()  # warm up anything cached per process
+        with CaptureQueriesContext(connection) as one_shift:
+            self._shifts_report()
+        for i in range(3):
+            user = User.objects.create_user(username=f'extra{i}', password='x', entity=self.entity)
+            StoreRole.objects.create(user=user, store=self.store, role=Role.CASHIER)
+            self._closed_shift_with_a_sale(user)
+        with CaptureQueriesContext(connection) as four_shifts:
+            rows = self._shifts_report()
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(four_shifts), len(one_shift))
+
+
+    def test_usable_stock_matches_summing_each_batch(self):
+        today = timezone.localdate()
+        for no, expiry, qty, cost in [('EXP', today - timedelta(days=2), '4.50', '120.25'),
+                                      ('NONE', None, '0.75', '0'), ('TODAY', today, '3', '99.99')]:
+            StockBatch.objects.create(store=self.store, product=self.product, batch_no=no,
+                                      expiry_date=expiry, qty_on_hand=Decimal(qty), unit_cost=Decimal(cost))
+        expected = {}
+        for b in StockBatch.objects.filter(store=self.store, qty_on_hand__gt=0):
+            row = expected.setdefault((b.store_id, b.product_id), [Decimal('0')] * 3)
+            row[1 if b.expiry_date is not None and b.expiry_date < today else 0] += b.qty_on_hand
+            row[2] += b.qty_on_hand * b.unit_cost
+        actual = usable_stock(Store.objects.filter(pk=self.store.pk), today)
+        self.assertEqual(dict(actual), expected)
+        self.assertEqual([str(v) for v in actual[(self.store.id, self.product.id)]],
+                         [str(v) for v in expected[(self.store.id, self.product.id)]])
+
+
+    def test_role_limited_reports_cover_only_stores_where_the_role_is_held(self):
+        branch = Store.objects.create(entity=self.entity, name='Branch')
+        StockBatch.objects.create(store=branch, product=self.product, batch_no='BR', qty_on_hand=Decimal('7'))
+        keeper = User.objects.create_user(username='keeper', password='x', entity=self.entity)
+        StoreRole.objects.create(user=keeper, store=self.store, role=Role.STOREKEEPER)
+        StoreRole.objects.create(user=keeper, store=branch, role=Role.CASHIER)
+        self.client.force_authenticate(keeper)
+        response = self.client.get('/api/reports/stock/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual({row['store'] for row in response.data['rows']}, {'A'})
+        self.assertEqual(self.client.get('/api/reports/stock/', {'store': str(branch.id)}).status_code,
+                         status.HTTP_403_FORBIDDEN)
+        # A report open to every role still covers both stores.
+        sales = self.client.get('/api/reports/sales/')
+        self.assertEqual(sales.status_code, status.HTTP_200_OK)

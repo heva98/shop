@@ -121,7 +121,7 @@ class CustomerPayment(models.Model):
         reference = (reference or '').strip()
         if payment_method.requires_reference and not reference:
             raise CreditError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
-        shift = Shift.objects.filter(store=store, cashier=user, closed_at__isnull=True).first()
+        shift = Shift.open_for(store=store, cashier=user).first()
         if payment_method.implementation == PaymentMethod.Implementation.CASH and shift is None \
                 and not _is_manager(user, store):
             raise CreditError(gettext('Open a shift to take a cash payment, so it is counted in your drawer.'))

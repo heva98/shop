@@ -6,8 +6,8 @@ import {
   listAllSuppliers, listInvoices, getInvoice, createInvoice, updateInvoice, receiveInvoice, addInvoiceLine, payInvoice,
 } from '../api/receiving.js'
 import { fmt } from '../appData.js'
-import { apiErrorText } from '../lib/apiError.js'
 import { t, tOptions, useT } from '../i18n/index.js'
+import { useAsyncAction } from '../hooks/useAsyncAction.js'
 
 const rawInputStyle = { height: 32, border: '1px solid var(--grey-500)', borderRadius: 'var(--radius-sm)', padding: '0 8px', fontFamily: 'var(--font-family)' }
 
@@ -394,19 +394,15 @@ function InvoicePayments({ invoice, canPay, onPaid }) {
   useT()
   const balance = Number(invoice.balance)
   const [form, setForm] = useState(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { busy, error, run } = useAsyncAction()
 
-  async function submit() {
-    setBusy(true); setError('')
-    try {
+  function submit() {
+    return run(async () => {
       onPaid(await payInvoice(invoice.id, {
         amount: String(form.amount).replace(/[,\s]/g, ''), paid_on: form.paid_on, method: form.method, reference: form.reference,
       }))
       setForm(null)
-    } catch (err) {
-      setError(apiErrorText(err, t('Could not record the payment.')))
-    } finally { setBusy(false) }
+    }, t('Could not record the payment.'))
   }
 
   return (

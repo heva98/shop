@@ -4,7 +4,7 @@ from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product, UnitOfMeasure
-from core.models import Store
+from core.models import Store, display_name
 from core.serializers import ClientGeneratedIdMixin, validate_accessible_store
 from credit.models import Customer
 from payments.models import PaymentMethod
@@ -71,18 +71,14 @@ class SaleSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
             'patient_name', 'prescriber_name', 'prescription_ref', 'voided_at', 'void_reason',
         ]
 
-    @staticmethod
-    def _name(user):
-        return (user.get_full_name() or user.username) if user else ''
-
     def get_cashier_name(self, sale):
-        return self._name(sale.cashier)
+        return display_name(sale.cashier)
 
     def get_voided_by_name(self, sale):
-        return self._name(sale.voided_by)
+        return display_name(sale.voided_by)
 
     def get_void_approved_by_name(self, sale):
-        return self._name(sale.void_approved_by)
+        return display_name(sale.void_approved_by)
 
     def validate_store(self, store):
         return validate_accessible_store(store, self.context.get('request'))
@@ -169,7 +165,7 @@ class ShiftSerializer(serializers.ModelSerializer):
         read_only_fields = ['cashier', 'opened_at', 'closed_at', 'counted_cash', 'expected_cash', 'closing_note']
 
     def get_cashier_name(self, shift):
-        return shift.cashier.get_full_name() or shift.cashier.username
+        return display_name(shift.cashier)
 
     def validate_store(self, store):
         return validate_accessible_store(store, self.context.get('request'))

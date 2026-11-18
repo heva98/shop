@@ -4,7 +4,7 @@ from django.utils.translation import gettext
 from rest_framework import serializers
 
 from catalog.models import Product
-from core.models import Store
+from core.models import Store, display_name
 from core.serializers import ClientGeneratedIdMixin, validate_accessible_store, validate_owned_store
 from inventory.models import StockBatch
 from payments.models import PaymentMethod
@@ -45,8 +45,7 @@ class EnquirySerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
         read_only_fields = ['status', 'mode', 'target_store']
 
     def get_created_by_name(self, enquiry):
-        user = enquiry.created_by
-        return (user.get_full_name() or user.username) if user else ''
+        return display_name(enquiry.created_by)
 
     def validate_requesting_store(self, store):
         """The filer's own store — must actually be one they operate,
@@ -90,10 +89,6 @@ class TransferLineSerializer(serializers.ModelSerializer):
                   'qty', 'received_qty', 'unit_cost']
 
 
-def _name(user):
-    return (user.get_full_name() or user.username) if user else ''
-
-
 class TransferSerializer(serializers.ModelSerializer):
     """Read shape. Transfers are created through TransferCreateSerializer
     (or an enquiry's fulfil action) and change only through the model's
@@ -119,10 +114,10 @@ class TransferSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_dispatched_by_name(self, transfer):
-        return _name(transfer.dispatched_by)
+        return display_name(transfer.dispatched_by)
 
     def get_received_by_name(self, transfer):
-        return _name(transfer.received_by)
+        return display_name(transfer.received_by)
 
 
 class TransferItemSerializer(serializers.Serializer):

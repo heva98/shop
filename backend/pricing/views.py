@@ -33,7 +33,7 @@ class PriceViewSet(viewsets.ModelViewSet):
         qs = qs.filter(entity_id=user.entity_id)
         store_ids = accessible_store_ids(user)
         if store_ids is not None:
-            qs = qs.filter(Q(store__isnull=True) | Q(store_id__in=list(store_ids)))
+            qs = qs.filter(Q(store__isnull=True) | Q(store_id__in=store_ids))
         return qs
 
     @staticmethod
@@ -84,7 +84,7 @@ class PromotionViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         qs = super().get_queryset()
         store_ids = accessible_store_ids(self.request.user)
         if store_ids is not None:
-            qs = qs.filter(Q(store__isnull=True) | Q(store_id__in=list(store_ids)))
+            qs = qs.filter(Q(store__isnull=True) | Q(store_id__in=store_ids))
         if self.request.query_params.get('running') == 'true':
             today = timezone.localdate()
             qs = qs.filter(is_active=True, starts_on__lte=today, ends_on__gte=today)

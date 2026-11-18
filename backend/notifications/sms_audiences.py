@@ -7,8 +7,8 @@ from django.conf import settings
 from django.utils import translation
 from django.utils.translation import gettext
 
-from core.models import Role, User
-from reports.views import summarize_day
+from core.models import Role, User, display_name
+from reports.queries import summarize_day
 
 from .models import SmsConfiguration, SmsMessage
 from .modules import sms_enabled
@@ -85,7 +85,7 @@ def daily_sales_recipients(entity, day, language=None, due_at=None, exclude=()):
                 values = daily_sales_values(entity, store, day, stats)
             recipients.append(Recipient(
                 phone=user.phone, template_key=DAILY_SALES_SUMMARY, language=lang, values=values,
-                user=user, name=user.get_full_name() or user.username, store=store,
+                user=user, name=display_name(user), store=store,
                 skip_reason='' if user.phone else SmsMessage.SkipReason.NO_PHONE,
             ))
     return recipients
