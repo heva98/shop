@@ -17,7 +17,7 @@ import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
 const RESOLUTIONS = [
   { value: 'return_to_sender', label: 'It never left: put it back in stock at the sending store' },
   { value: 'received_late', label: 'It turned up: add it to the receiving store' },
-  { value: 'write_off', label: 'Lost on the way: write it off' },
+  { value: 'write_off', label: 'Lost on the way: record it as lost' },
 ]
 const STATUS_TAG = { dispatched: undefined, received: 'positive', discrepancy: 'negative', cancelled: 'neutral' }
 const qtyText = (n) => Number(n).toLocaleString('en-US')
@@ -58,10 +58,10 @@ export default function Enquiries({ storeId, entity, roles }) {
     setTimeout(() => window.print(), 50)
   }
 
-  if (!store) return <NoticeBox variant="warning" title={t('No store selected')}>{t('Select a store to work with enquiries and transfers.')}</NoticeBox>
+  if (!store) return <NoticeBox variant="warning" title={t('No store selected')}>{t('Select a branch to work with its requests and transfers.')}</NoticeBox>
   return (
     <div>
-      <h1 className="page-title">{t('Enquiries & transfers')}</h1>
+      <h1 className="page-title">{t('Branch requests & transfers')}</h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 24px', fontSize: 14, color: 'var(--muted)', flexWrap: 'wrap' }}>
         {storeId ? <span>{t('Working as')} {storeName(store)}</span> : (
           <>

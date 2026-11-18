@@ -21,7 +21,7 @@ export default function Analytics({ storeId, storeName, openVizId }) {
   }
   return (
     <div>
-      <PageHeader title={t('Analytics')} subtitle={storeId ? t('Explore sales, profit, purchases and stock for {store}.', { store: storeName }) : t('Explore sales, profit, purchases and stock for all stores in your entity.')} />
+      <PageHeader title={t('Analytics')} subtitle={storeId ? t('Explore sales, profit, purchases and stock for {store}.', { store: storeName }) : t('Explore sales, profit, purchases and stock for all your branches.')} />
       <div className="ds-chip-row">
         <Chip selected={tab === 'visualizer'} onClick={() => setTab('visualizer')}>{t('Data visualizer')}</Chip>
         <Chip selected={tab === 'overview'} onClick={() => setTab('overview')}>{t('Overview')}</Chip>
@@ -89,7 +89,7 @@ function Overview({ storeId }) {
         <div className="ds-stat-grid" style={{ marginBottom: 20 }}>
           <StatCard label={t('Stock at cost')} unit="TZS" value={money(stock.summary.cost_value)} caption={t('Unexpired stock on hand today')} icon="stock" />
           <StatCard label={t('Stock at selling price')} unit="TZS" value={money(stock.summary.retail_value)} caption={t('What it would sell for')} icon="wallet" />
-          <StatCard label={t('Products low on stock')} value={stock.summary.low_count} caption={t('At or below reorder level')} icon="stock" tone="orange" />
+          <StatCard label={t('Products low on stock')} value={stock.summary.low_count} caption={t('At or below the warning level')} icon="stock" tone="orange" />
           <StatCard label={t('Products out of stock')} value={stock.summary.out_count} caption={t('No unexpired stock left')} icon="package-x" tone="orange" />
         </div>
       )}

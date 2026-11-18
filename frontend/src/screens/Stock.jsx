@@ -9,21 +9,21 @@ import { dateLocale, t, useLanguage } from '../i18n/index.js'
 
 const LEDGER_TYPE_LABEL = {
   transfer_in: 'Transfer In', transfer_out: 'Transfer Out', stolen: 'Stolen', lost: 'Lost',
-  damaged: 'Damaged', expired: 'Expired', cold_chain_failure: 'Cold Chain Failure',
-  wrong_entry: 'Wrong Entry', sold: 'Sold', sale_void: 'Sale voided', discard: 'Discard', consumption: 'Consumption', dispose: 'Dispose',
-  opening_stock: 'Opening stock', stock_count: 'Stock count correction',
+  damaged: 'Damaged', expired: 'Expired', cold_chain_failure: 'Spoiled (fridge failed)',
+  wrong_entry: 'Wrong entry corrected', sold: 'Sold', sale_void: 'Sale voided', discard: 'Thrown away', consumption: 'Used in the shop', dispose: 'Disposed',
+  opening_stock: 'Opening stock', stock_count: 'Corrected after a count',
 }
 const LEDGER_GROUPS = {
   Transfers: ['transfer_in', 'transfer_out', 'opening_stock'],
   Sales: ['sold', 'sale_void'],
   Losses: ['stolen', 'lost', 'damaged', 'expired', 'cold_chain_failure', 'wrong_entry', 'discard', 'dispose', 'stock_count'],
-  Consumption: ['consumption'],
+  'Used in the shop': ['consumption'],
 }
 const STOCK_TAB_DEFS = [
-  { key: 'list', label: 'List' }, { key: 'nearly-stocked', label: 'Nearly stocked out' }, { key: 'stocked-out', label: 'Stocked out' },
-  { key: 'nearly-expired', label: 'Nearly expired' }, { key: 'expired', label: 'Expired' }, { key: 'ledger', label: 'Ledger' },
-  { key: 'count', label: 'Stock take', roles: ['storekeeper', 'store_manager', 'entity_admin'] },
-  { key: 'write-offs', label: 'Write-offs', roles: ['storekeeper', 'store_manager', 'entity_admin'] },
+  { key: 'list', label: 'List' }, { key: 'nearly-stocked', label: 'Running low' }, { key: 'stocked-out', label: 'Out of stock' },
+  { key: 'nearly-expired', label: 'Expiring soon' }, { key: 'expired', label: 'Expired' }, { key: 'ledger', label: 'Stock history' },
+  { key: 'count', label: 'Count stock', roles: ['storekeeper', 'store_manager', 'entity_admin'] },
+  { key: 'write-offs', label: 'Losses & damage', roles: ['storekeeper', 'store_manager', 'entity_admin'] },
 ]
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
 
@@ -64,11 +64,11 @@ export default function Stock({ storeId, storeName, roles }) {
       const days = b.expiry_date ? Math.round((new Date(b.expiry_date) - today) / 86400000) : null
       const qty = Number(b.qty_on_hand)
       let status, statusLabel, daysLabel
-      if (qty === 0) { status = 'stocked-out'; statusLabel = t('Stocked out'); daysLabel = '—' } else if (days === null) {
+      if (qty === 0) { status = 'stocked-out'; statusLabel = t('Out of stock'); daysLabel = '—' } else if (days === null) {
         status = 'ok'; statusLabel = t('In stock'); daysLabel = t('Does not expire')
       } else if (days < 0) {
         status = 'expired'; statusLabel = t('Expired'); daysLabel = t('Expired {n} days ago', { n: Math.abs(days) })
-      } else if (days <= 30) { status = 'nearly-expired'; statusLabel = t('Nearly expired'); daysLabel = t('{n} days to expiry', { n: days }) } else {
+      } else if (days <= 30) { status = 'nearly-expired'; statusLabel = t('Expiring soon'); daysLabel = t('{n} days to expiry', { n: days }) } else {
         status = 'ok'; statusLabel = t('In stock'); daysLabel = t('{n} days to expiry', { n: days })
       }
       return { ...b, productName: b.product_name, qty, status, statusLabel, daysLabel }
@@ -140,7 +140,7 @@ export default function Stock({ storeId, storeName, roles }) {
     })
 
   const stockTabs = STOCK_TAB_DEFS.filter((d) => !d.roles || d.roles.some((r) => roles.includes(r))).map((d) => ({ label: t(d.label), active: tab === d.key, select: () => setTab(d.key) }))
-  const ledgerGroupChips = ['all', 'Transfers', 'Sales', 'Losses', 'Consumption'].map((g) => ({
+  const ledgerGroupChips = ['all', 'Transfers', 'Sales', 'Losses', 'Used in the shop'].map((g) => ({
     label: g === 'all' ? t('All') : t(g), active: ledgerGroup === g, select: () => setLedgerGroup(g),
   }))
 
@@ -233,7 +233,7 @@ export default function Stock({ storeId, storeName, roles }) {
                 <th style={th('center', 32)}>#</th>
                 <th style={th('left')}>{t('Product')}</th>
                 <th style={th('right')}>{t('Qty on hand')}</th>
-                <th style={th('right')}>{t('Reorder level')}</th>
+                <th style={th('right')}>{t('Warn at')}</th>
                 <th style={{ width: 44, borderBottom: '1px solid var(--grey-300)' }} />
               </tr>
             </thead>
@@ -334,7 +334,7 @@ export default function Stock({ storeId, storeName, roles }) {
                     </tr>
                   ))}
                   {visibleLedger.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No ledger entries match this filter.')}</td></tr>
+                    <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No stock movements match this filter.')}</td></tr>
                   )}
                 </tbody>
               </table>

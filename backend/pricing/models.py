@@ -68,11 +68,11 @@ class Price(models.Model):
 
     def clean(self):
         if self.store_id and self.store.entity_id != self.entity_id:
-            raise ValidationError({'store': gettext('Store must belong to the priced entity.')})
+            raise ValidationError({'store': gettext('This branch is not in your shop.')})
         if self.entity.price_mode == Entity.PriceMode.STORE and self.store_id is None:
-            raise ValidationError({'store': gettext('This entity prices per store — store is required.')})
+            raise ValidationError({'store': gettext('Your shop sets prices per branch: choose the branch.')})
         if self.entity.price_mode == Entity.PriceMode.ENTITY and self.store_id is not None:
-            raise ValidationError({'store': gettext('This entity uses one shared price list — leave store empty.')})
+            raise ValidationError({'store': gettext('Your shop uses one price list for all branches: leave the branch empty.')})
 
     @classmethod
     def get_price(cls, *, entity, product, store=None, uom=None):

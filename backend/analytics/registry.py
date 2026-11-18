@@ -174,8 +174,8 @@ _SOURCES = [
     FactSource('voids', gettext_lazy('Voided sales'), 'sale', 'voided_at', 'store'),
     FactSource('purchases', gettext_lazy('Purchases'), gettext_lazy('supplier invoice line'), 'invoice__received_date', 'invoice__store'),
     FactSource('supplier_payments', gettext_lazy('Supplier payments'), 'payment', 'paid_on', 'invoice__store'),
-    FactSource('stock_moves', gettext_lazy('Stock movements'), gettext_lazy('ledger entry'), 'created_at', 'store'),
-    FactSource('stock_balance', gettext_lazy('Stock on hand'), gettext_lazy('ledger entry'), 'created_at', 'store', cumulative=True),
+    FactSource('stock_moves', gettext_lazy('Stock movements'), gettext_lazy('stock movement'), 'created_at', 'store'),
+    FactSource('stock_balance', gettext_lazy('Stock on hand'), gettext_lazy('stock movement'), 'created_at', 'store', cumulative=True),
     FactSource('credit_payments', gettext_lazy('Credit repayments'), 'repayment', 'created_at', 'store'),
     FactSource('shifts', gettext_lazy('Shifts'), 'shift', 'closed_at', 'store'),
 ]
@@ -620,7 +620,7 @@ _DIMENSIONS = [
     # stock
     Dimension('movement', gettext_lazy('Stock movement'), DimensionKind.DYNAMIC,
               group_by={'stock_moves': _movement}, items=_MOVEMENT_ITEMS),
-    Dimension('ledger_type', gettext_lazy('Ledger entry type'), DimensionKind.DYNAMIC,
+    Dimension('ledger_type', gettext_lazy('Kind of stock movement'), DimensionKind.DYNAMIC,
               group_by={'stock_moves': 'ledger_type'}, items=_choices(L.choices)),
 ]
 DIMENSIONS: dict[str, Dimension] = {d.id: d for d in _DIMENSIONS}

@@ -54,7 +54,7 @@ const REPORTS = [
     ],
   },
   {
-    id: 'shifts', title: 'Shifts & cash reconciliation (Z reports)', roles: ALL, usesDates: true, fetch: getShiftsReport,
+    id: 'shifts', title: 'Shifts & cash check (Z reports)', roles: ALL, usesDates: true, fetch: getShiftsReport,
     description: 'Each shift: takings by payment method, expected vs counted cash, and the difference.',
     summary: (d) => [
       ['Shifts', d.shifts.length],
@@ -73,7 +73,7 @@ const REPORTS = [
     }],
   },
   {
-    id: 'stock', title: 'Stock on hand & valuation', roles: MANAGEMENT, fetch: getStockReport,
+    id: 'stock', title: 'Stock and its value', roles: MANAGEMENT, fetch: getStockReport,
     description: 'Current unexpired stock per product against its reorder level, valued at cost and at selling price.',
     summary: (d) => [
       ['Products', d.summary.product_count], ['Low', d.summary.low_count], ['Out of stock', d.summary.out_count],
@@ -83,7 +83,7 @@ const REPORTS = [
       title: 'Stock', rows: d.rows, columns: [
         { label: 'Store', value: (r) => r.store }, { label: 'Product', value: (r) => r.product },
         { label: 'Usable qty', value: (r) => r.usable_qty, align: 'right' }, { label: 'Expired qty', value: (r) => r.expired_qty, align: 'right' },
-        { label: 'Reorder level', value: (r) => r.reorder_level, align: 'right' },
+        { label: 'Warn at', value: (r) => r.reorder_level, align: 'right' },
         { label: 'Status', value: (r) => t({ ok: 'OK', low: 'Low', out: 'Out' }[r.status]) },
         { label: 'Cost value', value: (r) => r.cost_value, align: 'right', money: true },
         { label: 'Retail value', value: (r) => r.retail_value, align: 'right', money: true },
@@ -91,7 +91,7 @@ const REPORTS = [
     }],
   },
   {
-    id: 'expiry', title: 'Batch expiry', roles: MANAGEMENT, usesDays: true, fetch: getExpiryReport,
+    id: 'expiry', title: 'Expiry dates', roles: MANAGEMENT, usesDays: true, fetch: getExpiryReport,
     description: 'Batches with stock that have expired or expire within the chosen number of days.',
     summary: (d) => [['Expired batches', d.summary.expired_count], ['Expiring batches', d.summary.expiring_count], ['Value at cost', money(d.summary.cost_value)]],
     tables: (d) => [{
@@ -119,7 +119,7 @@ const REPORTS = [
     }],
   },
   {
-    id: 'losses', title: 'Losses & adjustments', roles: MANAGEMENT, usesDates: true, fetch: getLossesReport,
+    id: 'losses', title: 'Losses & stock corrections', roles: MANAGEMENT, usesDates: true, fetch: getLossesReport,
     description: 'Stock written off (expired, damaged, lost, stolen...) and stock-count corrections, valued at cost.',
     summary: (d) => [
       ['Entries', d.summary.entries], ['Total value', money(d.summary.value)],
@@ -137,7 +137,7 @@ const REPORTS = [
   },
   {
     id: 'payables', title: 'Supplier balances', roles: MANAGERS, fetch: (p) => client.get('/api/reports/payables/', p),
-    description: 'What is still owed to each supplier, and how overdue it is. Record payments on the invoice under Receiving.',
+    description: 'What is still owed to each supplier, and how overdue it is. Record payments on the invoice under Receive stock.',
     summary: (d) => [
       ['Owed', money(d.summary.owed)], ['Overdue', money(d.summary.overdue)], ['Unpaid invoices', d.summary.invoice_count],
     ],
@@ -164,11 +164,11 @@ const REPORTS = [
     ],
   },
   {
-    id: 'margin', title: 'Gross margin', roles: MANAGERS, usesDates: true, fetch: (p) => client.get('/api/reports/margin/', p),
+    id: 'margin', title: 'Profit by product', roles: MANAGERS, usesDates: true, fetch: (p) => client.get('/api/reports/margin/', p),
     description: 'Sales without VAT, less what the units sold cost (each batch at its own purchase cost). Products received with no cost show their full sales as margin — check the count below.',
     summary: (d) => [
       ['Sales (ex VAT)', money(d.summary.sales_ex_vat)], ['Cost of goods', money(d.summary.cost)],
-      ['Gross margin', money(d.summary.margin)], ['Margin %', d.summary.margin_pct === null ? '—' : `${d.summary.margin_pct}%`],
+      ['Profit by product', money(d.summary.margin)], ['Margin %', d.summary.margin_pct === null ? '—' : `${d.summary.margin_pct}%`],
       ['Products with unknown cost', d.summary.products_without_cost],
     ],
     tables: (d) => [{
@@ -184,7 +184,7 @@ const REPORTS = [
     }],
   },
   {
-    id: 'movers', title: 'Fast & slow movers', roles: MANAGEMENT, usesDays: true, daysLabel: 'Sales over the last (days)',
+    id: 'movers', title: 'What sells and what doesn’t', roles: MANAGEMENT, usesDays: true, daysLabel: 'Sales over the last (days)',
     fetch: (p) => client.get('/api/reports/movers/', p),
     description: 'What sells and what sits. Days of cover = how long current stock lasts at the recent rate of sale. Dead stock has stock but no sales in the period — consider returning or transferring it before it expires.',
     summary: (d) => [['Fast movers', d.summary.fast], ['Slow (over 180 days of cover)', d.summary.slow], ['Dead stock', d.summary.dead]],

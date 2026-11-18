@@ -42,7 +42,7 @@ FEATURES = [
     Feature('customer_credit', gettext_lazy('Sales on credit'), ModuleRegistry.Scope.STORE, True,
             gettext_lazy("Putting sales on a registered customer's account (madeni) and taking their repayments. Set each customer's credit limit under Customers.")),
     Feature('transfer', gettext_lazy('Transfers between stores'), ModuleRegistry.Scope.ENTITY, True,
-            gettext_lazy('Enquiries between stores and sending stock from one store to another.'),
+            gettext_lazy('Branches asking each other for stock, and sending stock between them.'),
             multi_store_only=True),
     Feature('analytics_dashboards', gettext_lazy('Analytics'), ModuleRegistry.Scope.ENTITY, True,
             gettext_lazy('The Analytics screen: the data visualizer, saved visualizations and dashboard pins.')),

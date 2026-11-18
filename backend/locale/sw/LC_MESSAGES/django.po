@@ -425,8 +425,8 @@ msgid "Internal use"
 msgstr "Matumizi ya ndani"
 
 #: analytics/registry.py
-msgid "Ledger entry type"
-msgstr "Aina ya ingizo la leja"
+msgid "Kind of stock movement"
+msgstr "Aina ya mabadiliko ya stoku"
 
 #: analytics/registry.py
 msgid "Lost, damaged, expired or spoiled"
@@ -761,8 +761,8 @@ msgid "You are not assigned to a shop."
 msgstr "Hujapangiwa duka lolote."
 
 #: analytics/registry.py
-msgid "ledger entry"
-msgstr "ingizo la leja"
+msgid "stock movement"
+msgstr "mabadiliko ya stoku"
 
 #: analytics/registry.py
 msgid "sale line"
@@ -973,8 +973,8 @@ msgid "User enabled"
 msgstr "Mtumiaji amewashwa"
 
 #: catalog/models.py
-msgid "Category must belong to the same entity as the product."
-msgstr "Kundi lazima liwe la biashara ileile ya bidhaa."
+msgid "This category is not in your shop."
+msgstr "Kundi hili si la duka lako."
 
 #: catalog/models.py
 msgid "Exempt"
@@ -985,8 +985,6 @@ msgid "Standard"
 msgstr "Kawaida"
 
 #: catalog/models.py
-msgid "Unit of measure must belong to the same entity as the product."
-msgstr "Kipimo lazima kiwe cha biashara ileile ya bidhaa."
 
 #: catalog/models.py
 msgid "Zero-rated"
@@ -1045,8 +1043,8 @@ msgid "Analytics"
 msgstr "Uchambuzi"
 
 #: core/features.py
-msgid "Enquiries between stores and sending stock from one store to another."
-msgstr "Maulizo kati ya maduka na kutuma stoku kutoka duka moja kwenda jingine."
+msgid "Branches asking each other for stock, and sending stock between them."
+msgstr "Matawi kuombana stoku, na kutumiana stoku."
 
 #: core/features.py
 msgid "Entering supplier invoices. Switch off for a branch that only gets stock from the main store."
@@ -1105,8 +1103,8 @@ msgid "Entity"
 msgstr "Biashara"
 
 #: core/models.py
-msgid "Entity admin"
-msgstr "Msimamizi wa biashara"
+msgid "Owner"
+msgstr "Mmiliki"
 
 #: core/models.py
 msgid "Female"
@@ -1209,16 +1207,16 @@ msgid "Logo must be 2MB or smaller."
 msgstr "Nembo lazima iwe MB 2 au chini."
 
 #: core/serializers.py
-msgid "Must be a store in your own entity."
-msgstr "Lazima liwe duka la biashara yako."
+msgid "Must be one of your own branches."
+msgstr "Lazima liwe moja ya matawi yako."
 
 #: core/serializers.py
-msgid "Must be a user in your own entity."
-msgstr "Lazima awe mtumiaji wa biashara yako."
+msgid "Must be someone in your own shop."
+msgstr "Lazima awe mtu wa duka lako."
 
 #: core/serializers.py
-msgid "Must be your own entity."
-msgstr "Lazima iwe biashara yako."
+msgid "Must be your own shop."
+msgstr "Lazima liwe duka lako."
 
 #: core/serializers.py
 msgid "Must belong to your own shop."
@@ -1253,8 +1251,8 @@ msgid "You do not have access to this store."
 msgstr "Huna ruhusa ya duka hili."
 
 #: core/serializers.py
-msgid "main_store must belong to this entity."
-msgstr "main_store lazima liwe la biashara hii."
+msgid "The main branch must belong to this shop."
+msgstr "Tawi kuu lazima liwe la duka hili."
 
 #: core/views.py
 msgid "\"{name}\" has sales, stock movements, transfers or controlled-substance records, so it cannot be removed. Deactivate it instead."
@@ -1265,8 +1263,8 @@ msgid "Not a store in your shop."
 msgstr "Si duka la biashara yako."
 
 #: core/views.py
-msgid "Only a superuser can create a new entity."
-msgstr "Msimamizi mkuu pekee ndiye anayeweza kuunda biashara mpya."
+msgid "Only the system administrator can register a new shop."
+msgstr "Msimamizi wa mfumo pekee ndiye anayeweza kusajili duka jipya."
 
 #: core/views.py
 msgid "Only the platform administrator can change another shop owner's account."
@@ -1917,8 +1915,8 @@ msgid "Only a manager of this store can load its stock."
 msgstr "Meneja wa duka hili pekee ndiye anayeweza kuingiza stoku yake."
 
 #: imports/views.py
-msgid "Only an entity admin can import catalog data."
-msgstr "Msimamizi wa biashara pekee ndiye anayeweza kuingiza data ya orodha ya bidhaa."
+msgid "Only the shop owner can import products and prices."
+msgstr "Mmiliki wa duka pekee ndiye anayeweza kuingiza bidhaa na bei."
 
 #: imports/views.py
 msgid "The file is larger than 5 MB. Split it into smaller files."
@@ -2397,16 +2395,16 @@ msgid "You already have an open shift at this store."
 msgstr "Tayari una zamu iliyo wazi katika duka hili."
 
 #: pricing/models.py
-msgid "Store must belong to the priced entity."
-msgstr "Duka lazima liwe la biashara inayowekewa bei."
+msgid "This branch is not in your shop."
+msgstr "Tawi hili si la duka lako."
 
 #: pricing/models.py
-msgid "This entity prices per store — store is required."
-msgstr "Biashara hii huweka bei kwa kila duka — duka linahitajika."
+msgid "Your shop sets prices per branch: choose the branch."
+msgstr "Duka lako huweka bei kwa kila tawi: chagua tawi."
 
 #: pricing/models.py
-msgid "This entity uses one shared price list — leave store empty."
-msgstr "Biashara hii inatumia orodha moja ya bei — acha duka wazi."
+msgid "Your shop uses one price list for all branches: leave the branch empty."
+msgstr "Duka lako linatumia orodha moja ya bei kwa matawi yote: acha tawi wazi."
 
 #: pricing/serializers.py
 msgid "A price for this product and unit already exists — edit it instead."
@@ -2425,8 +2423,6 @@ msgid "Not one of your stores."
 msgstr "Si mojawapo ya maduka yako."
 
 #: pricing/serializers.py
-msgid "Product must belong to the priced entity."
-msgstr "Bidhaa lazima iwe ya biashara inayowekewa bei."
 
 #: pricing/serializers.py
 msgid "The promotion must end on or after the day it starts."
@@ -2437,8 +2433,8 @@ msgid "The promotion price must be more than 0."
 msgstr "Bei ya ofa lazima iwe zaidi ya 0."
 
 #: pricing/serializers.py
-msgid "Unit must belong to the same entity as the product."
-msgstr "Kipimo lazima kiwe cha biashara ileile ya bidhaa."
+msgid "This unit is not in your shop."
+msgstr "Kipimo hiki si cha duka lako."
 
 #: pricing/views.py
 msgid "Promotion added — {label}"
@@ -2509,7 +2505,7 @@ msgid "Supplier must belong to the invoice's entity."
 msgstr "Msambazaji lazima awe wa biashara ya ankara."
 
 #: receiving/serializers.py
-msgid "Unknown unit of measure."
+msgid "Unknown unit."
 msgstr "Kipimo kisichojulikana."
 
 #: receiving/views.py

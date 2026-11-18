@@ -22,11 +22,11 @@ import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
 
 const TABS = [
   { key: 'products', label: 'Products' },
-  { key: 'uom', label: 'Units of measure' },
+  { key: 'uom', label: 'Units (piece, packet…)' },
   { key: 'suppliers', label: 'Suppliers' },
   { key: 'pricing', label: 'Selling prices' },
   { key: 'promotions', label: 'Promotions' },
-  { key: 'reorder', label: 'Reorder levels' },
+  { key: 'reorder', label: 'Low-stock warnings' },
   { key: 'payment-methods', label: 'Payment methods' },
   { key: 'notifications', label: 'Notifications' },
   { key: 'import', label: 'Import from Excel' },
@@ -42,7 +42,7 @@ export default function Settings({ entity, initialTab }) {
   const [tab, setTab] = useState(TABS.some((s) => s.key === initialTab) ? initialTab : 'products')
   return (
     <div>
-      <PageHeader title={t('Settings')} subtitle={t('Catalogue, suppliers, pricing and features for your entity.')} />
+      <PageHeader title={t('Settings')} subtitle={t('Your products, suppliers and prices, and how the system works for your shop.')} />
       <div className="ds-subnav-layout">
         <SubNav label={t('Settings sections')} items={TABS.map((s) => ({ ...s, label: t(s.label), active: tab === s.key, select: () => setTab(s.key) }))} />
         <div className="ds-subnav-content">
@@ -114,7 +114,7 @@ function ProductsPanel({ entity }) {
       <p style={introStyle}>
         {t('The products your shop sells. Scan the barcode on the pack so the till can find it by scanning. Mark goods that expire (food, drinks, cosmetics) as perishable: receiving then asks for the expiry date and expired stock cannot be sold. A product also needs a selling price before it can be sold.')}
       </p>
-      {(uoms ?? []).length === 0 && <NoticeBox variant="warning" style={{ marginBottom: 16 }}>{t('Add a unit of measure first (e.g. Piece, Packet, Bottle).')}</NoticeBox>}
+      {(uoms ?? []).length === 0 && <NoticeBox variant="warning" style={{ marginBottom: 16 }}>{t('Add a unit first (e.g. Piece, Packet, Bottle).')}</NoticeBox>}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <Button variant="primary" onClick={() => setQuickAdd(true)} disabled={(uoms ?? []).length === 0}><Icon name="add" size={16} /> {t('Add product')}</Button>
         <Button onClick={() => categoryForm.open()}><Icon name="add" size={16} /> {t('Add category')}</Button>
@@ -149,7 +149,7 @@ function ProductsPanel({ entity }) {
             <Field label={t('VAT')}><Select value={form.draft.vat_class} onChange={form.set('vat_class')} options={tOptions(VAT_OPTIONS)} /></Field>
           </div>
           <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: '8px 0 0' }}>
-            {t('Stock is counted in the stock unit. Receiving converts supplier packs into it, and you can set extra selling units (e.g. a crate or a dozen) with their own price under Selling prices.')}
+            {t('Stock is counted in this unit. When you receive stock, supplier packs (e.g. a carton of 12) are converted into it. You can also sell in bigger units (a crate, a dozen) with their own price under Selling prices.')}
           </p>
           <div style={{ display: 'flex', gap: 24, margin: '12px 0' }}>
             <Checkbox checked={form.draft.tracks_expiry} onChange={form.toggle('tracks_expiry')} label={t('Perishable — has an expiry date')} />
@@ -337,20 +337,20 @@ function ReorderPanel() {
       setEditing((e) => omit(e, product.id))
       refetch()
     } catch (err) {
-      setError(apiErrorText(err, t('Could not save the reorder level.')))
+      setError(apiErrorText(err, t('Could not save the warning level.')))
     }
   }
 
   return (
     <>
-      <p style={introStyle}>{t('When unexpired stock falls to the reorder level, the product shows as low on stock on the dashboard and in reports.')}</p>
+      <p style={introStyle}>{t('When the stock you can sell falls to this level, the product shows as running low on the dashboard and in reports.')}</p>
       {error && <NoticeBox variant="error" style={{ marginBottom: 12 }}>{error}</NoticeBox>}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <Select value={activeStore} onChange={(e) => setStoreId(e.target.value)} options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))} style={{ width: 240 }} />
         <div style={{ flex: 1, minWidth: 200 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Filter products')} prefixIcon="search" /></div>
       </div>
       <Table
-        headers={['Product', 'Reorder level', '']}
+        headers={['Product', 'Warn at', '']}
         rows={visible.map((p) => {
           const sp = spByProduct[p.id]
           const draft = editing[p.id]

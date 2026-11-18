@@ -46,7 +46,7 @@ class EntityViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not self.request.user.is_superuser:
-            raise PermissionDenied(gettext('Only a superuser can create a new entity.'))
+            raise PermissionDenied(gettext('Only the system administrator can register a new shop.'))
         serializer.save()
 
     def perform_update(self, serializer):

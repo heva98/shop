@@ -65,7 +65,7 @@ export default function ActivityLog() {
   return (
     <div>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px', maxWidth: 640 }}>
-        {t('Every sign-in, price change, void, write-off, stock count approval, staff change and import, with who did it and when. Entries can’t be edited or deleted.')}
+        {t('Every sign-in, price change, cancelled sale, stock loss, stock count, staff change and import, with who did it and when. Entries can’t be edited or deleted.')}
       </p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
         <Field label={t('Activity')}><Select value={filters.action} onChange={set('action')} options={ACTIONS.map(([value, label]) => ({ value, label: t(label) }))} style={{ width: 220 }} /></Field>

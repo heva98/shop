@@ -121,7 +121,7 @@ class Role(models.TextChoices):
     CASHIER = 'cashier', gettext_lazy('Cashier')
     STOREKEEPER = 'storekeeper', gettext_lazy('Storekeeper')
     STORE_MANAGER = 'store_manager', gettext_lazy('Store manager')
-    ENTITY_ADMIN = 'entity_admin', gettext_lazy('Entity admin')
+    ENTITY_ADMIN = 'entity_admin', gettext_lazy('Owner')
 
 
 class User(AbstractUser):

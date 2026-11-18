@@ -196,7 +196,7 @@ export default function Receiving({ storeId, roles }) {
 
   return (
     <div>
-      <PageHeader title={t('Receiving')} subtitle={t('Record supplier invoices and add the stock they bring in.')} />
+      <PageHeader title={t('Receive stock')} subtitle={t('Record supplier invoices and add the stock they bring in.')} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <Chip selected={tab === 'new'} onClick={() => { resetForm(); setTab('new') }}>{t('New invoice')}</Chip>
         <Chip selected={tab === 'list'} onClick={() => setTab('list')}>{t('Invoice list')}</Chip>
@@ -223,7 +223,7 @@ export default function Receiving({ storeId, roles }) {
             <thead>
               <tr>
                 <th style={th('left')}>{t('Product')}</th>
-                <th style={th('left')}>{t('UoM')}</th>
+                <th style={th('left')}>{t('Unit')}</th>
                 <th style={th('right')}>{t('Order qty')}</th>
                 <th style={th('right')}>{t('Pack price')}</th>
                 <th style={th('left')}>{t('Batch no.')}</th>
@@ -234,7 +234,7 @@ export default function Receiving({ storeId, roles }) {
               {savedLines.map((l) => (
                 <tr key={l.id}>
                   <td data-label={t('Product')} style={td()}>{l.product_name ?? l.product}</td>
-                  <td data-label={t('UoM')} style={{ ...td(), color: 'var(--grey-700)' }}>{l.uom_name ?? ''}</td>
+                  <td data-label={t('Unit')} style={{ ...td(), color: 'var(--grey-700)' }}>{l.uom_name ?? ''}</td>
                   <td data-label={t('Order qty')} style={{ ...td('right') }}>{l.order_qty}</td>
                   <td data-label={t('Pack price')} style={{ ...td('right') }}>{l.pack_price}</td>
                   <td data-label={t('Batch no.')} style={td()}>{l.batch_no}</td>
@@ -262,7 +262,7 @@ export default function Receiving({ storeId, roles }) {
                       </>
                     )}
                   </td>
-                  <td data-label={t('UoM')} style={td()}>
+                  <td data-label={t('Unit')} style={td()}>
                     <Select value={l.uomId} onChange={(e) => updatePendingLine(l.tempId, { uomId: e.target.value })} options={[{ label: '—', value: '' }, ...uomOptions]} style={{ width: 130 }} />
                   </td>
                   <td data-label={t('Order qty')} style={{ ...td('right') }}>

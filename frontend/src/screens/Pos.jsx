@@ -85,7 +85,7 @@ function OpenShift({ storeId, offline, onOpened }) {
           {t('Count the cash in the drawer before your first sale. It is checked against the drawer when you close the shift.')}
         </p>
         {offline && <NoticeBox variant="warning" style={{ marginBottom: 12 }}>{t('You are offline. Opening a shift needs the connection.')}</NoticeBox>}
-        <Field label={t('Opening float (cash in drawer)')}>
+        <Field label={t('Cash in the drawer now')}>
           <Input value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" />
         </Field>
         {error && <NoticeBox variant="error" style={{ marginTop: 12 }}>{error}</NoticeBox>}
@@ -126,11 +126,11 @@ function CannotSell({ stuck, isOwner, offline, goTo, canGo, onFix, onDismiss }) 
       text = isOwner ? t('Set its price, and its stock if you have not yet.') : t('Only the shop owner can set prices. Ask them to set it.')
     } else {
       title = t('{name} is out of stock', { name: option.name })
-      text = isOwner ? t('Enter the stock you have, or record a delivery under Receiving.')
-        : canGo('receiving') ? t('Record the delivery under Receiving to add stock.') : t('Ask the storekeeper or owner to add stock.')
+      text = isOwner ? t('Enter the stock you have, or record a delivery under Receive stock.')
+        : canGo('receiving') ? t('Record the delivery under Receive stock to add it.') : t('Ask the storekeeper or owner to add stock.')
     }
     if (isOwner) action = { label: t('Set price and stock'), onClick: () => onFix({ product }) }
-    else if (option.unitPrice !== null && canGo('receiving')) action = { label: t('Open Receiving'), onClick: () => goTo('receiving') }
+    else if (option.unitPrice !== null && canGo('receiving')) action = { label: t('Open Receive stock'), onClick: () => goTo('receiving') }
   }
   return (
     <NoticeBox

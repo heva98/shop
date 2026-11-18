@@ -85,7 +85,7 @@ def run_import(request, kind):
         if not is_store_manager(user, store):
             raise PermissionDenied(gettext('Only a manager of this store can load its stock.'))
     elif not (user.is_superuser or user.store_roles.filter(role=Role.ENTITY_ADMIN).exists()):
-        raise PermissionDenied(gettext('Only an entity admin can import catalog data.'))
+        raise PermissionDenied(gettext('Only the shop owner can import products and prices.'))
 
     upload = request.FILES.get('file')
     if upload is None:

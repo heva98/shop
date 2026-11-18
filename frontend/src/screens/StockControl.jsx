@@ -308,7 +308,7 @@ export function WriteOffs({ storeId, isManager }) {
 
       {isManager && (
         <>
-          <div style={{ marginBottom: 8, maxWidth: 360 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Find a batch to write off')} prefixIcon="search" /></div>
+          <div style={{ marginBottom: 8, maxWidth: 360 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Find the stock that was lost or damaged')} prefixIcon="search" /></div>
           <SimpleTable
             headers={['Product', 'Batch', 'Expiry', 'In stock', '']}
             rows={visible.map((b) => [

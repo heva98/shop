@@ -57,8 +57,8 @@ class ProductSerializer(serializers.ModelSerializer):
         if entity is not None:
             if category is not None and category.entity_id != entity.id:
                 raise serializers.ValidationError(
-                    {'category': gettext('Category must belong to the same entity as the product.')})
+                    {'category': gettext('This category is not in your shop.')})
             if uom is not None and uom.entity_id != entity.id:
                 raise serializers.ValidationError(
-                    {'uom': gettext('Unit of measure must belong to the same entity as the product.')})
+                    {'uom': gettext('This unit is not in your shop.')})
         return attrs

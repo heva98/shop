@@ -36,7 +36,7 @@ def validate_owned_entity(entity, request):
     checked explicitly on create/update."""
     if entity is not None and request is not None and not request.user.is_superuser:
         if entity.id != request.user.entity_id:
-            raise serializers.ValidationError(gettext('Must be your own entity.'))
+            raise serializers.ValidationError(gettext('Must be your own shop.'))
     return entity
 
 
@@ -45,7 +45,7 @@ def validate_owned_store(store, request):
     user's own entity (superusers exempt)."""
     if store is not None and request is not None and not request.user.is_superuser:
         if store.entity_id != request.user.entity_id:
-            raise serializers.ValidationError(gettext('Must be a store in your own entity.'))
+            raise serializers.ValidationError(gettext('Must be one of your own branches.'))
     return store
 
 
@@ -133,7 +133,7 @@ class EntitySerializer(serializers.ModelSerializer):
     def validate_main_store(self, store):
         entity = self.instance
         if store is not None and entity is not None and store.entity_id != entity.id:
-            raise serializers.ValidationError(gettext('main_store must belong to this entity.'))
+            raise serializers.ValidationError(gettext('The main branch must belong to this shop.'))
         return store
 
 
@@ -192,7 +192,7 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if entity is None and request is not None and not request.user.is_superuser:
             # Unlinking staff from the shop would leave them in no shop at all.
-            raise serializers.ValidationError(gettext('Must be your own entity.'))
+            raise serializers.ValidationError(gettext('Must be your own shop.'))
         return validate_owned_entity(entity, request)
 
     def validate_phone(self, value):
@@ -313,7 +313,7 @@ class StoreRoleSerializer(serializers.ModelSerializer):
         target_user = attrs.get('user', getattr(self.instance, 'user', None))
         if request and not request.user.is_superuser:
             if target_user is not None and target_user.entity_id != request.user.entity_id:
-                raise serializers.ValidationError({'user': gettext('Must be a user in your own entity.')})
+                raise serializers.ValidationError({'user': gettext('Must be someone in your own shop.')})
             if Role.ENTITY_ADMIN in (attrs.get('role'), getattr(self.instance, 'role', None)):
                 raise serializers.ValidationError({'role': _OWNER_ROLE_MESSAGE})
         # A single-store firm's staff all work at its one store, so the

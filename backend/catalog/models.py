@@ -112,6 +112,6 @@ class Product(models.Model):
 
     def clean(self):
         if self.category_id and self.category.entity_id != self.entity_id:
-            raise ValidationError({'category': gettext('Category must belong to the same entity as the product.')})
+            raise ValidationError({'category': gettext('This category is not in your shop.')})
         if self.uom_id and self.uom.entity_id != self.entity_id:
-            raise ValidationError({'uom': gettext('Unit of measure must belong to the same entity as the product.')})
+            raise ValidationError({'uom': gettext('This unit is not in your shop.')})

@@ -118,7 +118,7 @@ export default function AdminShopProfile() {
   return (
     <div style={{ maxWidth: 560 }}>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px' }}>
-        {t('The shop’s name and logo appear in the app header and on printed documents — set once per firm, shared across every store.')}
+        {t('The shop’s name and logo appear at the top of the app and on printed documents, for all your branches.')}
       </p>
 
       {errors.length > 0 && (

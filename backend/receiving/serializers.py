@@ -39,7 +39,7 @@ class ReceivingInvoiceLineSerializer(ClientGeneratedIdMixin, serializers.ModelSe
         return validate_owned(product, self.context.get('request'), gettext('Unknown product.'))
 
     def validate_uom(self, uom):
-        return validate_owned(uom, self.context.get('request'), gettext('Unknown unit of measure.'))
+        return validate_owned(uom, self.context.get('request'), gettext('Unknown unit.'))
 
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):
