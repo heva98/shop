@@ -17,6 +17,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
 from audit.services import Action, Summary, record
+from catalog.seed_data import seed_uoms
 
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
@@ -127,6 +128,9 @@ class ShopSerializer(serializers.ModelSerializer):
             store.address = entity.address
             store.save(update_fields=['address'])
         OwnerSerializer(context={'entity': entity}).create(owner_data)
+        # The common units (Piece, Packet, Kilogram…), so the first product
+        # can be added straight away.
+        seed_uoms(entity)
         return entity
 
 

@@ -205,3 +205,26 @@ class ModuleEnablement(models.Model):
 
     def __str__(self):
         return f'{self.module} @ {self.store or self.entity} = {self.enabled}'
+
+
+class PhoneCode(models.Model):
+    """A one-time code sent by SMS (core.phone_codes): it proves the
+    number is the person's when a shop signs itself up, and lets a user
+    who forgot their password choose a new one. Only a hash is kept."""
+    class Purpose(models.TextChoices):
+        SIGNUP = 'signup', gettext_lazy('Shop sign-up')
+        PASSWORD_RESET = 'password_reset', gettext_lazy('Password reset')
+
+    phone = models.CharField(max_length=20, help_text='255712345678, as User.phone.')
+    purpose = models.CharField(max_length=20, choices=Purpose.choices)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='+',
+                             help_text='The account a password-reset code is for.')
+    code_hash = models.CharField(max_length=64)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    ip_address = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['phone', 'purpose', 'created_at'])]

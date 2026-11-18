@@ -8,12 +8,17 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from core import signup
 from core.auth_views import obtain_token
 from core.health import health
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth-token/', obtain_token),
+    path('api/signup/code/', signup.signup_code),
+    path('api/signup/', signup.signup),
+    path('api/password-reset/code/', signup.password_reset_code),
+    path('api/password-reset/', signup.password_reset),
     path('api/health/', health),
     path('api/core/', include('core.urls')),
     path('api/platform/', include('core.platform_urls')),

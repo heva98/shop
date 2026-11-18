@@ -1,8 +1,8 @@
 import {
-  AlertCircle, ArrowDown, ArrowRight, ArrowLeftRight, ArrowUp, BarChart3, Building2, Calendar, CalendarClock, Check, CheckCircle2,
+  AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowLeftRight, ArrowUp, BarChart3, Building2, Calendar, CalendarClock, Check, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Download, ExternalLink, FileText, Filter, Folder, Globe,
   GripVertical, Info, LayoutDashboard, LayoutGrid, Lock, LogOut, Mail, MapPin, Maximize2, Menu as MenuIcon, MessageSquare, MoreHorizontal,
-  BadgePercent, BookUser, Package, PackageCheck, PackageX, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Printer, RefreshCw,
+  BadgePercent, BookUser, Package, PackageCheck, PackageX, PanelLeftClose, PanelLeftOpen, Pencil, Phone, Plus, Printer, RefreshCw,
   Database, Layers, Pin, PinOff, SlidersHorizontal, Table2, Wand2,
   Save, ScanBarcode, ShieldCheck, Search, Settings, Share2, ShoppingBag, ShoppingCart, Star, Store, Trash2, TrendingUp, TriangleAlert, Upload, UserRound, Users, Wallet, Wrench, X,
 } from 'lucide-react'
@@ -25,7 +25,7 @@ const LUCIDE = {
   filter: Filter, lock: Lock, star: Star, save: Save, world: Globe, fullscreen: Maximize2, messages: MessageSquare,
   apps: LayoutGrid, 'drag-handle': GripVertical, launch: ExternalLink, menu: MenuIcon, promotion: BadgePercent,
   barcode: ScanBarcode, database: Database, layers: Layers, pin: Pin, 'pin-off': PinOff, sliders: SlidersHorizontal,
-  'pivot-table': Table2, wand: Wand2, 'arrow-right': ArrowRight, shield: ShieldCheck, tools: Wrench,
+  'pivot-table': Table2, wand: Wand2, 'arrow-right': ArrowRight, 'arrow-left': ArrowLeft, phone: Phone, shield: ShieldCheck, tools: Wrench,
 }
 
 export default function Icon({ name, size = 18, style, className, strokeWidth = 2 }) {

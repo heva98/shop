@@ -142,6 +142,11 @@ th.sortable{cursor:default}
 .signin-segments .sep{margin:0 10px 0 0;opacity:.85}
 .signin-card{align-self:center;margin:48px 60px 44px 0;padding:80px 60px 56px 80px;border-radius:var(--radius-xl);background:var(--surface-card);color:var(--ink);box-shadow:var(--shadow-login)}
 .signin-form{width:100%}
+.signup-step{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--blue-600)}
+.signup-fields{display:flex;flex-direction:column;gap:20px}
+.signup-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.signup-actions>*{flex:1 1 180px}
+.signup-resend{margin:0;font-size:14px;color:var(--muted)}
 .signin-title{font-size:50px;line-height:60px;font-weight:700;color:#0B1B3F;letter-spacing:-.5px;margin:0}
 .signin-sub{margin:14px 0 36px;max-width:520px;font-size:19px;line-height:31px;color:var(--muted)}
 .signin-form .ds-label{font-size:17px;line-height:24px;font-weight:600;color:#0B1B3F;margin-bottom:14px}

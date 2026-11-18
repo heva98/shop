@@ -2,6 +2,7 @@
 session rules; this adds the lockout after repeated wrong passwords,
 counted from the audit log's failed sign-ins."""
 
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -30,6 +31,19 @@ def _recent_failures(username):
     ).count()
 
 
+def _number_as_username(username):
+    """A self-registered owner's username is their number, 0712345678
+    (core.signup); let them type it as 0712 345 678 or +255 712 345 678."""
+    if not re.fullmatch(r'[\d\s+\-()]+', username):
+        return username
+    digits = re.sub(r'\D', '', username)
+    if len(digits) == 12 and digits.startswith('255'):
+        digits = '0' + digits[3:]
+    if digits != username and get_user_model().objects.filter(username__iexact=digits).exists():
+        return digits
+    return username
+
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
@@ -40,6 +54,7 @@ def obtain_token(request):
     password = request.data.get('password') or ''
     if not username or not password:
         raise exceptions.ValidationError({'non_field_errors': [gettext('Enter your username and password.')]})
+    username = _number_as_username(username)
 
     if _recent_failures(username) >= settings.LOGIN_LOCKOUT_ATTEMPTS:
         record(Action.LOGIN_LOCKED, Summary('Sign-in refused for "{username}": too many wrong passwords', username=username),

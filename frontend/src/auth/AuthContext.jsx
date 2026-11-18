@@ -128,6 +128,15 @@ export function AuthProvider({ children }) {
     setToken(newToken)
   }, [])
 
+  // Sign-up and "Forgot password?" answer with a session of their own.
+  const signInWithToken = useCallback((newToken) => {
+    setError(null)
+    setNotice('')
+    setRememberSession(true)
+    persistToken(newToken)
+    setToken(newToken)
+  }, [])
+
   const logout = useCallback(() => {
     persistToken(null)
     saveProfile(null)
@@ -157,11 +166,11 @@ export function AuthProvider({ children }) {
     workplaces,
     activeWorkplace,
     setActiveWorkplaceKey,
-    login, logout, updateProfile,
+    login, signInWithToken, logout, updateProfile,
     // Re-pulls /me — call after an admin action that changes something
     // this context caches but doesn't own, e.g. the entity's own name/logo.
     refreshProfile: loadProfile,
-  }), [status, error, notice, profile, token, workplaces, activeWorkplace, login, logout, updateProfile, loadProfile])
+  }), [status, error, notice, profile, token, workplaces, activeWorkplace, login, signInWithToken, logout, updateProfile, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

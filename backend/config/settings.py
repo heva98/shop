@@ -220,6 +220,18 @@ TOKEN_TTL_HOURS = env.int('TOKEN_TTL_HOURS', default=14)
 LOGIN_LOCKOUT_ATTEMPTS = env.int('LOGIN_LOCKOUT_ATTEMPTS', default=5)
 LOGIN_LOCKOUT_MINUTES = env.int('LOGIN_LOCKOUT_MINUTES', default=15)
 
+# Shops sign themselves up (core.signup) and users reset a forgotten
+# password with a code sent by SMS (core.phone_codes). A code lasts
+# PHONE_CODE_MINUTES and allows PHONE_CODE_ATTEMPTS guesses; a number gets
+# at most PHONE_CODE_PER_PHONE_HOURLY codes an hour and one address
+# PHONE_CODE_PER_IP_HOURLY. SIGNUP_OPEN=False closes the public sign-up
+# page (shops are then registered in the platform console only).
+SIGNUP_OPEN = env.bool('SIGNUP_OPEN', default=True)
+PHONE_CODE_MINUTES = env.int('PHONE_CODE_MINUTES', default=10)
+PHONE_CODE_ATTEMPTS = env.int('PHONE_CODE_ATTEMPTS', default=5)
+PHONE_CODE_PER_PHONE_HOURLY = env.int('PHONE_CODE_PER_PHONE_HOURLY', default=4)
+PHONE_CODE_PER_IP_HOURLY = env.int('PHONE_CODE_PER_IP_HOURLY', default=20)
+
 
 # CORS — allow the local Vite dev server during development.
 

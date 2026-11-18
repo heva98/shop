@@ -2,7 +2,7 @@ from django.db import transaction
 from django.db.models import ProtectedError
 from django.utils.translation import gettext, gettext_lazy
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -197,8 +197,10 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def locations(request):
-    """Tanzania's regions and their councils, for the shop's dropdowns."""
+    """Tanzania's regions and their councils, for the shop's dropdowns —
+    the sign-up page's too, so no sign-in is needed."""
     return Response(tz_locations.locations())
 
 

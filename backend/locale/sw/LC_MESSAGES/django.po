@@ -2828,3 +2828,54 @@ msgstr "Chagua halmashauri ya mkoa uliouchagua."
 
 msgid "Pick a country from the list."
 msgstr "Chagua nchi kutoka kwenye orodha."
+
+msgid "Enter a Tanzanian mobile number, e.g. 0712 345 678."
+msgstr "Weka namba ya simu ya mkononi ya Tanzania, mfano 0712 345 678."
+
+msgid "Enter your mobile number, e.g. 0712 345 678."
+msgstr "Weka namba yako ya simu ya mkononi, mfano 0712 345 678."
+
+msgid "Too many codes were requested. Wait an hour and try again."
+msgstr "Misimbo mingi mno imeombwa. Subiri saa moja kisha ujaribu tena."
+
+msgid "{code} is your Shoppy code. It expires in {minutes} minutes. Do not share it with anyone."
+msgstr "{code} ni msimbo wako wa Shoppy. Unaisha baada ya dakika {minutes}. Usimpe mtu yeyote."
+
+msgid "The SMS could not be sent. Try again in a few minutes."
+msgstr "SMS haikuweza kutumwa. Jaribu tena baada ya dakika chache."
+
+msgid "This code has expired. Ask for a new one."
+msgstr "Msimbo huu umeisha muda wake. Omba mpya."
+
+msgid "Too many wrong codes. Ask for a new one."
+msgstr "Umekosea msimbo mara nyingi mno. Omba mpya."
+
+msgid "That code is not right. Check the SMS and try again."
+msgstr "Msimbo huo si sahihi. Angalia SMS kisha ujaribu tena."
+
+msgid "New shops are registered by the system administrator."
+msgstr "Maduka mapya husajiliwa na msimamizi wa mfumo."
+
+msgid "An account with this mobile number already exists. Sign in, or use “Forgot password?”."
+msgstr "Akaunti yenye namba hii ya simu tayari ipo. Ingia, au tumia “Umesahau nenosiri?”."
+
+msgid "We could not send a code for this account. If you work in a shop, ask its owner to reset your password."
+msgstr "Hatukuweza kutuma msimbo kwa akaunti hii. Kama unafanya kazi dukani, mwombe mmiliki abadilishe nenosiri lako."
+
+msgid "This shop is suspended. Contact the system administrator."
+msgstr "Duka hili limesimamishwa. Wasiliana na msimamizi wa mfumo."
+
+msgid "Shop {name} signed itself up"
+msgstr "Duka {name} limejisajili lenyewe"
+
+msgid "{username} reset their password with an SMS code to {phone}"
+msgstr "{username} amebadilisha nenosiri kwa msimbo wa SMS uliotumwa kwa {phone}"
+
+msgid "Shop sign-up"
+msgstr "Usajili wa duka"
+
+msgid "Password reset"
+msgstr "Kubadilisha nenosiri"
+
+msgid "SMS codes are not set up on this server yet. Contact the system administrator."
+msgstr "Misimbo ya SMS bado haijawekwa kwenye seva hii. Wasiliana na msimamizi wa mfumo."

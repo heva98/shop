@@ -3,6 +3,8 @@ import { Button, Checkbox, Field, Icon, LanguageSwitch, NoticeBox } from '../com
 import { useAuth } from '../auth/AuthContext.jsx'
 import { BRAND_NAME } from '../appData.js'
 import storesImg from '../assets/login/stores.webp'
+import Signup from './Signup.jsx'
+import ForgotPassword from './ForgotPassword.jsx'
 import { useT } from '../i18n/index.js'
 
 const FEATURES = [
@@ -32,7 +34,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
-  const [showHelp, setShowHelp] = useState(false)
+  // 'signin' | 'signup' | 'forgot': all three share the page's marketing panel.
+  const [view, setView] = useState('signin')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
@@ -97,8 +100,11 @@ export default function Login() {
       </section>
 
       <main className="signin-card">
+        <div className="signin-lang"><LanguageSwitch /></div>
+        {view === 'signup' && <Signup onBack={() => setView('signin')} />}
+        {view === 'forgot' && <ForgotPassword initialUsername={username.trim()} onBack={() => setView('signin')} />}
+        {view === 'signin' && (
         <form onSubmit={onSubmit} className="signin-form">
-          <div className="signin-lang"><LanguageSwitch /></div>
           <h1 className="signin-title">{t('Welcome Back')}</h1>
           <p className="signin-sub">
             {t('Sign in to your {brand} account to manage your store, sales and inventory.', { brand: BRAND_NAME })}
@@ -106,12 +112,12 @@ export default function Login() {
           {notice && !error && <NoticeBox variant="info" style={{ marginBottom: 16 }}>{notice}</NoticeBox>}
           {error && <NoticeBox variant="error" style={{ marginBottom: 16 }}>{error}</NoticeBox>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <Field label={t('Username / Email')}>
+            <Field label={t('Username or mobile number')}>
               <div className="login-field">
                 <Icon name="user" size={22} />
                 <input
                   className="ds-input" value={username} onChange={(e) => setUsername(e.target.value)}
-                  placeholder={t('e.g. manager@store.co.tz')} autoComplete="username" autoCapitalize="none" spellCheck={false}
+                  placeholder={t('e.g. 0712345678')} autoComplete="username" autoCapitalize="none" spellCheck={false}
                 />
               </div>
             </Field>
@@ -132,24 +138,18 @@ export default function Login() {
             </Field>
             <div className="login-row">
               <Checkbox checked={remember} onChange={() => setRemember((r) => !r)} label={t('Remember me')} />
-              <button type="button" className="login-link" onClick={() => setShowHelp(true)}>{t('Forgot password?')}</button>
+              <button type="button" className="login-link" onClick={() => setView('forgot')}>{t('Forgot password?')}</button>
             </div>
-            {showHelp && (
-              <NoticeBox variant="info">
-                {t('Passwords are reset by your shop’s administrator. Ask them to set a new one; you will choose your own the next time you sign in.')}
-              </NoticeBox>
-            )}
             <Button type="submit" variant="primary" size="large" disabled={submitting} style={{ width: '100%' }}>
               {submitting ? t('Signing in…') : <>{t('Sign in')} <Icon name="arrow-right" size={22} /></>}
             </Button>
           </div>
-          <div className="signin-or" aria-hidden="true"><span>{t('or')}</span></div>
-          <p className="signin-help">
-            <Icon name="shield" size={20} />
-            {t('Need help?')}{' '}
-            <button type="button" className="login-link" onClick={() => setShowHelp(true)}>{t('Contact support')}</button>
-          </p>
+          <div className="signin-or" aria-hidden="true"><span>{t('New here?')}</span></div>
+          <Button type="button" size="large" onClick={() => setView('signup')} style={{ width: '100%' }}>
+            <Icon name="store" size={22} /> {t('Create an account for your shop')}
+          </Button>
         </form>
+        )}
       </main>
     </div>
   )

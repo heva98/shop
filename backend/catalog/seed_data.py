@@ -19,6 +19,9 @@ UOM_DEFS = [
     ('Carton of 12', 'Carton of 12 packets', 12),
     ('Carton of 48', 'Carton of 48 pieces', 48),
     ('Bag', 'Single bag', 1),
+    ('Kilogram', 'Sold by weight (kg)', 1),
+    ('Litre', 'Sold by volume (L)', 1),
+    ('Metre', 'Sold by length (m)', 1),
 ]
 
 CATEGORY_DEFS = [
