@@ -82,30 +82,59 @@ def fefo_batches(store, product):
 
 
 @transaction.atomic
-def allocate_fefo(store, product, qty):
+def allocate_fefo(store, product, qty, *, reserved=None, allow_shortfall=False):
     """Picks which batch(es) to deduct `qty` of `product` from at `store`,
     earliest-expiring first, splitting across batches when one isn't
     enough. Returns a list of (batch, qty_from_that_batch) pairs covering
     the full requested quantity. Locks every batch it considers so two
     concurrent allocations can't both plan against the same stock.
 
+    `reserved` is {batch id: qty} already planned but not yet deducted
+    (earlier lines of the same cart), so two lines for one product don't
+    both plan on the same units.
+
     Raises InsufficientStockError if the store doesn't have enough total
-    unexpired stock of the product to cover qty, without touching anything.
+    unexpired stock of the product to cover qty, without touching anything
+    — unless `allow_shortfall`: a sale that already happened offline, so
+    the goods were on the shelf even if the system has no record of them.
+    The rest is then planned on shortfall_batch(), and the sale records
+    those units as 'sold without recorded stock' when it is completed.
     """
+    reserved = reserved or {}
     remaining = qty
     plan = []
     batches = fefo_batches(store, product).select_for_update()
     for batch in batches:
         if remaining <= 0:
             break
-        take = min(batch.qty_on_hand, remaining)
+        take = min(batch.qty_on_hand - reserved.get(batch.pk, 0), remaining)
+        if take <= 0:
+            continue
         plan.append((batch, take))
         remaining -= take
     if remaining > 0:
-        raise InsufficientStockError(
-            gettext('Not enough unexpired stock of {product} at {store}: short by {remaining}.').format(product=product, store=store, remaining=remaining),
-        )
+        if not allow_shortfall:
+            raise InsufficientStockError(
+                gettext('Not enough unexpired stock of {product} at {store}: short by {remaining}.').format(product=product, store=store, remaining=remaining),
+            )
+        fallback = plan[-1][0] if plan else shortfall_batch(store, product)
+        if plan:
+            plan[-1] = (fallback, plan[-1][1] + remaining)
+        else:
+            plan.append((fallback, remaining))
     return plan
+
+
+def shortfall_batch(store, product):
+    """The batch to put units on that were sold but never recorded as
+    received: the store's latest delivery of the product (most likely
+    what was on the shelf), or else a new empty batch costed like the
+    shop's latest delivery of it anywhere, so profit reports stay sensible."""
+    batch = StockBatch.objects.filter(store=store, product=product).order_by('-created_at').first()
+    if batch is not None:
+        return batch
+    latest = StockBatch.objects.filter(product=product).order_by('-created_at').first()
+    return StockBatch.objects.create(store=store, product=product, unit_cost=latest.unit_cost if latest else 0)
 
 
 class StockLedger(models.Model):
@@ -130,6 +159,10 @@ class StockLedger(models.Model):
         DISCARD = 'discard', gettext_lazy('Discard')
         CONSUMPTION = 'consumption', gettext_lazy('Consumption')
         DISPOSE = 'dispose', gettext_lazy('Dispose')
+        # Units an offline sale sold that the system had no record of: put
+        # on the batch just before the 'sold' entry takes them off, so stock
+        # never goes negative and the gap in the records is visible.
+        UNRECORDED = 'unrecorded', gettext_lazy('Sold without recorded stock')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='ledger_entries')

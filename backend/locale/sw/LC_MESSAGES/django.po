@@ -756,6 +756,9 @@ msgstr "Ufutaji kwa gharama ya fungu."
 msgid "Wrong entry corrected"
 msgstr "Uingizaji usio sahihi umesahihishwa"
 
+msgid "Sold without recorded stock"
+msgstr "Imeuzwa bila stock iliyorekodiwa"
+
 #: analytics/registry.py
 msgid "You are not assigned to a shop."
 msgstr "Hujapangiwa duka lolote."
@@ -851,6 +854,9 @@ msgstr "Kuingia kumeshindikana"
 #: audit/models.py
 msgid "Offline sale at an old price"
 msgstr "Mauzo nje ya mtandao kwa bei ya zamani"
+
+msgid "Offline sale without recorded stock"
+msgstr "Mauzo nje ya mtandao bila stock iliyorekodiwa"
 
 #: audit/models.py
 msgid "Password changed"
@@ -2369,6 +2375,9 @@ msgstr "Mauzo #{number} ({total:,.0f}) yamebatilishwa: {reason}"
 #: pos/views.py
 msgid "Sale #{number} was made offline at old prices: {changes}"
 msgstr "Mauzo #{number} yalifanywa nje ya mtandao kwa bei za zamani: {changes}"
+
+msgid "Sale #{number} was made offline for more stock than the system had: {items}. Check that every delivery was entered."
+msgstr "Mauzo #{number} yalifanywa nje ya mtandao kwa stock zaidi ya iliyokuwa kwenye mfumo: {items}. Hakikisha kila mzigo ulioletwa umeingizwa."
 
 #: pos/views.py
 msgid "Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} (approved by {name})"

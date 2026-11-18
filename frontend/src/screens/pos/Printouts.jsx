@@ -61,6 +61,8 @@ function ZReportBody({ shift, entity, store }) {
       {row('Opening float', fmt(Number(z.opening_float)))}
       {row('Cash sales', fmt(Number(z.cash_sales)))}
       {Number(z.cash_repayments) > 0 && row('Cash repayments', fmt(Number(z.cash_repayments)))}
+      {/* Cash sales, voids or repayments recorded after the drawer was counted: listed above but not in the count. */}
+      {Number(z.changed_after_close || 0) !== 0 && row('Recorded after closing', fmt(-Number(z.changed_after_close)))}
       {row('Expected cash', fmt(Number(z.expected_cash)), true)}
       {row('Counted cash', z.counted_cash === null ? '—' : fmt(Number(z.counted_cash)))}
       {row('Difference', z.variance === null ? '—' : fmt(Number(z.variance)), true)}

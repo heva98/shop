@@ -22,7 +22,7 @@ from core.money import money
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin, can_access_store
 from credit.models import Customer, with_balances
-from inventory.models import StockBatch, sellable_batches
+from inventory.models import StockBatch, StockLedger, sellable_batches
 from payments.models import PaymentMethod
 from payments.serializers import PaymentMethodSerializer
 from pricing.models import Price, Promotion
@@ -76,6 +76,23 @@ def _audit_discount(request, sale):
            request=request, store=sale.store,
            data={'sale': str(sale.id), 'discount': discount, 'gross': gross,
                  'approved_by': by.username if by else ''})
+
+
+def _audit_unrecorded_stock(request, sale):
+    """An offline sale that sold more than the system had on record is
+    kept (the goods were sold), and the owner is told which products, so
+    a missing delivery or a wrong count can be found and entered."""
+    entries = (StockLedger.objects.filter(ref_type='sale', ref_id=str(sale.id),
+                                          ledger_type=StockLedger.LedgerType.UNRECORDED)
+               .select_related('batch__product__uom'))
+    items = [{'product': e.batch.product.name, 'qty': e.qty_delta, 'unit': e.batch.product.uom.name} for e in entries]
+    if not items:
+        return
+    text = ', '.join(f'{i["product"]} {i["qty"].normalize():f} {i["unit"]}' for i in items)
+    record(Action.OFFLINE_SALE_NO_STOCK,
+           Summary('Sale #{number} was made offline for more stock than the system had: {items}. Check that every delivery was entered.',
+                   number=sale.number, items=text),
+           request=request, store=sale.store, data={'sale': str(sale.id), 'items': items})
 
 
 class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
@@ -188,6 +205,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
                                 for c in price_changes)
             record(Action.OFFLINE_SALE_PRICE, Summary('Sale #{number} was made offline at old prices: {changes}', number=sale.number, changes=changes),
                    request=request, store=sale.store, data={'sale': str(sale.id), 'changes': price_changes})
+        _audit_unrecorded_stock(request, sale)
         _audit_discount(request, sale)
         return Response(self._respond(sale, result), status=status.HTTP_201_CREATED)
 

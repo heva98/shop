@@ -554,6 +554,7 @@ def _movement():
         When(ledger_type=L.STOCK_COUNT, then=Value('count')),
         When(ledger_type=L.CONSUMPTION, then=Value('consumption')),
         When(ledger_type=L.WRONG_ENTRY, then=Value('correction')),
+        When(ledger_type=L.UNRECORDED, then=Value('unrecorded')),
         default=Value('wastage'), output_field=CharField(),
     )
 
@@ -562,7 +563,8 @@ _MOVEMENT_ITEMS = _choices([
     ('received', gettext_lazy('Received from suppliers')), ('transfer_in', gettext_lazy('Transferred in')),
     ('transfer_out', gettext_lazy('Transferred out')), ('sold', gettext_lazy('Sold')), ('sale_void', gettext_lazy('Returned by a voided sale')),
     ('opening', gettext_lazy('Opening stock')), ('count', gettext_lazy('Stock count correction')), ('consumption', gettext_lazy('Internal use')),
-    ('correction', gettext_lazy('Wrong entry corrected')), ('wastage', gettext_lazy('Lost, damaged, expired or spoiled')),
+    ('correction', gettext_lazy('Wrong entry corrected')),
+    ('unrecorded', gettext_lazy('Sold without recorded stock')), ('wastage', gettext_lazy('Lost, damaged, expired or spoiled')),
 ])
 
 _STORE_PATHS = {s.id: f'{s.store}_id' for s in _SOURCES}

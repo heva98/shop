@@ -12,10 +12,11 @@ const LEDGER_TYPE_LABEL = {
   damaged: 'Damaged', expired: 'Expired', cold_chain_failure: 'Spoiled (fridge failed)',
   wrong_entry: 'Wrong entry corrected', sold: 'Sold', sale_void: 'Sale voided', discard: 'Thrown away', consumption: 'Used in the shop', dispose: 'Disposed',
   opening_stock: 'Opening stock', stock_count: 'Corrected after a count',
+  unrecorded: 'Sold without recorded stock',
 }
 const LEDGER_GROUPS = {
   Transfers: ['transfer_in', 'transfer_out', 'opening_stock'],
-  Sales: ['sold', 'sale_void'],
+  Sales: ['sold', 'sale_void', 'unrecorded'],
   Losses: ['stolen', 'lost', 'damaged', 'expired', 'cold_chain_failure', 'wrong_entry', 'discard', 'dispose', 'stock_count'],
   'Used in the shop': ['consumption'],
 }

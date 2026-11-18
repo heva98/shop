@@ -21,6 +21,7 @@ class AuditEvent(models.Model):
         PRODUCT_UPDATED = 'product_updated', gettext_lazy('Product changed')
         SALE_VOIDED = 'sale_voided', gettext_lazy('Sale voided')
         OFFLINE_SALE_PRICE = 'offline_sale_price', gettext_lazy('Offline sale at an old price')
+        OFFLINE_SALE_NO_STOCK = 'offline_sale_no_stock', gettext_lazy('Offline sale without recorded stock')
         SHIFT_CLOSED = 'shift_closed', gettext_lazy('Shift closed')
         STOCK_WRITTEN_OFF = 'stock_written_off', gettext_lazy('Stock written off')
         STOCK_COUNT_APPROVED = 'stock_count_approved', gettext_lazy('Stock count approved')

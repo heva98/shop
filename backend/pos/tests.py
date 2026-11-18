@@ -12,7 +12,7 @@ from core.models import Entity, Role, Store, StoreRole, User
 from credit.models import Customer
 from inventory.models import StockBatch, StockLedger
 from payments.models import PaymentMethod
-from pos.models import Sale, Shift
+from pos.models import Sale, SaleError, Shift
 from pricing.models import Price, Promotion
 
 
@@ -566,13 +566,58 @@ class OfflineSaleTests(PosTestBase):
         self.assertIn('1,500', response.data['detail'])
         self.assertEqual(Sale.objects.count(), 0)
 
-    def test_not_enough_stock_leaves_nothing_behind_so_it_can_be_retried(self):
+    def test_an_offline_sale_is_kept_even_when_the_system_shows_too_little_stock(self):
         self.open_shift()
-        _, response = self.offline_sale(items=[{'product': str(self.product.id), 'qty': '100', 'unit_price': '1180'}])
+        _, response = self.offline_sale(items=[{'product': str(self.product.id), 'qty': '60', 'unit_price': '1180'}],
+                                        amount_tendered='100000')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        sale = Sale.objects.get()
+        self.assertEqual(sale.total, Decimal('70800.00'), 'the money is recorded in full')
+        self.assertEqual(sum(line.qty for line in sale.lines.all()), Decimal('60'))
+        # The 8 units the system had no record of went on the last batch, then off it with the sale.
+        unrecorded = StockLedger.objects.get(ledger_type=StockLedger.LedgerType.UNRECORDED)
+        self.assertEqual((unrecorded.batch, unrecorded.qty_delta), (self.expires_later, Decimal('8')))
+        self.assertEqual(sum(b.qty_on_hand for b in StockBatch.objects.all()), Decimal('0'), 'never negative')
+        event = AuditEvent.objects.get(action=AuditEvent.Action.OFFLINE_SALE_NO_STOCK)
+        self.assertIn('Paracetamol 8 Strip', event.summary)
+
+    def test_an_offline_sale_of_a_product_never_received_is_kept(self):
+        other = Product.objects.create(entity=self.entity, name='Bandage', uom=self.product.uom)
+        self.open_shift()
+        _, response = self.offline_sale(items=[{'product': str(other.id), 'qty': '2', 'unit_price': '500'}])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        batch = StockBatch.objects.get(product=other)
+        self.assertEqual(batch.qty_on_hand, Decimal('0'))
+        self.assertEqual([e.ledger_type for e in StockLedger.objects.filter(batch=batch).order_by('created_at')],
+                         [StockLedger.LedgerType.UNRECORDED, StockLedger.LedgerType.SOLD])
+
+    def test_voiding_it_puts_the_goods_back(self):
+        self.open_shift()
+        _, response = self.offline_sale(items=[{'product': str(self.product.id), 'qty': '60', 'unit_price': '1180'}],
+                                        amount_tendered='100000')
+        self.client.force_authenticate(self.manager)
+        self.client.post(f'/api/pos/sales/{response.data["id"]}/void/', {'reason': 'Returned'})
+        self.assertEqual(sum(b.qty_on_hand for b in StockBatch.objects.all()), Decimal('60'))
+
+    def test_a_sale_made_now_is_still_refused_when_stock_is_short(self):
+        # The customer is still there, so the cashier can change the cart.
+        self.open_shift()
+        _, response = self.offline_sale(items=[{'product': str(self.product.id), 'qty': '60', 'unit_price': '1180'}],
+                                        amount_tendered='100000', strict=True)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Sale.objects.count(), 0)
         self.expires_later.refresh_from_db()
         self.assertEqual(self.expires_later.qty_on_hand, Decimal('50'))
+
+    def test_one_product_on_two_lines_uses_every_batch(self):
+        # 2 in the SOON batch, 50 in LATER: the second line must not plan on SOON's 2 again.
+        self.open_shift()
+        item = {'product': str(self.product.id), 'qty': '2', 'unit_price': '1180'}
+        _, response = self.offline_sale(items=[item, item], strict=True)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertFalse(StockLedger.objects.filter(ledger_type=StockLedger.LedgerType.UNRECORDED).exists())
+        self.expires_later.refresh_from_db()
+        self.assertEqual(self.expires_later.qty_on_hand, Decimal('48'))
 
     def test_goes_to_the_shift_it_was_rung_up_in_even_if_closed_since(self):
         shift_id = self.open_shift()
@@ -580,6 +625,60 @@ class OfflineSaleTests(PosTestBase):
         _, response = self.offline_sale(shift=shift_id)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data['shift'], uuid.UUID(shift_id))
+
+    def assert_z_adds_up(self, z):
+        self.assertEqual(z['opening_float'] + z['cash_sales'] + z['cash_repayments'] - z['changed_after_close'],
+                         z['expected_cash'])
+        self.assertEqual(z['counted_cash'] - z['expected_cash'], z['variance'])
+
+    def test_a_sale_synced_after_close_does_not_rewrite_the_drawer_count(self):
+        shift_id = self.open_shift(opening_float='10000')
+        close = self.client.post(f'/api/pos/shifts/{shift_id}/close/', {'counted_cash': '13540'})
+        self.assertEqual(close.data['summary']['variance'], Decimal('3540.00'))  # over: a sale not yet synced
+        _, response = self.offline_sale(shift=shift_id)                       # 3 x 1,180 cash, synced late
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        z = Shift.objects.get(pk=shift_id).summary()
+        self.assertEqual(z['cash_sales'], Decimal('3540.00'))
+        self.assertEqual(z['expected_cash'], Decimal('10000.00'), 'what the drawer was counted against')
+        self.assertEqual(z['changed_after_close'], Decimal('3540.00'))
+        self.assertEqual(z['variance'], Decimal('3540.00'))
+        self.assert_z_adds_up(z)
+        # The Shifts report shows the same reconciliation.
+        self.client.force_authenticate(self.manager)
+        row = self.client.get('/api/reports/shifts/').data['shifts'][0]
+        self.assertEqual((row['expected_cash'], row['variance']), (z['expected_cash'], z['variance']))
+
+    def test_a_void_after_close_does_not_rewrite_the_drawer_count(self):
+        shift_id = self.open_shift(opening_float='10000')
+        sale = self.new_sale(qty='1')
+        self.complete(sale['id'])
+        self.client.post(f'/api/pos/shifts/{shift_id}/close/', {'counted_cash': '11180'})
+        self.client.force_authenticate(self.manager)
+        self.client.post(f'/api/pos/sales/{sale["id"]}/void/', {'reason': 'Wrong item'})
+        z = Shift.objects.get(pk=shift_id).summary()
+        self.assertEqual((z['expected_cash'], z['variance']), (Decimal('11180.00'), Decimal('0.00')))
+        self.assertEqual(z['changed_after_close'], Decimal('-1180.00'))
+        self.assert_z_adds_up(z)
+
+    def test_a_sale_made_now_never_goes_into_a_closed_shift(self):
+        shift_id = self.open_shift()
+        Shift.objects.filter(pk=shift_id).update(closed_at=timezone.now(), counted_cash=0, expected_cash=10000)
+        _, response = self.offline_sale(shift=shift_id, strict=True)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, 'its drawer was already counted')
+        self.assertEqual(Sale.objects.count(), 0)
+        new_shift = self.open_shift()
+        _, response = self.offline_sale(shift=shift_id, strict=True)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['shift'], uuid.UUID(new_shift))
+
+    def test_a_shift_closes_once(self):
+        shift_id = self.open_shift(opening_float='10000')
+        first, second = Shift.objects.get(pk=shift_id), Shift.objects.get(pk=shift_id)  # two requests at once
+        first.close(counted_cash=Decimal('10000'))
+        with self.assertRaises(SaleError):
+            second.close(counted_cash=Decimal('9000'))
+        self.assertEqual(Shift.objects.get(pk=shift_id).counted_cash, Decimal('10000.00'))
 
     def test_cannot_reuse_the_id_of_another_sale(self):
         self.open_shift()

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models, transaction
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Sum
 from django.utils import timezone
 from django.utils.translation import gettext, gettext_lazy
 
@@ -14,7 +14,7 @@ from core.money import ZERO, money, split, vat_portion
 from fiscal.drivers.manual_efd import get_fiscal_driver
 from fiscal.interfaces import FiscalSaleLine, FiscalSubmission
 from fiscal.models import FiscalReceipt
-from inventory.models import StockLedger, allocate_fefo
+from inventory.models import StockBatch, StockLedger, allocate_fefo
 from payments.models import PaymentMethod
 
 
@@ -118,7 +118,15 @@ class Shift(models.Model):
     def summary(self):
         """The Z-report: totals by payment method, VAT, discounts, voids,
         credit repayments taken at the till, and the cash the drawer should
-        hold. Voided sales are listed but never counted as takings."""
+        hold. Voided sales are listed but never counted as takings.
+
+        Once the shift is closed, `expected_cash` is the figure the drawer
+        was counted against (the snapshot taken at close), so expected,
+        counted and variance always agree with each other and with every
+        report built from the snapshot. Anything that changes the drawer's
+        cash after the count (an offline sale synced late, a void, a
+        voided repayment) is shown as `changed_after_close` instead of
+        silently rewriting the reconciliation."""
         completed, voided, payments = self._summary_inputs()
         by_method = _payment_rows(entry for sale in completed for entry in sale.payment_split())
         repayments = _payment_rows(
@@ -126,6 +134,10 @@ class Shift(models.Model):
 
         cash_sales, cash_repayments = _cash_total(by_method), _cash_total(repayments)
         expected_cash = self.opening_float + cash_sales + cash_repayments
+        changed_after_close = ZERO
+        if not self.is_open and self.expected_cash is not None:
+            changed_after_close = expected_cash - self.expected_cash
+            expected_cash = self.expected_cash
         return {
             'sales_count': len(completed),
             'gross_total': money(sum((s.total for s in completed), ZERO)),
@@ -139,24 +151,33 @@ class Shift(models.Model):
             'cash_sales': money(cash_sales),
             'cash_repayments': money(cash_repayments),
             'expected_cash': money(expected_cash),
+            'changed_after_close': money(changed_after_close),
             'counted_cash': None if self.counted_cash is None else money(self.counted_cash),
-            'variance': None if self.counted_cash is None else money(self.counted_cash - (self.expected_cash or expected_cash)),
+            'variance': None if self.counted_cash is None else money(self.counted_cash - expected_cash),
         }
 
     @transaction.atomic
     def close(self, *, counted_cash, note=''):
         """Closes the shift and returns its final Z-report (summary()),
         built once: the drawer count only adds the counted cash and the
-        difference to what the report already showed."""
-        if not self.is_open:
+        difference to what the report already showed.
+
+        The shift row is locked first, so a double-tapped Close (or a
+        manager closing it from another device at the same time) closes it
+        once and refuses the other, instead of overwriting the first count;
+        and a sale or repayment being taken in this shift either lands
+        before the count or is refused (see Sale._selling_shift)."""
+        locked = Shift.objects.select_for_update().get(pk=self.pk)
+        if not locked.is_open:
             raise SaleError(gettext('This shift is already closed.'))
-        z = self.summary()
-        self.expected_cash = z['expected_cash']
-        self.counted_cash = counted_cash
-        self.closing_note = note
-        self.closed_at = timezone.now()
-        self.save(update_fields=['expected_cash', 'counted_cash', 'closing_note', 'closed_at'])
-        return {**z, 'counted_cash': money(counted_cash), 'variance': money(counted_cash - self.expected_cash)}
+        z = locked.summary()
+        locked.expected_cash = z['expected_cash']
+        locked.counted_cash = counted_cash
+        locked.closing_note = note
+        locked.closed_at = timezone.now()
+        locked.save(update_fields=['expected_cash', 'counted_cash', 'closing_note', 'closed_at'])
+        self.refresh_from_db()
+        return {**z, 'counted_cash': money(counted_cash), 'variance': money(counted_cash - locked.expected_cash)}
 
 
 class Sale(models.Model):
@@ -310,7 +331,7 @@ class Sale(models.Model):
         return effective_price(store=self.store, product=product, uom=uom)[0]
 
     @transaction.atomic
-    def add_product(self, *, product, qty, uom=None, unit_price=None, discount=ZERO):
+    def add_product(self, *, product, qty, uom=None, unit_price=None, discount=ZERO, allow_shortfall=False):
         """Adds qty of product, in `uom` (default: the product's own unit),
         to the cart at the store's own selling price for that unit
         (pricing.Price, or a running pricing.Promotion — never a price sent
@@ -321,7 +342,9 @@ class Sale(models.Model):
 
         `unit_price` is only for recording a sale the till already made
         offline (see record_offline): the price the customer was charged
-        then, which the cloud may have changed since."""
+        then, which the cloud may have changed since. `allow_shortfall`
+        (offline sales only) records the item even when the system shows
+        too little stock, since the goods were sold: see allocate_fefo."""
         self._require_status(self.Status.OPEN, gettext('add items to'))
         if product.entity_id != self.store.entity_id:
             raise SaleError(gettext("Product is not in this shop's catalog."))
@@ -342,7 +365,11 @@ class Sale(models.Model):
             raise SaleError(gettext('The discount on {name} must be between 0 and TZS {gross:,.0f}.').format(name=product.name, gross=gross))
 
         base_qty = convert_qty(qty, sell_uom, product.uom)
-        plan = allocate_fefo(self.store, product, base_qty)
+        # Stock comes off only when the sale is completed, so units earlier
+        # lines of this cart planned on are still on hand: reserve them.
+        reserved = dict(self.lines.filter(batch__product=product).values('batch_id')
+                        .annotate(qty=Sum('qty')).values_list('batch_id', 'qty'))
+        plan = allocate_fefo(self.store, product, base_qty, reserved=reserved, allow_shortfall=allow_shortfall)
         # One cart item can be split over several batches; each line gets
         # its share of the quantity, amount and discount, and the last takes
         # the remainder so the lines always add up to exactly qty x price.
@@ -389,7 +416,7 @@ class Sale(models.Model):
                         gettext('The price of {name} has changed to TZS {price:,.0f}. The cart now shows the new price: check the total with the customer.').format(name=product.name, price=price))
                 price_changes.append({'product': product.name, 'charged': charged, 'current': price})
             sale.add_product(product=product, qty=item['qty'], uom=uom, unit_price=None if strict else charged,
-                             discount=item.get('discount') or ZERO)
+                             discount=item.get('discount') or ZERO, allow_shortfall=not strict)
         result = sale.complete(user=user, shift=shift, completed_at=completed_at, enforce_limits=strict, **payment)
         if efd_receipt_no:
             # A duplicate or mistyped number must not lose the sale: it can
@@ -500,7 +527,7 @@ class Sale(models.Model):
         locked._require_status(self.Status.OPEN, 'complete')
         if not locked.lines.exists():
             raise SaleError(gettext('The cart is empty.'))
-        shift = locked._selling_shift(user, shift)
+        shift = locked._selling_shift(user, shift, allow_closed=not enforce_limits)
         now = timezone.now()
         completed_at = now if completed_at is None or completed_at > now else completed_at
         rx = locked._check_prescription(user, patient_name, prescriber_name, prescription_ref)
@@ -518,7 +545,7 @@ class Sale(models.Model):
         amount_tendered, payment_reference = locked._check_payment(
             payment_method, total - credit_amount, amount_tendered, payment_reference)
 
-        locked._deduct_stock(user, rx)
+        locked._deduct_stock(user, rx, allow_shortfall=not enforce_limits)
         locked.status = self.Status.COMPLETED
         locked.number = locked._next_number()
         locked.cashier = user
@@ -536,12 +563,23 @@ class Sale(models.Model):
         self.refresh_from_db()
         return self.retry_fiscal()
 
-    def _selling_shift(self, user, shift):
-        """`shift` when it is the user's own at this store (an offline sale
-        names the one it was rung up in, even if closed since), else the
-        user's open shift here. Refuses when there is neither."""
-        if shift is None or shift.store_id != self.store_id or shift.cashier_id != user.pk:
-            shift = Shift.open_for(store=self.store, cashier=user).first()
+    def _selling_shift(self, user, shift, *, allow_closed):
+        """`shift` when it is the user's own at this store, else the user's
+        open shift here. Refuses when there is neither.
+
+        A closed `shift` is only taken when `allow_closed`: an offline sale
+        was rung up in it before it closed and still belongs to it. A sale
+        being made now must not go into a closed shift, whose drawer has
+        already been counted; it goes to the open one or is refused.
+
+        The shift row is locked, so a sale and the shift's close cannot
+        interleave: the sale is in the count, or it sees the shift closed."""
+        named = None
+        if shift is not None and shift.store_id == self.store_id and shift.cashier_id == user.pk:
+            named = Shift.objects.select_for_update().filter(pk=shift.pk).first()
+            if named is not None and not named.is_open and not allow_closed:
+                named = None
+        shift = named or Shift.open_for(store=self.store, cashier=user).select_for_update().first()
         if shift is None:
             raise SaleError(gettext('Open a shift before selling.'))
         return shift
@@ -562,10 +600,23 @@ class Sale(models.Model):
             raise SaleError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
         return payable, payment_reference
 
-    def _deduct_stock(self, user, rx):
+    def _deduct_stock(self, user, rx, *, allow_shortfall):
         """Takes every line off its batch, and enters controlled drugs in
-        the register with the prescription details `rx`."""
+        the register with the prescription details `rx`.
+
+        `allow_shortfall` (an offline sale, which already happened): when
+        a batch holds less than the line sold, the missing units are first
+        put on it as 'sold without recorded stock', so the sale is never
+        lost and stock never goes negative. Without it, too little stock
+        refuses the whole sale (InsufficientStockError)."""
         for line in self.lines.select_related('batch__product'):
+            if allow_shortfall:
+                on_hand = StockBatch.objects.select_for_update().get(pk=line.batch_id).qty_on_hand
+                if on_hand < line.qty:
+                    StockLedger.record(
+                        store=self.store, batch=line.batch, qty_delta=line.qty - on_hand,
+                        ledger_type=StockLedger.LedgerType.UNRECORDED, ref_type='sale', ref_id=self.id,
+                    )
             entry = StockLedger.record(
                 store=self.store, batch=line.batch, qty_delta=-line.qty,
                 ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id=self.id,

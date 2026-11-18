@@ -8,7 +8,8 @@
 // payload, receipt, stock }: `payload` is the request body, `receipt` the
 // sale as the till printed it, `stock` [{product, qty}] in stock units.
 // status 'pending' = waiting to be sent; 'rejected' = the server refused it
-// (e.g. not enough stock in the cloud) and a person must retry or discard it.
+// and a person must retry or discard it. Too little stock in the cloud is
+// not a refusal: the sale is recorded anyway and the owner is told.
 
 import { isTransient } from '../api/client.js'
 import { recordSale } from '../api/pos.js'
