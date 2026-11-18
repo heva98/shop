@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Chip, Field, Input, NoticeBox, PageHeader, Select, Tag } from '../components/ds/index.js'
+import { Button, Card, Chip, EmptyState, Field, Input, NoticeBox, PageHeader, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { searchProducts, listAllUnitsOfMeasure } from '../api/catalog.js'
 import {
@@ -346,7 +346,15 @@ export default function Receiving({ storeId, roles }) {
                     </tr>
                   ))}
                   {invoices.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No invoices match this filter.')}</td></tr>
+                    <tr><td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>
+                      {Object.values(filters).some(Boolean) ? t('No invoices match this filter.') : (
+                        <EmptyState
+                          icon="receiving" title={t('No deliveries recorded yet')}
+                          hint={t('When goods arrive from a supplier, record their invoice here: what came, how many and at what price. The stock is added for you, and you can see what you still owe the supplier.')}
+                          action={<Button variant="primary" onClick={() => { resetForm(); setTab('new') }}>{t('Record a delivery')}</Button>}
+                        />
+                      )}
+                    </td></tr>
                   )}
                 </tbody>
               </table>

@@ -1,5 +1,5 @@
 import { Children, useMemo, useState } from 'react'
-import { Button, Card, Checkbox, Field, Icon, Input, NoticeBox, PageHeader, Select, SubNav, Switch, Tag } from '../components/ds/index.js'
+import { Button, Card, Checkbox, EmptyState, Field, Icon, Input, NoticeBox, PageHeader, Select, SubNav, Switch, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import {
   createCategory, createProduct, createUnitOfMeasure, listAllCategories, listAllProducts,
@@ -166,7 +166,13 @@ function ProductsPanel({ entity }) {
           p.tracks_expiry ? <Tag key="exp" variant="neutral">{t('Perishable')}</Tag> : '',
           <Button key="edit" size="small" onClick={() => form.open(p)}>{t('Edit')}</Button>,
         ])}
-        empty={products ? t('No products yet.') : t('Loading…')}
+        empty={products ? (
+          <EmptyState
+            icon="stock" title={t('No products yet')}
+            hint={t('Add each product with its price and how many you have, or load them all at once under Import from Excel.')}
+            action={<Button variant="primary" onClick={() => setQuickAdd(true)}><Icon name="add" size={16} /> {t('Add product')}</Button>}
+          />
+        ) : t('Loading…')}
       />
     </>
   )
@@ -226,7 +232,13 @@ function SuppliersPanel({ entity }) {
         headers={['Name', 'Location', 'Phone', 'Email', 'Credit', '']}
         rows={(suppliers ?? []).map((s) => [s.name, s.location || '—', s.phone || '—', s.email || '—',
           s.payment_terms_days ? t('{n} days', { n: s.payment_terms_days }) : t('Pay on delivery'), <Button key="edit" size="small" onClick={() => form.open(s)}>{t('Edit')}</Button>])}
-        empty={suppliers ? t('No suppliers yet.') : t('Loading…')}
+        empty={suppliers ? (
+          <EmptyState
+            icon="receiving" title={t('No suppliers yet')}
+            hint={t('Suppliers are the businesses you buy stock from. Add them to record deliveries and keep track of what you owe each one.')}
+            action={<Button variant="primary" onClick={() => form.open()}><Icon name="add" size={16} /> {t('Add supplier')}</Button>}
+          />
+        ) : t('Loading…')}
       />
     </>
   )

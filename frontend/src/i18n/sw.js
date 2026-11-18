@@ -1584,4 +1584,20 @@ export default {
   "Every sign-in, price change, cancelled sale, stock loss, stock count, staff change and import, with who did it and when. Entries can’t be edited or deleted.": "Kila kuingia, mabadiliko ya bei, mauzo yaliyofutwa, upotevu wa stoku, kuhesabu stoku, mabadiliko ya wafanyakazi na uingizaji, pamoja na aliyefanya na lini. Kumbukumbu haziwezi kubadilishwa wala kufutwa.",
   "The shop’s name and logo appear at the top of the app and on printed documents, for all your branches.": "Jina na nembo ya duka huonekana juu ya programu na kwenye nyaraka zinazochapishwa, kwa matawi yako yote.",
   "Lost on the way: record it as lost": "Ilipotea njiani: irekodi kama hasara",
+
+  // Empty screens
+  "No stock at {store} yet": "Bado hakuna stoku {store}",
+  "Stock shows here once you enter what is on your shelves, or record a delivery from a supplier. Each sale then takes it down by itself.": "Stoku itaonekana hapa ukishaweka kilichopo rafuni, au ukirekodi mzigo kutoka kwa msambazaji. Kila mauzo yataipunguza yenyewe.",
+  "Record a delivery": "Rekodi mzigo uliopokelewa",
+  "No deliveries recorded yet": "Bado hakuna mizigo iliyorekodiwa",
+  "When goods arrive from a supplier, record their invoice here: what came, how many and at what price. The stock is added for you, and you can see what you still owe the supplier.": "Bidhaa zikifika kutoka kwa msambazaji, rekodi ankara yake hapa: nini kimekuja, kiasi gani na kwa bei gani. Stoku itaongezwa yenyewe, na utaona deni ulilobaki nalo kwa msambazaji.",
+  "No credit customers yet": "Bado hakuna wateja wa mkopo",
+  "Add the customers you let take goods now and pay later (madeni). At the till you then put a sale on their account, and here you see what each one owes and take their repayments.": "Ongeza wateja unaowaruhusu kuchukua bidhaa sasa na kulipa baadaye (madeni). Kwenye kaunta utaweka mauzo kwenye akaunti yao, na hapa utaona deni la kila mmoja na kupokea malipo yao.",
+  "No products yet": "Bado hakuna bidhaa",
+  "Add each product with its price and how many you have, or load them all at once under Import from Excel.": "Ongeza kila bidhaa pamoja na bei na idadi uliyonayo, au ziingize zote kwa pamoja kupitia Ingiza kutoka Excel.",
+  "No suppliers yet": "Bado hakuna wasambazaji",
+  "Suppliers are the businesses you buy stock from. Add them to record deliveries and keep track of what you owe each one.": "Wasambazaji ni biashara unazonunua stoku kutoka kwao. Waongeze ili kurekodi mizigo na kufuatilia deni la kila mmoja.",
+  "No stock counts yet. Count once a month, or whenever the shelf and the system seem to disagree.": "Bado hakuna hesabu za stoku. Hesabu mara moja kwa mwezi, au wakati wowote rafu na mfumo vinapoonekana kutofautiana.",
+  "Nothing recorded yet. When stock is lost, damaged, stolen or expires, record it here so your stock and profit stay right.": "Bado hakuna kilichorekodiwa. Stoku ikipotea, ikiharibika, ikiibiwa au ikiisha muda, irekodi hapa ili stoku na faida yako viwe sahihi.",
+  "No transfers yet. When one branch runs short, it asks another here, and the stock that is sent moves between them.": "Bado hakuna uhamisho. Tawi likipungukiwa, huomba tawi jingine hapa, na stoku inayotumwa huhamia kati yao.",
 }

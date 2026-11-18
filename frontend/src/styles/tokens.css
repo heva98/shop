@@ -191,4 +191,5 @@ button.ds-stat:hover{box-shadow:0 14px 34px rgba(11,61,122,.13)}
 .ds-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:40px 16px}
 .ds-empty-disc{width:56px;height:56px;border-radius:50%;background:var(--tint-blue);color:var(--blue-600);display:flex;align-items:center;justify-content:center;margin-bottom:8px}
 .ds-empty-title{font-size:15px;line-height:22px;font-weight:600;color:var(--ink)}
-.ds-empty-hint{font-size:13px;line-height:20px;color:var(--muted)}
+.ds-empty-hint{font-size:13px;line-height:20px;color:var(--muted);max-width:480px}
+.ds-empty-action{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}

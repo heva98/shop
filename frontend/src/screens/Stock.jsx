@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { Button, Chip, Icon, NoticeBox, PageHeader, Tag } from '../components/ds/index.js'
+import { Button, Chip, EmptyState, Icon, NoticeBox, PageHeader, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { listAllBatches, listAllStoreProducts, listAllLedger } from '../api/inventory.js'
 import { listAllProducts } from '../api/catalog.js'
@@ -27,7 +27,7 @@ const STOCK_TAB_DEFS = [
 ]
 const MANAGER_ROLES = ['store_manager', 'entity_admin']
 
-export default function Stock({ storeId, storeName, roles }) {
+export default function Stock({ storeId, storeName, roles, goTo, canGo = () => false }) {
   const lang = useLanguage()
   const isManager = MANAGER_ROLES.some((r) => roles.includes(r))
   const [tab, setTab] = useState('list')
@@ -183,6 +183,20 @@ export default function Stock({ storeId, storeName, roles }) {
               </tr>
             </thead>
             <tbody>
+              {stockList.length === 0 && (
+                <tr><td colSpan={7}>
+                  <EmptyState
+                    icon="stock" title={t('No stock at {store} yet', { store: storeName })}
+                    hint={t('Stock shows here once you enter what is on your shelves, or record a delivery from a supplier. Each sale then takes it down by itself.')}
+                    action={(
+                      <>
+                        {isOwner && <Button variant="primary" onClick={() => setAdding({})}><Icon name="add" size={16} /> {t('Add product')}</Button>}
+                        {canGo('receiving') && <Button onClick={() => goTo('receiving')}>{t('Record a delivery')}</Button>}
+                      </>
+                    )}
+                  />
+                </td></tr>
+              )}
               {stockList.map((p) => (
                 <Fragment key={p.name}>
                   <tr onClick={p.toggle} style={{ cursor: 'pointer' }}>

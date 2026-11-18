@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { Button, Card, Checkbox, Field, Icon, Input, NoticeBox, PageHeader, Select, Switch, Tag } from '../components/ds/index.js'
+import { Button, Card, Checkbox, EmptyState, Field, Icon, Input, NoticeBox, PageHeader, Select, Switch, Tag } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -226,7 +226,13 @@ export default function Customers({ storeId, storeName, roles, features }) {
             })}
             {customers.length === 0 && (
               <tr><td colSpan={5} style={{ ...td(), textAlign: 'center', color: 'var(--fg-subtle)', padding: 32 }}>
-                {filters.search || filters.owing ? t('No customers match.') : t('No customers yet — add the customers who buy on credit.')}
+                {filters.search || filters.owing ? t('No customers match.') : (
+                  <EmptyState
+                    icon="customers" title={t('No credit customers yet')}
+                    hint={t('Add the customers you let take goods now and pay later (madeni). At the till you then put a sale on their account, and here you see what each one owes and take their repayments.')}
+                    action={<Button variant="primary" onClick={() => setEditing({ ...EMPTY_CUSTOMER })}><Icon name="add" size={16} /> {t('Add customer')}</Button>}
+                  />
+                )}
               </td></tr>
             )}
           </tbody>

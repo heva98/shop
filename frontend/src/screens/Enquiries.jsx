@@ -446,7 +446,7 @@ function Transfers({ store, transfers, onChanged, onPrint }) {
               )
             })}
             {shown.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{filter === 'open' ? t('Nothing waiting. Switch to All transfers for the history.') : t('No transfers yet.')}</td></tr>
+              <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{filter === 'open' ? t('Nothing waiting. Switch to All transfers for the history.') : t('No transfers yet. When one branch runs short, it asks another here, and the stock that is sent moves between them.')}</td></tr>
             )}
           </tbody>
         </table>

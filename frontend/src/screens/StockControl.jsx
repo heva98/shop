@@ -58,7 +58,7 @@ export function StockTake({ storeId, storeName, isManager }) {
           new Date(c.created_at).toLocaleString(dateLocale()), statusTag(c.status), c.line_count, c.submitted_by_name || c.created_by_name,
           c.approved_by_name || '—', <Button key="open" size="small" onClick={() => setOpenId(c.id)}>{t('Open')}</Button>,
         ])}
-        empty={counts ? t('No stock counts yet.') : t('Loading…')}
+        empty={counts ? t('No stock counts yet. Count once a month, or whenever the shelf and the system seem to disagree.') : t('Loading…')}
       />
     </div>
   )
@@ -329,7 +329,7 @@ export function WriteOffs({ storeId, isManager }) {
           new Date(a.created_at).toLocaleString(dateLocale()), a.product_name, a.batch_no, t(a.reason_label), signed(a.qty_delta),
           fmt(Number(a.value_at_cost)), a.created_by_name, a.note || '—',
         ])}
-        empty={history ? t('Nothing written off yet.') : t('Loading…')}
+        empty={history ? t('Nothing recorded yet. When stock is lost, damaged, stolen or expires, record it here so your stock and profit stay right.') : t('Loading…')}
       />
     </div>
   )

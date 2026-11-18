@@ -158,7 +158,7 @@ export default function App() {
           <div className="app-main-inner">
             {screen === 'dashboard' && <Dashboard storeId={storeId} storeName={storeName} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} roles={roles} entity={auth.entity} />}
             {screen === 'pos' && <Pos storeId={storeId} userId={profile?.id} roles={roles} entity={auth.entity} features={features} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
-            {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} roles={roles} />}
+            {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} roles={roles} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
             {screen === 'receiving' && <Receiving storeId={storeId} roles={roles} />}
             {screen === 'enquiries' && <Enquiries storeId={storeId} entity={auth.entity} roles={roles} />}
             {screen === 'customers' && <Customers storeId={storeId} storeName={storeName} roles={roles} features={features} />}
