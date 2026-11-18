@@ -20,16 +20,17 @@ const orNull = (value) => (value === '' ? null : value)
  * is, its selling price and the stock on the shelf now. With `product`
  * (one already in the catalogue) only the price and stock are asked for.
  * `storeId`: where the stock goes; a multi-branch owner on "All stores"
- * picks one here. */
-export default function QuickAddProduct({ product = null, storeId = null, onClose, onSaved }) {
+ * picks one here. `initial` pre-fills a new product, e.g. the barcode the
+ * till just scanned. */
+export default function QuickAddProduct({ product = null, storeId = null, initial = null, onClose, onSaved }) {
   useT()
   const auth = useAuth()
   const { data: uoms } = useApi(() => (product ? null : listAllUnitsOfMeasure()), [product])
   const { data: categories } = useApi(() => (product ? null : listAllCategories()), [product])
   const stores = auth.workplaces.filter((w) => w.store).map((w) => ({ value: w.store, label: w.store_name }))
   const [store, setStore] = useState(storeId ?? (stores.length === 1 ? stores[0].value : ''))
-  const [draft, setDraft] = useState(EMPTY)
-  const [more, setMore] = useState(false)
+  const [draft, setDraft] = useState({ ...EMPTY, ...initial })
+  const [more, setMore] = useState(Boolean(initial?.barcode))
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState(false)

@@ -8,6 +8,7 @@ import { recordFiscalReceipt, voidSale, listAllSales, openShift, closeShift } fr
 import { discard, placeSale, retryRejected, setUnsentEfdNumber, subscribe, unsyncedStock } from '../offline/outbox.js'
 import { findByBarcode, searchTill, sellOptions } from '../offline/till.js'
 import { fmt } from '../appData.js'
+import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import { apiErrorText } from '../lib/apiError.js'
 import { dateLocale, t, useT } from '../i18n/index.js'
 
@@ -28,7 +29,7 @@ function newId() {
 
 const offlineNo = (sale) => sale.id.slice(0, 8).toUpperCase()
 
-export default function Pos({ storeId, userId, roles, entity, features }) {
+export default function Pos({ storeId, userId, roles, entity, features, goTo, canGo = () => false }) {
   useT()
   const till = useTill(userId, storeId)
   const outbox = useOutbox()
@@ -52,7 +53,7 @@ export default function Pos({ storeId, userId, roles, entity, features }) {
   return (
     <Till
       key={snapshot.shift.id} snapshot={snapshot} outbox={outbox} offline={till.offline} refresh={till.refresh}
-      userId={userId} storeId={storeId} store={store} entity={entity} roles={roles} features={features}
+      userId={userId} storeId={storeId} store={store} entity={entity} roles={roles} features={features} goTo={goTo} canGo={canGo}
       onShiftClosed={(closed) => { setZReport(closed); till.refresh() }}
     />
   )
@@ -104,7 +105,50 @@ function repriceCart(lines, snapshot, unsynced) {
   })
 }
 
-function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, entity, roles, features, onShiftClosed }) {
+// Scanners type six or more digits; people type names.
+const isBarcode = (text) => /^\d{6,}$/.test(text)
+
+/** Why the till couldn't ring something up, and what to do about it:
+ * the fix itself for an owner, else who can fix it. */
+function CannotSell({ stuck, isOwner, offline, goTo, canGo, onFix, onDismiss }) {
+  useT()
+  const { option, missing } = stuck
+  let title, text
+  let action = null
+  if (missing) {
+    title = isBarcode(missing) ? t('No product has the barcode {code}', { code: missing }) : t('No product matches “{q}”', { q: missing })
+    text = isOwner ? t('Add it now with its price and stock, and it goes straight into the cart.') : t('Ask the shop owner to add it.')
+    if (isOwner) action = { label: t('Add it now'), onClick: () => onFix({ initial: isBarcode(missing) ? { barcode: missing } : { name: missing } }) }
+  } else {
+    const product = { id: option.productId, name: option.name, uom_name: option.unitName, tracks_expiry: option.tracksExpiry, has_price: option.unitPrice !== null }
+    if (option.unitPrice === null) {
+      title = t('{name} has no selling price yet', { name: option.name })
+      text = isOwner ? t('Set its price, and its stock if you have not yet.') : t('Only the shop owner can set prices. Ask them to set it.')
+    } else {
+      title = t('{name} is out of stock', { name: option.name })
+      text = isOwner ? t('Enter the stock you have, or record a delivery under Receiving.')
+        : canGo('receiving') ? t('Record the delivery under Receiving to add stock.') : t('Ask the storekeeper or owner to add stock.')
+    }
+    if (isOwner) action = { label: t('Set price and stock'), onClick: () => onFix({ product }) }
+    else if (option.unitPrice !== null && canGo('receiving')) action = { label: t('Open Receiving'), onClick: () => goTo('receiving') }
+  }
+  return (
+    <NoticeBox
+      variant="warning" title={title}
+      action={(
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {action && <Button variant="primary" onClick={action.onClick} disabled={offline && isOwner}>{action.label}</Button>}
+          <Button onClick={onDismiss}>{t('Dismiss')}</Button>
+        </div>
+      )}
+    >
+      {text}
+      {offline && isOwner && <div style={{ marginTop: 4 }}>{t('Adding or changing products needs the connection.')}</div>}
+    </NoticeBox>
+  )
+}
+
+function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, entity, roles, features, goTo, canGo, onShiftClosed }) {
   useT()
   const shift = snapshot.shift
   const isManager = MANAGER_ROLES.some((r) => roles.includes(r))
@@ -124,6 +168,12 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
   const [completed, setCompleted] = useState(null) // the last completed sale, shown until "New sale"
   const [panel, setPanel] = useState(null) // null | 'sales' | 'close'
   const [printSale, setPrintSale] = useState(null)
+  // Why the last scan or pick couldn't go in the cart: { option } (no price
+  // or no stock) or { missing: text } (nothing matches); and the quick-add
+  // form opened from it: { product?, initial? }.
+  const [stuck, setStuck] = useState(null)
+  const [fixing, setFixing] = useState(null)
+  const isOwner = roles.includes('entity_admin')
 
   const activeMethods = snapshot.payment_methods
   const method = activeMethods.find((m) => m.id === paymentMethodId) ?? activeMethods.find((m) => m.implementation === 'cash')
@@ -154,22 +204,35 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
     e.preventDefault()
     const byBarcode = findByBarcode(snapshot, q)
     if (byBarcode.length === 1) {
-      const [option] = sellOptions(snapshot, byBarcode, unsynced)
-      if (option.unitPrice === null) setErrorMessage(t('{name} has no selling price set.', { name: option.name }))
-      else if (option.qtyAvailable <= 0) setErrorMessage(t('{name} is out of stock.', { name: option.name }))
-      else addToCart(option)
+      addToCart(sellOptions(snapshot, byBarcode, unsynced)[0])
       setQuery('')
       return
     }
     if (suggestions.length === 1) addToCart(suggestions[0])
+    else if (suggestions.length === 0) {
+      // A scanner's code clears the box for the next scan; a typed name stays.
+      setStuck({ missing: q })
+      if (isBarcode(q)) setQuery('')
+    }
+  }
+
+  /** The quick-add form saved: fetch the till's copy again and ring the
+   * product up if it can now be sold. */
+  async function fixed(result) {
+    const fresh = await refresh()
+    const product = fresh?.products.find((p) => p.id === String(result.product.id))
+    if (!product) return
+    setStuck(null)
+    addToCart(sellOptions(fresh, [product], unsynced)[0])
   }
 
   /** Stock units of a product already in the cart, across all the units it's sold in. */
   const stockInCart = (lines, productId) => lines.filter((l) => l.productId === productId).reduce((sum, l) => sum + l.qty * l.perUnit, 0)
 
   function addToCart(s) {
-    if (s.unitPrice === null || s.qtyAvailable <= 0) return
+    if (s.unitPrice === null || s.qtyAvailable <= 0) { setStuck({ option: s }); setQuery(''); return }
     setErrorMessage('')
+    setStuck(null)
     setCart((prev) => {
       if (stockInCart(prev, s.productId) + s.perUnit > s.stockAvailable + 1e-9) return prev
       const existing = prev.find((l) => l.key === s.key)
@@ -307,8 +370,11 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
           <div style={{ flex: '1 1 480px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ position: 'relative' }}>
               <div onKeyDown={onSearchKeyDown}>
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('Scan a barcode, or search by name, brand or size')} prefixIcon="search" disabled={!!completed || busy} />
+                <Input value={query} onChange={(e) => { setQuery(e.target.value); setStuck(null) }} placeholder={t('Scan a barcode, or search by name, brand or size')} prefixIcon="search" disabled={!!completed || busy} />
               </div>
+              {suggestions.length === 0 && query.trim().length >= 2 && !stuck && (
+                <div className="pos-nomatch">{t('Nothing matches “{q}”. Press Enter for what to do.', { q: query.trim() })}</div>
+              )}
               {suggestions.length > 0 && (
                 <div style={{ position: 'absolute', top: 44, left: 0, right: 0, background: 'var(--white)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-popover)', zIndex: 10, overflow: 'hidden' }}>
                   {suggestions.map((s) => {
@@ -317,7 +383,7 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
                       <div
                         key={s.key}
                         onClick={() => addToCart(s)}
-                        style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 16px', cursor: blocked ? 'not-allowed' : 'pointer', fontSize: 14, borderBottom: '1px solid var(--grey-300)', opacity: blocked ? 0.6 : 1 }}
+                        style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 16px', cursor: 'pointer', fontSize: 14, borderBottom: '1px solid var(--grey-300)', opacity: blocked ? 0.6 : 1 }}
                       >
                         <div>
                           <div style={{ color: 'var(--grey-900)', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -340,6 +406,16 @@ function Till({ snapshot, outbox, offline, refresh, userId, storeId, store, enti
                 </div>
               )}
             </div>
+            {snapshot.products.length === 0 && !stuck && (
+              <NoticeBox
+                variant="info" title={t('There are no products to sell yet')}
+                action={isOwner && <Button variant="primary" onClick={() => setFixing({})} disabled={offline}>{t('Add a product')}</Button>}
+              >
+                {isOwner ? t('Add what you sell with its price and how many you have, then come back here.') : t('Ask the shop owner to add the products you sell.')}
+              </NoticeBox>
+            )}
+            {stuck && <CannotSell stuck={stuck} isOwner={isOwner} offline={offline} goTo={goTo} canGo={canGo} onFix={setFixing} onDismiss={() => setStuck(null)} />}
+            {fixing && <QuickAddProduct product={fixing.product} initial={fixing.initial} storeId={storeId} onClose={() => setFixing(null)} onSaved={fixed} />}
             <div style={{ background: 'var(--white)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>

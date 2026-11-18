@@ -59,7 +59,7 @@ export function sellOptions(snapshot, products, unsynced = {}) {
     const prices = snapshot.prices.filter((p) => p.product === product.id)
     const baseUnit = unitById[product.uom]
     const common = {
-      productId: product.id, name: product.name, size: product.size, vatClass: product.vat_class,
+      productId: product.id, name: product.name, size: product.size, vatClass: product.vat_class, tracksExpiry: product.tracks_expiry,
       stockAvailable,
     }
     const base = prices.find((p) => p.uom === null)

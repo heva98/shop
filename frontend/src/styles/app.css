@@ -341,3 +341,6 @@ th.sortable{cursor:default}
 .gs-list>li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;font-size:14px;color:var(--ink)}
 .gs-list>li+li{border-top:1px solid var(--border)}
 .gs-missing{display:block;font-size:12px;color:var(--fg-subtle)}
+
+/* Till: no product matches what was typed (screens/Pos.jsx) */
+.pos-nomatch{position:absolute;top:44px;left:0;right:0;z-index:10;padding:10px 16px;background:var(--surface-card);border-radius:var(--radius-md);box-shadow:var(--shadow-popover);font-size:14px;color:var(--muted)}
