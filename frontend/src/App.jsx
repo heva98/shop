@@ -71,7 +71,11 @@ export default function App() {
     : NAV_DEFS.filter((n) => n.roles.some((r) => roles.includes(r)) && (!n.feature || features[n.feature] !== false)))
     .map((n) => ({ id: n.id, label: t(n.label), icon: n.icon, section: t(n.section) }))
   // `params`: what to open on arrival, e.g. { viz } for Analytics.
-  const goTo = (screen, params = null) => { if (navItems.some((n) => n.id === screen)) setState({ screen, screenParams: params }) }
+  // Admin's sub-tab lives in App's state; other screens read screenParams.
+  const goTo = (screen, params = null) => {
+    if (!navItems.some((n) => n.id === screen)) return
+    setState(screen === 'admin' && params?.tab ? { screen, screenParams: null, adminTab: params.tab } : { screen, screenParams: params })
+  }
   // A screen hidden by switching store (or a feature) falls back to the dashboard.
   const screen = state.screen === 'profile' || navItems.some((n) => n.id === state.screen) ? state.screen : navItems[0].id
   const storeId = workplace?.store ?? null
@@ -152,7 +156,7 @@ export default function App() {
 
         <main className="app-main">
           <div className="app-main-inner">
-            {screen === 'dashboard' && <Dashboard storeId={storeId} storeName={storeName} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} />}
+            {screen === 'dashboard' && <Dashboard storeId={storeId} storeName={storeName} goTo={goTo} canGo={(id) => navItems.some((n) => n.id === id)} roles={roles} entity={auth.entity} />}
             {screen === 'pos' && <Pos storeId={storeId} userId={profile?.id} roles={roles} entity={auth.entity} features={features} />}
             {screen === 'stock' && <Stock storeId={storeId} storeName={storeName} roles={roles} />}
             {screen === 'receiving' && <Receiving storeId={storeId} roles={roles} />}
@@ -160,7 +164,7 @@ export default function App() {
             {screen === 'customers' && <Customers storeId={storeId} storeName={storeName} roles={roles} features={features} />}
             {screen === 'analytics' && <Analytics storeId={storeId} storeName={storeName} openVizId={state.screenParams?.viz ?? null} />}
             {screen === 'reports' && <Reports roles={roles} storeId={storeId} storeName={storeName} entity={auth.entity} features={features} />}
-            {screen === 'settings' && <Settings entity={auth.entity} />}
+            {screen === 'settings' && <Settings key={state.screenParams?.tab ?? 'settings'} entity={auth.entity} initialTab={state.screenParams?.tab} />}
             {screen === 'admin' && <Admin nav={adminNav} tab={state.adminTab} />}
             {screen === 'shops' && <PlatformShops />}
             {screen === 'profile' && <MyProfile onDone={closeProfile} />}

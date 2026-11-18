@@ -2,13 +2,14 @@ import { Button, NoticeBox, PageHeader, StatCard } from '../components/ds/index.
 import { useApi } from '../hooks/useApi.js'
 import { getDashboard } from '../api/reports.js'
 import PinnedVisualizations from './analytics/PinnedVisualizations.jsx'
+import GettingStarted from './GettingStarted.jsx'
 import { useT } from '../i18n/index.js'
 
 
 /** storeId null = an entity_admin's firm-wide view across every store. */
-export default function Dashboard({ storeId, storeName, goTo, canGo = () => true }) {
+export default function Dashboard({ storeId, storeName, goTo, canGo = () => true, roles = [], entity }) {
   const t = useT()
-  const { data: d, loading, error } = useApi(() => getDashboard({ store: storeId || undefined }), [storeId])
+  const { data: d, loading, error, refetch } = useApi(() => getDashboard({ store: storeId || undefined }), [storeId])
   const scope = storeId ? storeName : t('All stores')
   const link = (to) => (to && goTo && canGo(to) ? () => goTo(to) : undefined)
 
@@ -30,6 +31,7 @@ export default function Dashboard({ storeId, storeName, goTo, canGo = () => true
         title={t('Dashboard')}
         subtitle={storeId ? t('Today at {store}.', { store: storeName }) : t('Overview across all stores in your entity.')}
       />
+      {roles.includes('entity_admin') && entity && <GettingStarted entity={entity} storeId={storeId} goTo={goTo} canGo={canGo} onChanged={refetch} />}
       {error && <NoticeBox variant="error" style={{ marginBottom: 24 }}>{t('Could not load the dashboard.')}</NoticeBox>}
       {loading && !d && <NoticeBox variant="info" style={{ marginBottom: 24 }}>{t('Loading…')}</NoticeBox>}
       {d && (d.expired_on_shelf_count > 0 || d.sales_missing_efd > 0) && (

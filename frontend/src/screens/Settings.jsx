@@ -15,6 +15,7 @@ import { listAllStores } from '../api/core.js'
 import { fmt } from '../appData.js'
 import { apiErrorText } from '../lib/apiError.js'
 import ImportPanel from './SettingsImport.jsx'
+import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import NotificationsPanel from './SettingsNotifications.jsx'
 import FeaturesPanel from './SettingsFeatures.jsx'
 import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
@@ -36,9 +37,9 @@ const VAT_OPTIONS = [
 ]
 const VAT_LABEL = Object.fromEntries(VAT_OPTIONS.map((o) => [o.value, o.label]))
 
-export default function Settings({ entity }) {
+export default function Settings({ entity, initialTab }) {
   useT()
-  const [tab, setTab] = useState('products')
+  const [tab, setTab] = useState(TABS.some((s) => s.key === initialTab) ? initialTab : 'products')
   return (
     <div>
       <PageHeader title={t('Settings')} subtitle={t('Catalogue, suppliers, pricing and features for your entity.')} />
@@ -95,6 +96,7 @@ function ProductsPanel({ entity }) {
     name: '', category: '', brand: '', size: '', uom: '', vat_class: 'standard', barcode: '', tracks_expiry: false,
   })
   const categoryForm = useForm({ name: '', short_name: '', description: '' })
+  const [quickAdd, setQuickAdd] = useState(false)
 
   const categoryName = useMemo(() => Object.fromEntries((categories ?? []).map((c) => [c.id, c.name])), [categories])
   const uomName = useMemo(() => Object.fromEntries((uoms ?? []).map((u) => [u.id, u.name])), [uoms])
@@ -114,11 +116,12 @@ function ProductsPanel({ entity }) {
       </p>
       {(uoms ?? []).length === 0 && <NoticeBox variant="warning" style={{ marginBottom: 16 }}>{t('Add a unit of measure first (e.g. Piece, Packet, Bottle).')}</NoticeBox>}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <Button variant="primary" onClick={() => form.open({ uom: uoms?.[0]?.id ?? '' })} disabled={(uoms ?? []).length === 0}><Icon name="add" size={16} /> {t('Add product')}</Button>
+        <Button variant="primary" onClick={() => setQuickAdd(true)} disabled={(uoms ?? []).length === 0}><Icon name="add" size={16} /> {t('Add product')}</Button>
         <Button onClick={() => categoryForm.open()}><Icon name="add" size={16} /> {t('Add category')}</Button>
         <div style={{ flex: 1, minWidth: 200 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Filter by name, brand, category or barcode')} prefixIcon="search" /></div>
       </div>
 
+      {quickAdd && <QuickAddProduct onClose={() => setQuickAdd(false)} onSaved={refetch} />}
       {categoryForm.draft && (
         <Card style={{ marginBottom: 12 }}>
           <div style={gridStyle}>

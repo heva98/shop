@@ -2879,3 +2879,18 @@ msgstr "Kubadilisha nenosiri"
 
 msgid "SMS codes are not set up on this server yet. Contact the system administrator."
 msgstr "Misimbo ya SMS bado haijawekwa kwenye seva hii. Wasiliana na msimamizi wa mfumo."
+
+msgid "This product is not in your shop."
+msgstr "Bidhaa hii haipo kwenye duka lako."
+
+msgid "Choose the store this is for."
+msgstr "Chagua tawi linalohusika."
+
+msgid "Give the expiry date of the stock on the shelf."
+msgstr "Weka tarehe ya kuisha muda ya stoku iliyopo rafuni."
+
+msgid "This stock has already expired. Do not load expired stock as sellable."
+msgstr "Stoku hii tayari imeisha muda wake. Usiingize stoku iliyoisha muda kama ya kuuzwa."
+
+msgid "Give the price you sell it at."
+msgstr "Weka bei unayouzia."

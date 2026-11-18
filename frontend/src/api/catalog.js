@@ -15,3 +15,7 @@ export const updateProduct = (id, data) => client.patch(`/api/catalog/products/$
 export const searchProducts = (search) => client.get('/api/catalog/products/', { search })
 export const listAllCategories = (params) => listAll('/api/catalog/categories/', params)
 export const updateUnitOfMeasure = (id, data) => client.patch(`/api/catalog/units-of-measure/${id}/`, data)
+
+// The owner's first day (backend catalog/setup.py).
+export const quickAddProduct = (data) => client.post('/api/catalog/quick-add/', data)
+export const getGettingStarted = (params) => client.get('/api/catalog/getting-started/', params)

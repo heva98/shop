@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi.js'
 import { listAllBatches, listAllStoreProducts, listAllLedger } from '../api/inventory.js'
 import { listAllProducts } from '../api/catalog.js'
 import { StockTake, WriteOffs } from './StockControl.jsx'
+import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import { dateLocale, t, useLanguage } from '../i18n/index.js'
 
 const LEDGER_TYPE_LABEL = {
@@ -32,12 +33,15 @@ export default function Stock({ storeId, storeName, roles }) {
   const [tab, setTab] = useState('list')
   const [expanded, setExpanded] = useState({})
   const [ledgerGroup, setLedgerGroup] = useState('all')
+  // Catalogue changes are the owner's (catalog/setup.py): { product? } while the form is open.
+  const isOwner = roles.includes('entity_admin')
+  const [adding, setAdding] = useState(null)
 
   const { data: products } = useApi(() => (storeId ? listAllProducts() : null), [storeId])
-  const { data: batches, loading: batchesLoading, error: batchesError } = useApi(
+  const { data: batches, loading: batchesLoading, error: batchesError, refetch: refetchBatches } = useApi(
     () => (storeId ? listAllBatches({ store: storeId }) : null), [storeId],
   )
-  const { data: storeProducts } = useApi(() => (storeId ? listAllStoreProducts({ store: storeId }) : null), [storeId])
+  const { data: storeProducts, refetch: refetchStoreProducts } = useApi(() => (storeId ? listAllStoreProducts({ store: storeId }) : null), [storeId])
   const { data: ledger, loading: ledgerLoading } = useApi(
     () => (storeId && tab === 'ledger' ? listAllLedger({ store: storeId }) : null), [storeId, tab],
   )
@@ -47,6 +51,11 @@ export default function Stock({ storeId, storeName, roles }) {
     for (const p of products ?? []) map[p.id] = p.name
     return map
   }, [products])
+
+  const addStockTo = (id) => {
+    const product = (products ?? []).find((p) => p.id === id)
+    if (product) setAdding({ product: { id, name: product.name, uom_name: product.uom_name, tracks_expiry: product.tracks_expiry, has_price: true } })
+  }
 
   const batchesWithStatus = useMemo(() => {
     const today = new Date()
@@ -78,7 +87,7 @@ export default function Stock({ storeId, storeName, roles }) {
   const stockList = useMemo(() => {
     const byProduct = {}
     for (const b of batchesWithStatus) {
-      byProduct[b.product] ??= { name: b.productName, batches: [] }
+      byProduct[b.product] ??= { id: b.product, name: b.productName, batches: [] }
       byProduct[b.product].batches.push(b)
     }
     return Object.values(byProduct).map((p, i) => {
@@ -86,7 +95,7 @@ export default function Stock({ storeId, storeName, roles }) {
       const expiredQty = p.batches.filter((b) => b.status === 'expired').reduce((sum, b) => sum + b.qty, 0)
       const isExpanded = !!expanded[p.name]
       return {
-        num: i + 1, name: p.name, totalQty, expiredQty, eligibleQty: totalQty - expiredQty, batchCount: p.batches.length,
+        num: i + 1, id: p.id, name: p.name, totalQty, expiredQty, eligibleQty: totalQty - expiredQty, batchCount: p.batches.length,
         expanded: isExpanded, chevronIcon: isExpanded ? 'chevron-up' : 'chevron-down',
         toggle: () => setExpanded((prev) => ({ ...prev, [p.name]: !prev[p.name] })),
         batches: p.batches.map((b) => ({ batch: b.batch_no, qty: b.qty, expiry: b.expiry_date })),
@@ -139,7 +148,16 @@ export default function Stock({ storeId, storeName, roles }) {
 
   return (
     <div>
-      <PageHeader title={t('Stock')} subtitle={t('Batches, stock levels and movements at {store}.', { store: storeName })} />
+      <PageHeader
+        title={t('Stock')} subtitle={t('Batches, stock levels and movements at {store}.', { store: storeName })}
+        actions={isOwner && <Button variant="primary" onClick={() => setAdding({})}><Icon name="add" size={16} /> {t('Add product')}</Button>}
+      />
+      {adding && (
+        <QuickAddProduct
+          product={adding.product} storeId={storeId} onClose={() => setAdding(null)}
+          onSaved={() => { refetchBatches(); refetchStoreProducts() }}
+        />
+      )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {stockTabs.map((s) => <Chip key={s.label} selected={s.active} onClick={s.select}>{s.label}</Chip>)}
       </div>
@@ -190,7 +208,7 @@ export default function Stock({ storeId, storeName, roles }) {
                             ))}
                             <tr>
                               <td colSpan={3} style={{ padding: '8px 16px 12px 48px' }}>
-                                <Button size="small" disabled>
+                                <Button size="small" disabled={!isOwner} onClick={() => addStockTo(p.id)}>
                                   <Icon name="add" size={16} /> {t('Add batch')}
                                 </Button>
                               </td>
