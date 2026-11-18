@@ -1,9 +1,10 @@
 from django.urls import path
 
-from . import finance, views
+from . import finance, summary, views
 
 urlpatterns = [
     path('dashboard/', views.dashboard),
+    path('summary/', summary.summary),
     path('sales/', views.sales),
     path('sales-trend/', views.sales_trend),
     path('shifts/', views.shifts),

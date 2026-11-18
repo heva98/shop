@@ -9,6 +9,7 @@ import {
 import { listAllCustomers } from '../api/credit.js'
 import { fmt } from '../appData.js'
 import { client } from '../api/client.js'
+import ReportsHome from './ReportsHome.jsx'
 import { dateLocale, t, useT } from '../i18n/index.js'
 
 const ALL = ['cashier', 'storekeeper', 'store_manager', 'entity_admin']
@@ -257,17 +258,32 @@ export default function Reports({ roles, storeId, storeName, entity, features })
   const [days, setDays] = useState('90')
   const [state, setState] = useState({ data: null, loading: false, error: '' })
   const report = available.find((r) => r.id === reportId)
+  // Owners and managers land on the plain summary (ReportsHome); everyone
+  // else, and "All reports", gets the list of detailed reports.
+  const hasSummary = MANAGERS.some((r) => roles.includes(r))
+  const [view, setView] = useState(hasSummary ? 'summary' : 'detailed')
 
-  async function run() {
+  async function run(target = report, range = { start, end, days }) {
     setState({ data: null, loading: true, error: '' })
     try {
       const params = { store: storeId || undefined }
-      if (report.usesDates) Object.assign(params, { start, end })
-      if (report.usesDays) params.days = days
-      setState({ data: await report.fetch(params), loading: false, error: '' })
+      if (target.usesDates) Object.assign(params, { start: range.start, end: range.end })
+      if (target.usesDays) params.days = range.days
+      setState({ data: await target.fetch(params), loading: false, error: '' })
     } catch (err) {
       setState({ data: null, loading: false, error: err.body?.detail || t('Could not load the report.') })
     }
+  }
+
+  /** A summary card's "See details": that report, for the same period, already run. */
+  function openReport(id, opts = {}) {
+    const target = available.find((r) => r.id === id)
+    if (!target) return
+    const range = { start: opts.start ?? start, end: opts.end ?? end, days: opts.days ? String(opts.days) : days }
+    setStart(range.start); setEnd(range.end); setDays(range.days)
+    setReportId(id)
+    setView('detailed')
+    run(target, range)
   }
 
   function select(id) {
@@ -283,7 +299,18 @@ export default function Reports({ roles, storeId, storeName, entity, features })
 
   return (
     <div>
-      <PageHeader title={t('Reports')} subtitle={t('Run, print and download reports for {scope}.', { scope })} />
+      <PageHeader
+        title={t('Reports')}
+        subtitle={view === 'summary' ? t('How your shop is doing, at a glance.') : t('Run, print and download reports for {scope}.', { scope })}
+      />
+      {hasSummary && (
+        <div className="rh-views" role="tablist" aria-label={t('Reports')}>
+          <button type="button" role="tab" aria-selected={view === 'summary'} onClick={() => setView('summary')}>{t('Summary')}</button>
+          <button type="button" role="tab" aria-selected={view === 'detailed'} onClick={() => setView('detailed')}>{t('All reports')}</button>
+        </div>
+      )}
+      {view === 'summary' && <ReportsHome storeId={storeId} scope={scope} features={features} onOpen={openReport} />}
+      {view === 'detailed' && (<>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {available.map((r) => <Chip key={r.id} selected={r.id === reportId} onClick={() => select(r.id)}>{t(r.title)}</Chip>)}
       </div>
@@ -298,7 +325,7 @@ export default function Reports({ roles, storeId, storeName, entity, features })
               </>
             )}
             {report.usesDays && <Field label={t(report.daysLabel || 'Expiring within (days)')}><Input value={days} onChange={(e) => setDays(e.target.value)} style={{ width: 120 }} /></Field>}
-            <Button variant="primary" onClick={run} disabled={state.loading}>{state.loading ? t('Loading…') : t('Run report')}</Button>
+            <Button variant="primary" onClick={() => run()} disabled={state.loading}>{state.loading ? t('Loading…') : t('Run report')}</Button>
             {data && (
               <>
                 {report.tables(data).map((tb) => (
@@ -322,6 +349,7 @@ export default function Reports({ roles, storeId, storeName, entity, features })
           <ReportBody report={report} data={data} plain />
         </PrintArea>
       )}
+      </>)}
     </div>
   )
 }

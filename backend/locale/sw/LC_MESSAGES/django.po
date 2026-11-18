@@ -2894,3 +2894,6 @@ msgstr "Stoku hii tayari imeisha muda wake. Usiingize stoku iliyoisha muda kama 
 
 msgid "Give the price you sell it at."
 msgstr "Weka bei unayouzia."
+
+msgid "Choose today, week, month or last_month."
+msgstr "Chagua leo, wiki, mwezi au mwezi uliopita."

@@ -9,3 +9,4 @@ export const getExpiryReport = (params) => client.get('/api/reports/expiry/', pa
 export const getPurchasesReport = (params) => client.get('/api/reports/purchases/', params)
 export const getLossesReport = (params) => client.get('/api/reports/losses/', params)
 export const getTransfersReport = (params) => client.get('/api/reports/transfers/', params)
+export const getSummary = (params) => client.get('/api/reports/summary/', params)
