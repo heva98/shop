@@ -1,4 +1,4 @@
-import { Field, Input, Select } from './ds/index.js'
+import { Button, Field, Input, NoticeBox, Select } from './ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { listLocations } from '../api/core.js'
 import { t, useLanguage, useT } from '../i18n/index.js'
@@ -23,7 +23,7 @@ export function countryName(code, lang, fallback) {
 export default function LocationFields({ country, region, council, onChange }) {
   useT()
   const lang = useLanguage()
-  const { data, loading } = useApi(() => listLocations(), [])
+  const { data, loading, error, refetch } = useApi(() => listLocations(), [])
   const countries = (data?.countries ?? [])
     .map((c) => ({ value: c.code, label: countryName(c.code, lang, c.name) }))
     .sort((a, b) => (a.value === TANZANIA ? -1 : b.value === TANZANIA ? 1 : a.label.localeCompare(b.label, lang)))
@@ -35,6 +35,15 @@ export default function LocationFields({ country, region, council, onChange }) {
 
   return (
     <>
+      {error && (
+        <NoticeBox
+          variant="error"
+          style={{ marginBottom: 12 }}
+          action={<Button variant="secondary" onClick={refetch}>{t('Try again')}</Button>}
+        >
+          {t('Could not load the list of countries and regions.')} {error.message}
+        </NoticeBox>
+      )}
       <Field label={t('Country')}>
         <Select
           value={country}

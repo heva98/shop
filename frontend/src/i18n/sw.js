@@ -319,6 +319,7 @@ export default {
   "Council": "Halmashauri",
   "Country": "Nchi",
   "Select region…": "Chagua mkoa…",
+  "Could not load the list of countries and regions.": "Imeshindwa kupakia orodha ya nchi na mikoa.",
   "Select council…": "Chagua halmashauri…",
   "Select a region first": "Chagua mkoa kwanza",
   "Street / area": "Mtaa / eneo",

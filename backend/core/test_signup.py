@@ -102,6 +102,13 @@ class SignupTests(APITestCase):
     def test_regions_load_before_sign_in(self, _code):
         self.assertEqual(self.client.get('/api/core/locations/').status_code, status.HTTP_200_OK)
 
+    def test_regions_load_with_a_stale_token(self, _code):
+        # A token left in the browser from an expired session must not
+        # empty the sign-up page's dropdowns.
+        response = self.client.get('/api/core/locations/', HTTP_AUTHORIZATION='Token no-such-token')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['countries'])
+
 
 @override_settings(SMS_BACKEND='console', DEBUG=True, SHOW_SMS_CODES=True)
 @mock.patch('core.phone_codes._new_code', return_value='654321')
