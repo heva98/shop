@@ -8,10 +8,11 @@ module, and the report modules don't import each other's private names.
 
 import uuid
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
+from django.db.models import Case, Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.translation import gettext
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -81,6 +82,20 @@ def date_range(request):
     return start, end
 
 
+def day_start(day):
+    """The moment `day` begins in the shop's time zone."""
+    return datetime.combine(day, time.min, tzinfo=timezone.get_current_timezone())
+
+
+def on_days(field, start, end=None):
+    """`field` (a date and time) falls on `start`..`end` (inclusive; end
+    defaults to start) in the shop's time zone. Same rows as
+    field__date__gte/__lte, but as a plain range on the column, which its
+    index can answer: field__date wraps every row's value in a time zone
+    conversion first, so the database has to read them all."""
+    return Q(**{f'{field}__gte': day_start(start), f'{field}__lt': day_start((end or start) + timedelta(days=1))})
+
+
 def is_cashier_only(user, stores):
     """A cashier sees only their own shifts and their own sales history;
     everyone above them sees the whole store's."""
@@ -135,6 +150,21 @@ def usable_stock(stores, today):
 _COST_PLACES = Decimal('0.0001')
 
 
+def stock_status_counts(stores, today):
+    """{'out', 'low', 'at_or_below_reorder'}: how many of the products the
+    stores stock (StoreProduct, enabled) have no usable stock, have some
+    but no more than the reorder level, and either. Counted in the
+    database rather than by loading every product's level."""
+    usable = (StockBatch.objects.filter(store=OuterRef('store_id'), product=OuterRef('product_id'), qty_on_hand__gt=0)
+              .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=today))
+              .values('store', 'product').annotate(t=Sum('qty_on_hand')).values('t'))
+    return (StoreProduct.objects.filter(store__in=stores, enabled=True)
+            .annotate(usable=Coalesce(Subquery(usable), Value(ZERO), output_field=QTY_FIELD))
+            .aggregate(out=Count('pk', filter=Q(usable__lte=0)),
+                       low=Count('pk', filter=Q(usable__gt=0, usable__lte=F('reorder_level'))),
+                       at_or_below_reorder=Count('pk', filter=Q(usable__lte=F('reorder_level')))))
+
+
 def _places(value, exponent):
     """A database sum with the exact places the column's own arithmetic
     gives (SQLite returns sums unrounded, e.g. 4.5 or 841.095000000000);
@@ -145,19 +175,15 @@ def _places(value, exponent):
 def summarize_day(store, day):
     """One store's day in numbers, for the end-of-day SMS/email
     (notifications.management.commands.send_daily_summaries)."""
-    sales = list(sale_totals(Sale.objects.filter(store=store, status=Sale.Status.COMPLETED, completed_at__date=day)
+    sales = list(sale_totals(Sale.objects.filter(on_days('completed_at', day), store=store, status=Sale.Status.COMPLETED)
                              .select_related('payment_method')))
     by_method = {}
     for s in sales:
         for name, _impl, amount in s.payment_split(s.sale_total or ZERO):
             by_method[name] = by_method.get(name, ZERO) + amount
-    stock = usable_stock(Store.objects.filter(pk=store.pk), day)
-    low = sum(
-        1 for sp in StoreProduct.objects.filter(store=store, enabled=True)
-        if stock.get((store.id, sp.product_id), [ZERO])[0] <= sp.reorder_level
-    )
+    low = stock_status_counts(Store.objects.filter(pk=store.pk), day)['at_or_below_reorder']
     variance = sum((sh.counted_cash - sh.expected_cash
-                    for sh in Shift.objects.filter(store=store, closed_at__date=day, counted_cash__isnull=False)), ZERO)
+                    for sh in Shift.objects.filter(on_days('closed_at', day), store=store, counted_cash__isnull=False)), ZERO)
     purchases = ReceivingInvoice.objects.filter(
         store=store, status=ReceivingInvoice.Status.RECEIVED, received_date=day,
     ).aggregate(total=Sum(F('lines__order_qty') * F('lines__pack_price'), output_field=MONEY_FIELD))['total']
@@ -165,7 +191,7 @@ def summarize_day(store, day):
         'sales_count': len(sales),
         'sales_total': sum((by_method.values()), ZERO),
         'by_method': sorted(by_method.items()),
-        'void_count': Sale.objects.filter(store=store, status=Sale.Status.VOIDED, voided_at__date=day).count(),
+        'void_count': Sale.objects.filter(on_days('voided_at', day), store=store, status=Sale.Status.VOIDED).count(),
         'missing_efd': sum(1 for s in sales if s.efd_receipt_no == ''),
         'variance': variance,
         'purchases_total': purchases or ZERO,

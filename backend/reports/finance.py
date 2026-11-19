@@ -18,7 +18,7 @@ from enquiry.models import Transfer
 from pos.models import Sale, SaleLine
 from receiving.models import ReceivingInvoice
 
-from .queries import MANAGEMENT_ROLES, date_range, stores_for, usable_stock
+from .queries import MANAGEMENT_ROLES, date_range, day_start, on_days, stores_for, usable_stock
 
 _MANAGERS = (Role.STORE_MANAGER, Role.ENTITY_ADMIN)
 _BUCKETS = ('not_due', 'overdue_1_30', 'overdue_31_60', 'overdue_61_plus')
@@ -83,8 +83,8 @@ def margin(request):
     stores = stores_for(request)
     start, end = date_range(request)
     lines = (
-        SaleLine.objects.filter(sale__store__in=stores, sale__status=Sale.Status.COMPLETED,
-                                sale__completed_at__date__gte=start, sale__completed_at__date__lte=end)
+        SaleLine.objects.filter(on_days('sale__completed_at', start, end),
+                                sale__store__in=stores, sale__status=Sale.Status.COMPLETED)
         .select_related('batch__product__uom')
     )
     by_product = {}
@@ -133,7 +133,7 @@ def movers(request):
     since = today - timedelta(days=days)
     sold = dict(
         SaleLine.objects.filter(sale__store__in=stores, sale__status=Sale.Status.COMPLETED,
-                                sale__completed_at__date__gt=since)
+                                sale__completed_at__gte=day_start(since + timedelta(days=1)))
         .values('batch__product_id').annotate(q=Sum('qty')).values_list('batch__product_id', 'q')
     )
     stock = {}
@@ -180,7 +180,7 @@ def transfers(request):
     start, end = date_range(request)
     base = (Transfer.objects.filter(Q(from_store__in=stores) | Q(to_store__in=stores))
             .select_related('from_store', 'to_store').prefetch_related('lines__batch__product'))
-    in_period = base.filter(dispatched_at__date__gte=start, dispatched_at__date__lte=end).exclude(
+    in_period = base.filter(on_days('dispatched_at', start, end)).exclude(
         status=Transfer.Status.CANCELLED).order_by('dispatched_at')
 
     def value(t):

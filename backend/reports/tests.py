@@ -9,7 +9,7 @@ from rest_framework import status
 from core.models import Entity, Role, Store, StoreRole, User
 from credit.models import Customer, CustomerPayment
 from inventory.models import StockBatch, StoreProduct
-from pos.models import Shift
+from pos.models import Sale, Shift
 from pos.tests import PosTestBase
 from reports.queries import usable_stock
 
@@ -154,3 +154,53 @@ class ReportTests(PosTestBase):
         # A report open to every role still covers both stores.
         sales = self.client.get('/api/reports/sales/')
         self.assertEqual(sales.status_code, status.HTTP_200_OK)
+
+
+class ReportDayBoundaryTests(PosTestBase):
+    """Reports pick a day's rows by time range in the shop's time zone
+    (reports.queries.on_days): a sale just before midnight belongs to
+    that day, one just after to the next."""
+
+    def setUp(self):
+        super().setUp()
+        self.open_shift()
+        today = timezone.localdate()
+        midnight = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
+        for when in (midnight - timedelta(minutes=1), midnight):
+            sale = self.new_sale(qty='1')
+            self.complete(sale['id'])
+            Sale.objects.filter(pk=sale['id']).update(completed_at=when)
+        self.client.force_authenticate(self.manager)
+
+    def test_dashboard_counts_only_todays_sales(self):
+        data = self.client.get('/api/reports/dashboard/', {'store': str(self.store.id)}).data
+        self.assertEqual(data['sales_today_count'], 1)
+        self.assertEqual(data['sales_today_total'], Decimal('1180.00'))
+
+    def test_sales_report_takes_whole_days(self):
+        yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
+        one_day = self.client.get('/api/reports/sales/', {'start': yesterday, 'end': yesterday}).data
+        self.assertEqual(one_day['summary']['sales_count'], 1)
+        both = self.client.get('/api/reports/sales/', {'start': yesterday}).data
+        self.assertEqual(both['summary']['sales_count'], 2)
+
+    def test_sales_report_pages_its_rows_but_totals_the_whole_period(self):
+        yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
+        first = self.client.get('/api/reports/sales/', {'start': yesterday, 'page_size': 1}).data
+        second = self.client.get('/api/reports/sales/', {'start': yesterday, 'page_size': 1, 'page': 2}).data
+        self.assertEqual(first['sales_page'], {'page': 1, 'page_size': 1, 'count': 2, 'num_pages': 2})
+        self.assertEqual(len(first['sales']), 1)
+        self.assertLess(first['sales'][0]['completed_at'], second['sales'][0]['completed_at'])
+        for data in (first, second):
+            self.assertEqual(data['summary']['sales_count'], 2)
+            self.assertEqual(data['summary']['gross_total'], Decimal('2360.00'))
+        totals_only = self.client.get('/api/reports/sales/', {'start': yesterday, 'page_size': 0, 'top': 1}).data
+        self.assertEqual(totals_only['sales'], [])
+        self.assertEqual(len(totals_only['by_product']), 1)
+        self.assertEqual(totals_only['summary']['sales_count'], 2)
+        past_the_end = self.client.get('/api/reports/sales/', {'start': yesterday, 'page_size': 1, 'page': 9}).data
+        self.assertEqual(past_the_end['sales_page']['page'], 2)
+        self.assertEqual(self.client.get('/api/reports/sales/', {'page': 'x'}).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_purchases_report_answers(self):
+        self.assertEqual(self.client.get('/api/reports/purchases/').status_code, status.HTTP_200_OK)

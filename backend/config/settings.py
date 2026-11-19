@@ -109,6 +109,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Roles and feature switches read once per request (core.request_cache).
+    'core.request_cache.RequestCacheMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -176,6 +178,22 @@ LOCALE_PATHS = [BASE_DIR / 'locale']
 TIME_ZONE = 'Africa/Dar_es_Salaam'
 USE_I18N = True
 USE_TZ = True
+
+
+# Cache: the till's copy of each shop's catalog (pos.views.TillSnapshotView)
+# is kept here. The default keeps it in each server process's own memory,
+# which is right for one server; with several servers, point CACHE_URL at
+# a shared cache such as Redis (redis://localhost:6379/1).
+# Entries are keyed by the shop's catalog revision, so a stale one is never
+# served, only left to expire.
+CACHES = {
+    'default': env.cache('CACHE_URL') if env('CACHE_URL', default='') else {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'shop',
+        # ~1 MB per shop with 3,000 products; the least recently used go first.
+        'OPTIONS': {'MAX_ENTRIES': env.int('CACHE_MAX_ENTRIES', default=200)},
+    },
+}
 
 
 # Static files — collectstatic deposits everything here; nginx serves this

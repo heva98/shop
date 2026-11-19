@@ -710,6 +710,68 @@ class OfflineSaleTests(PosTestBase):
         self.assertNotEqual(changed['catalog_version'], version)
         self.assertEqual([p['name'] for p in changed['products']], ['Paracetamol 500mg'])
 
+    def test_till_catalog_is_built_once_per_change(self):
+        """The catalog is cached under the shop's revision: an unchanged
+        catalog is not read again, and every kind of catalog edit (a unit,
+        a category, deleting one) gives the till a new copy."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from catalog.models import Category
+
+        url, store = '/api/pos/till/', str(self.store.id)
+        version = self.client.get(url, {'store': store}).data['catalog_version']
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(url, {'store': store, 'catalog': version})
+        self.assertFalse([q for q in ctx.captured_queries if 'FROM "catalog_product"' in q['sql']])
+
+        self.product.uom.name = 'Tablet'
+        self.product.uom.save()
+        data = self.client.get(url, {'store': store, 'catalog': version}).data
+        self.assertNotEqual(data['catalog_version'], version)
+        self.assertEqual(data['units'][0]['name'], 'Tablet')
+
+        category = Category.objects.create(entity=self.entity, name='Pain relief')
+        self.product.category = category
+        self.product.save()
+        version = self.client.get(url, {'store': store}).data['catalog_version']
+        category.delete()  # clears it from the product without a product save
+        data = self.client.get(url, {'store': store, 'catalog': version}).data
+        self.assertNotEqual(data['catalog_version'], version)
+        self.assertEqual(data['products'][0]['category_name'], '')
+
+    def test_till_sends_only_the_stock_and_prices_that_changed(self):
+        """?sync=<the sync_state the till holds>: only the groups of products
+        whose stock or prices changed come back (pos.views.TillSnapshotView)."""
+        from pos.views import TillSnapshotView
+
+        url, store = '/api/pos/till/', str(self.store.id)
+        other = Product.objects.create(entity=self.entity, name='Ibuprofen', uom=self.product.uom)
+        Price.objects.create(entity=self.entity, product=other, unit_price=Decimal('500'))
+        StockBatch.objects.create(store=self.store, product=other, qty_on_hand=Decimal('7'))
+        full = self.client.get(url, {'store': store}).data
+        self.assertIsNone(full['sync_buckets'])
+        self.assertEqual(len(full['stock']), 3)
+        self.assertEqual(len(full['sync_state']), TillSnapshotView.SYNC_BUCKETS * 8)
+
+        same = self.client.get(url, {'store': store, 'sync': full['sync_state']}).data
+        self.assertEqual(same['sync_buckets'], [])
+        self.assertEqual((same['stock'], same['prices']), ([], []))
+        self.assertEqual(same['sync_state'], full['sync_state'])
+
+        self.expires_later.qty_on_hand = Decimal('49')
+        self.expires_later.save()
+        changed = self.client.get(url, {'store': store, 'sync': full['sync_state']}).data
+        bucket = TillSnapshotView.sync_bucket(self.product.id)
+        self.assertIn(bucket, changed['sync_buckets'])
+        self.assertEqual(sum(b['qty_on_hand'] for b in changed['stock'] if b['product'] == str(self.product.id)), Decimal('51'))
+        self.assertTrue(any(p['product'] == str(self.product.id) for p in changed['prices']))
+        if TillSnapshotView.sync_bucket(other.id) != bucket:
+            self.assertFalse(any(b['product'] == str(other.id) for b in changed['stock']))
+
+        # Not a state this server made: everything again.
+        self.assertIsNone(self.client.get(url, {'store': store, 'sync': 'abc'}).data['sync_buckets'])
+
     def test_till_snapshot_sums_stock_per_product_and_expiry_date(self):
         StockBatch.objects.create(store=self.store, product=self.product, batch_no='SOON-2',
                                   expiry_date=self.expires_soon.expiry_date, qty_on_hand=Decimal('3'))

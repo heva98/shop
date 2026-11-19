@@ -22,6 +22,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 
 from .models import Entity, ModuleEnablement, ModuleRegistry
+from .request_cache import cached
 
 
 @dataclass(frozen=True)
@@ -76,12 +77,24 @@ def _blocked_reason(feature, entity_id):
     return unavailable_reason(feature.key, Entity.objects.filter(pk=entity_id).first())
 
 
+def _switch_rows(entity_id):
+    """{feature key: {store id or None: enabled}} for one firm: every
+    switch in one query, read once per request (core.request_cache)."""
+    def read():
+        rows = {}
+        for key, store_id, enabled in (ModuleEnablement.objects.filter(entity_id=entity_id)
+                                       .values_list('module__key', 'store_id', 'enabled')):
+            rows.setdefault(key, {})[store_id] = enabled
+        return rows
+    return cached(('feature_rows', entity_id), read)
+
+
 def is_enabled(key, *, entity=None, store=None):
     feature = FEATURES_BY_KEY[key]
     entity_id = store.entity_id if store is not None else getattr(entity, 'id', entity)
     if _blocked_reason(feature, entity_id):
         return False
-    rows = {row.store_id: row.enabled for row in ModuleEnablement.objects.filter(module__key=key, entity_id=entity_id)}
+    rows = _switch_rows(entity_id).get(key, {})
     if store is not None and feature.scope == ModuleRegistry.Scope.STORE and store.id in rows:
         return rows[store.id]
     if None in rows:

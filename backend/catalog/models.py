@@ -156,3 +156,23 @@ class Product(models.Model):
     @property
     def needs_prescription(self):
         return self.is_prescription_only or self.is_controlled_substance
+
+
+class CatalogRevision(models.Model):
+    """A counter per shop that goes up whenever anything the till's copy of
+    the catalog is built from changes (products, categories, units, generic
+    medicines: see catalog.apps). The till snapshot (pos.views) caches the
+    catalog under it, so it is built once per change instead of on every
+    till refresh. Kept in its own row, changed only with F() updates, so
+    saving the Entity can never put an old number back."""
+    entity = models.OneToOneField(Entity, primary_key=True, on_delete=models.CASCADE, related_name='+')
+    revision = models.PositiveBigIntegerField(default=0)
+
+    @classmethod
+    def current(cls, entity_id):
+        return cls.objects.filter(pk=entity_id).values_list('revision', flat=True).first() or 0
+
+    @classmethod
+    def bump(cls, entity_id):
+        if not cls.objects.filter(pk=entity_id).update(revision=models.F('revision') + 1):
+            cls.objects.get_or_create(entity_id=entity_id, defaults={'revision': 1})

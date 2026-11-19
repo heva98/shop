@@ -2,6 +2,15 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
 
 from .models import Role, StoreRole
+from .request_cache import cached
+
+
+def store_roles(user):
+    """[(role, store_id)] for every StoreRole `user` holds: read once per
+    request (core.request_cache), since the permission class, the queryset
+    and the serializer of one request all ask."""
+    return cached(('store_roles', user.pk), lambda: list(
+        StoreRole.objects.filter(user=user).values_list('role', 'store_id')))
 
 
 def accessible_store_ids(user):
@@ -13,14 +22,13 @@ def accessible_store_ids(user):
     Otherwise returns the list of store ids the user has a StoreRole at,
     which may be empty for a user with no assignment yet.
 
-    One query: every scoped request calls this at least once (often from
-    both the queryset and the serializer), so it reads the user's roles
-    together instead of checking for entity_admin first.
+    Every scoped request calls this several times (permission, queryset,
+    serializer), so it works from store_roles(): one query per request.
     """
     if user.is_superuser:
         return None
     store_ids = []
-    for role, store_id in StoreRole.objects.filter(user=user).values_list('role', 'store_id'):
+    for role, store_id in store_roles(user):
         if role == Role.ENTITY_ADMIN:
             return None
         store_ids.append(store_id)

@@ -9,7 +9,7 @@ to today.
 
 from datetime import timedelta
 
-from django.db.models import Sum
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.utils.translation import gettext
@@ -24,12 +24,13 @@ from core.money import ZERO, money
 from core.permissions import roles
 from enquiry.models import Enquiry
 from inventory.models import StockAdjustment, StockBatch, StockLedger, StoreProduct
-from pos.models import Sale, SaleLine, Shift
+from pos.models import Sale, SaleLine, Shift, split_payment
 from pricing.models import Price
 from receiving.models import ReceivingInvoice
 
 from .queries import (
-    MANAGEMENT_ROLES, MONEY_FIELD, date_range, is_cashier_only, sale_totals, stores_for, usable_stock, vat,
+    MANAGEMENT_ROLES, MONEY_FIELD, date_range, is_cashier_only, on_days, sale_totals, stock_status_counts, stores_for,
+    usable_stock, vat,
 )
 
 
@@ -39,32 +40,28 @@ def dashboard(request):
     stores = stores_for(request)
     today = timezone.localdate()
 
-    sales_today = list(sale_totals(Sale.objects.filter(
-        store__in=stores, status=Sale.Status.COMPLETED, completed_at__date=today,
-    )))
-    sales_total = sum((s.sale_total or ZERO for s in sales_today), ZERO)
-    missing_efd = sum(1 for s in sales_today if s.efd_receipt_no == '')
-
-    stock = usable_stock(stores, today)
-    low, out = 0, 0
-    for sp in StoreProduct.objects.filter(store__in=stores, enabled=True):
-        qty = stock.get((sp.store_id, sp.product_id), [ZERO])[0]
-        if qty <= 0:
-            out += 1
-        elif qty <= sp.reorder_level:
-            low += 1
-
-    batches = StockBatch.objects.filter(store__in=stores, qty_on_hand__gt=0)
+    # Every figure is counted or summed in the database: the dashboard is
+    # opened often, and loading today's sales or every product's stock
+    # level to count them grows with the shop.
+    sales_today = Sale.objects.filter(on_days('completed_at', today), store__in=stores, status=Sale.Status.COMPLETED)
+    counts = sales_today.aggregate(n=Count('pk'), missing_efd=Count('pk', filter=Q(efd_receipt_no='')))
+    sales_total = SaleLine.objects.filter(sale__in=sales_today).aggregate(
+        t=Sum('amount', output_field=MONEY_FIELD))['t'] or ZERO
+    stock = stock_status_counts(stores, today)
+    batches = StockBatch.objects.filter(store__in=stores, qty_on_hand__gt=0).aggregate(
+        expiring=Count('pk', filter=Q(expiry_date__gte=today, expiry_date__lte=today + timedelta(days=30))),
+        expired=Count('pk', filter=Q(expiry_date__lt=today)),
+    )
     return Response({
         'date': today,
         'store_count': stores.count(),
         'sales_today_total': money(sales_total),
-        'sales_today_count': len(sales_today),
-        'sales_missing_efd': missing_efd,
-        'low_stock_count': low,
-        'stocked_out_count': out,
-        'expiring_30_count': batches.filter(expiry_date__gte=today, expiry_date__lte=today + timedelta(days=30)).count(),
-        'expired_on_shelf_count': batches.filter(expiry_date__lt=today).count(),
+        'sales_today_count': counts['n'],
+        'sales_missing_efd': counts['missing_efd'],
+        'low_stock_count': stock['low'],
+        'stocked_out_count': stock['out'],
+        'expiring_30_count': batches['expiring'],
+        'expired_on_shelf_count': batches['expired'],
         'open_enquiries_count': Enquiry.objects.filter(
             requesting_store__in=stores, status=Enquiry.Status.OPEN,
         ).count(),
@@ -72,14 +69,34 @@ def dashboard(request):
     })
 
 
+SALES_PAGE_SIZE = 100
+SALES_PAGE_MAX = 1000
+
+
+def _page(request):
+    """(page, page_size) from ?page= and ?page_size=."""
+    try:
+        page = max(int(request.query_params.get('page', 1)), 1)
+        page_size = min(max(int(request.query_params.get('page_size', SALES_PAGE_SIZE)), 0), SALES_PAGE_MAX)
+    except ValueError:
+        raise ValidationError(gettext('Page and page size must be numbers.'))
+    return page, page_size
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def sales(request):
+    """The period's totals, by product and by payment method, and its sales
+    one page at a time: ?page= (from 1) and ?page_size= (default
+    SALES_PAGE_SIZE, at most SALES_PAGE_MAX; 0 for totals only). The totals
+    always cover the whole period. ?top=N keeps only the N best-selling
+    products in by_product."""
+    page, page_size = _page(request)
     stores = stores_for(request)
     start, end = date_range(request)
     qs = Sale.objects.filter(
+        on_days('completed_at', start, end),
         store__in=stores, status__in=[Sale.Status.COMPLETED, Sale.Status.VOIDED],
-        completed_at__date__gte=start, completed_at__date__lte=end,
     )
     if is_cashier_only(request.user, stores):
         qs = qs.filter(cashier=request.user)
@@ -87,52 +104,75 @@ def sales(request):
     # their ids: a long date range would otherwise send thousands of ids
     # back to the database in one IN (...).
     completed_ids = qs.filter(status=Sale.Status.COMPLETED).values('pk')
-    qs = sale_totals(qs.select_related('store', 'cashier', 'payment_method', 'customer')).order_by('completed_at')
 
-    rows, by_method = [], {}
-    gross, vat_sum, void_total, void_count, missing_efd = ZERO, ZERO, ZERO, 0, 0
+    # Totals over the whole period from plain values, one tuple per sale
+    # (VAT is rounded per sale, as on its receipt, so it is summed here).
+    by_method = {}
+    count, gross, vat_sum, void_total, void_count, missing_efd = 0, ZERO, ZERO, ZERO, 0, 0
     discounts, on_credit = ZERO, ZERO
-    for s in qs:
-        total = money(s.sale_total)
-        row_vat = vat(s.standard_total)
-        rows.append({
-            'id': s.id, 'number': s.number, 'completed_at': s.completed_at, 'store': s.store.name,
-            'cashier': display_name(s.cashier),
-            'payment_method': s.payment_method.name if s.payment_method else '',
-            'payment_reference': s.payment_reference, 'efd_receipt_no': s.efd_receipt_no,
-            'customer_name': s.customer_name, 'status': s.status, 'void_reason': s.void_reason,
-            'total': total, 'vat': row_vat, 'discount': money(s.sale_discount or ZERO),
-            'credit': money(s.credit_amount),
-        })
-        if s.status == Sale.Status.VOIDED:
+    totals = sale_totals(qs).values_list(
+        'status', 'sale_total', 'standard_total', 'sale_discount', 'credit_amount', 'efd_receipt_no',
+        'payment_method__name', 'payment_method__implementation').order_by()
+    for status_, sale_total, standard_total, discount, credit, efd, method_name, implementation in totals:
+        count += 1
+        total = money(sale_total)
+        if status_ == Sale.Status.VOIDED:
             void_count += 1
             void_total += total
             continue
         gross += total
-        vat_sum += row_vat
-        discounts += s.sale_discount or ZERO
-        on_credit += s.credit_amount
-        if not s.efd_receipt_no:
+        vat_sum += vat(standard_total)
+        discounts += discount or ZERO
+        on_credit += credit
+        if not efd:
             missing_efd += 1
-        for name, _impl, amount in s.payment_split(total):
+        for name, _impl, amount in split_payment(method_name, implementation, total, credit):
             method = by_method.setdefault(name, {'payment_method': name, 'count': 0, 'total': ZERO})
             method['count'] += 1
             method['total'] += amount
+
+    # The rows of one page only, with just the columns they show.
+    num_pages = max(1, (count + page_size - 1) // page_size) if page_size else 0
+    page = min(page, num_pages) if num_pages else 1
+    rows = []
+    if page_size:
+        store_names = dict(stores.values_list('id', 'name'))
+        page_qs = sale_totals(qs.select_related('cashier', 'payment_method').only(
+            'id', 'number', 'completed_at', 'store_id', 'status', 'payment_reference', 'efd_receipt_no',
+            'customer_name', 'void_reason', 'credit_amount',
+            'cashier__username', 'cashier__first_name', 'cashier__last_name',
+            'payment_method__name', 'payment_method__implementation',
+        )).order_by('completed_at', 'pk')[(page - 1) * page_size:page * page_size]
+        rows = [{
+            'id': s.id, 'number': s.number, 'completed_at': s.completed_at, 'store': store_names[s.store_id],
+            'cashier': display_name(s.cashier),
+            'payment_method': s.payment_method.name if s.payment_method else '',
+            'payment_reference': s.payment_reference, 'efd_receipt_no': s.efd_receipt_no,
+            'customer_name': s.customer_name, 'status': s.status, 'void_reason': s.void_reason,
+            'total': money(s.sale_total), 'vat': vat(s.standard_total), 'discount': money(s.sale_discount or ZERO),
+            'credit': money(s.credit_amount),
+        } for s in page_qs]
 
     by_product = (
         SaleLine.objects.filter(sale__in=completed_ids).values('batch__product_id', 'batch__product__name', 'batch__product__uom__name')
         .annotate(qty_total=Sum('qty'), value=Sum('amount', output_field=MONEY_FIELD))
         .order_by('-value')
     )
+    top = request.query_params.get('top')
+    if top:
+        if not top.isdigit():
+            raise ValidationError({'top': gettext('Must be a number.')})
+        by_product = by_product[:int(top)]
     return Response({
         'start': start, 'end': end,
         'summary': {
-            'sales_count': len(rows) - void_count, 'gross_total': money(gross), 'vat_total': money(vat_sum),
+            'sales_count': count - void_count, 'gross_total': money(gross), 'vat_total': money(vat_sum),
             'void_count': void_count, 'void_total': money(void_total), 'missing_efd_count': missing_efd,
             'discount_total': money(discounts), 'credit_total': money(on_credit),
             'by_payment_method': [{**m, 'total': money(m['total'])} for m in by_method.values()],
         },
         'sales': rows,
+        'sales_page': {'page': page, 'page_size': page_size, 'count': count, 'num_pages': num_pages},
         'by_product': [
             {'product': r['batch__product__name'], 'unit': r['batch__product__uom__name'], 'qty': r['qty_total'], 'value': money(r['value'])} for r in by_product
         ],
@@ -151,8 +191,8 @@ def sales_trend(request):
     start = end - timedelta(days=days - 1)
     rows = (
         SaleLine.objects.filter(
+            on_days('sale__completed_at', start, end),
             sale__store__in=stores, sale__status=Sale.Status.COMPLETED,
-            sale__completed_at__date__gte=start, sale__completed_at__date__lte=end,
         )
         .annotate(day=TruncDate('sale__completed_at'))
         .values('day').annotate(total=Sum('amount', output_field=MONEY_FIELD))
@@ -170,7 +210,7 @@ def shifts(request):
     stores = stores_for(request)
     start, end = date_range(request)
     qs = Shift.objects.filter(
-        store__in=stores, opened_at__date__gte=start, opened_at__date__lte=end,
+        on_days('opened_at', start, end), store__in=stores,
     ).select_related('store', 'cashier').order_by('opened_at')
     if is_cashier_only(request.user, stores):
         qs = qs.filter(cashier=request.user)
@@ -314,8 +354,8 @@ def losses(request):
     start, end = date_range(request)
     entries = (
         StockLedger.objects.filter(
+            on_days('created_at', start, end),
             store__in=stores, ledger_type__in=_LOSS_TYPES,
-            created_at__date__gte=start, created_at__date__lte=end,
         )
         .select_related('store', 'batch__product__uom')
         .order_by('created_at')

@@ -5,7 +5,7 @@ import { useOutbox, useTill } from '../hooks/useOutbox.js'
 import { isTransient } from '../api/client.js'
 import { openShift } from '../api/pos.js'
 import { placeSale, unsyncedStock } from '../offline/outbox.js'
-import { findByBarcode, searchTill, sellOptions } from '../offline/till.js'
+import { findByBarcode, findProduct, searchTill, sellOptions } from '../offline/till.js'
 import { fmt } from '../appData.js'
 import QuickAddProduct from '../components/QuickAddProduct.jsx'
 import { apiErrorText } from '../lib/apiError.js'
@@ -96,7 +96,7 @@ function OpenShift({ storeId, offline, onOpened }) {
  * a line whose product can no longer be priced is dropped. */
 function repriceCart(lines, snapshot, unsynced) {
   return lines.flatMap((line) => {
-    const product = snapshot.products.find((p) => p.id === line.productId)
+    const product = findProduct(snapshot, line.productId)
     const option = product && sellOptions(snapshot, [product], unsynced).find((o) => o.key === line.key)
     return option && option.unitPrice !== null ? [{ ...option, qty: line.qty }] : []
   })

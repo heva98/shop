@@ -40,7 +40,7 @@ function Overview({ storeId }) {
   const now = new Date()
   const monthStart = isoDay(new Date(now.getFullYear(), now.getMonth(), 1))
   const { data: trend, error: trendError } = useApi(() => getSalesTrend({ store, days: 30 }), [storeId])
-  const { data: month } = useApi(() => getSalesReport({ store, start: monthStart, end: isoDay(now) }), [storeId])
+  const { data: month } = useApi(() => getSalesReport({ store, start: monthStart, end: isoDay(now), page_size: 0, top: 10 }), [storeId])
   const { data: stock } = useApi(() => getStockReport({ store }), [storeId])
 
   const trendTotal = (trend ?? []).reduce((s, d) => s + Number(d.total), 0)

@@ -36,6 +36,19 @@ def _payment_rows(entries):
     return rows
 
 
+def split_payment(method_name, implementation, total, credit_amount):
+    """[(name, implementation, amount)]: how a sale of `total` was paid. The
+    part paid now goes to the payment method and `credit_amount` to the
+    customer's account. Sale.payment_split for one sale; reports call it
+    with plain values so they needn't load whole sales."""
+    parts = []
+    if total - credit_amount > 0 or not credit_amount:
+        parts.append((method_name, implementation, total - credit_amount))
+    if credit_amount:
+        parts.append((gettext('On credit'), 'credit', credit_amount))
+    return parts
+
+
 def _customer_payments():
     # credit.models imports this module, so CustomerPayment is looked up late.
     from credit.models import CustomerPayment
@@ -301,12 +314,7 @@ class Sale(models.Model):
         paid now goes to the payment method and the credit part to the
         customer's account. Pass `total` when it is already known."""
         total = self.total if total is None else total
-        parts = []
-        if total - self.credit_amount > 0 or not self.credit_amount:
-            parts.append((self.payment_method.name, self.payment_method.implementation, total - self.credit_amount))
-        if self.credit_amount:
-            parts.append((gettext('On credit'), 'credit', self.credit_amount))
-        return parts
+        return split_payment(self.payment_method.name, self.payment_method.implementation, total, self.credit_amount)
 
     def discount_check(self):
         """(discount, gross, limit, over_limit) for the discount on this sale:
@@ -415,7 +423,9 @@ class Sale(models.Model):
                     raise SaleError(
                         gettext('The price of {name} has changed to TZS {price:,.0f}. The cart now shows the new price: check the total with the customer.').format(name=product.name, price=price))
                 price_changes.append({'product': product.name, 'charged': charged, 'current': price})
-            sale.add_product(product=product, qty=item['qty'], uom=uom, unit_price=None if strict else charged,
+            # strict: the price just checked (None lets add_product refuse it
+            # with its own message); offline: what the customer paid.
+            sale.add_product(product=product, qty=item['qty'], uom=uom, unit_price=price if strict else charged,
                              discount=item.get('discount') or ZERO, allow_shortfall=not strict)
         result = sale.complete(user=user, shift=shift, completed_at=completed_at, enforce_limits=strict, **payment)
         if efd_receipt_no:
@@ -480,7 +490,7 @@ class Sale(models.Model):
     def _check_prescription(self, user, patient_name, prescriber_name, prescription_ref):
         """(patient, prescriber, reference), stripped, for medicine that
         needs a prescription (all optional). Empty for any other sale."""
-        products = {line.batch.product for line in self.lines.select_related('batch__product')}
+        products = {line.batch.product for line in self.lines.all()}
         if not any(p.needs_prescription for p in products):
             return '', '', ''
         patient, prescriber = (patient_name or '').strip(), (prescriber_name or '').strip()
@@ -523,7 +533,10 @@ class Sale(models.Model):
         `shift` and `completed_at` are for a sale the till recorded
         offline: the cashier's shift it was rung up in (even if closed
         since) and when it happened. Default: the open shift, now."""
-        locked = Sale.objects.select_for_update().select_related('store__entity').get(pk=self.pk)
+        # The lines are read once here: the checks, totals and stock
+        # deduction below all work from this copy (lines.all()).
+        locked = (Sale.objects.select_for_update().select_related('store__entity')
+                  .prefetch_related('lines__batch__product').get(pk=self.pk))
         locked._require_status(self.Status.OPEN, 'complete')
         if not locked.lines.exists():
             raise SaleError(gettext('The cart is empty.'))
@@ -608,8 +621,11 @@ class Sale(models.Model):
         a batch holds less than the line sold, the missing units are first
         put on it as 'sold without recorded stock', so the sale is never
         lost and stock never goes negative. Without it, too little stock
-        refuses the whole sale (InsufficientStockError)."""
-        for line in self.lines.select_related('batch__product'):
+        refuses the whole sale (InsufficientStockError).
+
+        Called by complete(), which has the lines and their products
+        prefetched."""
+        for line in self.lines.all():
             if allow_shortfall:
                 on_hand = StockBatch.objects.select_for_update().get(pk=line.batch_id).qty_on_hand
                 if on_hand < line.qty:
@@ -628,7 +644,10 @@ class Sale(models.Model):
         """The store's next receipt number. The store row lock serializes
         numbering, so two tills can never be handed the same number."""
         Store.objects.select_for_update().get(pk=self.store_id)
-        return (Sale.objects.filter(store_id=self.store_id).aggregate(n=Max('number'))['n'] or 0) + 1
+        # number__isnull lets Postgres answer from the unique (store, number)
+        # index, which only covers numbered sales.
+        last = Sale.objects.filter(store_id=self.store_id, number__isnull=False).aggregate(n=Max('number'))['n']
+        return (last or 0) + 1
 
     def retry_fiscal(self):
         """Re-attempts fiscalization only — no stock movement. This is

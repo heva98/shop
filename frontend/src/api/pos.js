@@ -8,8 +8,9 @@ export const createSale = (data) => client.post('/api/pos/sales/', data)
 /** A whole sale the till rang up from its own copy of the catalog; safe to resend (see offline/outbox.js). */
 export const recordSale = (data) => client.post('/api/pos/sales/record/', data, { timeout: 20000 })
 /** Catalog, prices (with promotions), stock, payment methods, credit customers and the open shift — what the till sells from. */
-/** `catalog`: the catalog_version the till already holds, to be sent products and units only if they changed. */
-export const getTillSnapshot = (store, catalog) => client.get('/api/pos/till/', { store, catalog }, { timeout: 30000 })
+/** `catalog`: the catalog_version the till already holds, to be sent products and units only if they changed.
+ * `sync`: the sync_state it holds, to be sent only the stock and prices that changed (offline/snapshotMerge.js). */
+export const getTillSnapshot = (store, catalog, sync) => client.get('/api/pos/till/', { store, catalog, sync }, { timeout: 30000 })
 export const cancelSale =(id) => client.post(`/api/pos/sales/${id}/cancel/`)
 export const completeSale = (id, payment) => client.post(`/api/pos/sales/${id}/complete/`, payment)
 export const retrySale = (id) => client.post(`/api/pos/sales/${id}/retry/`)

@@ -1,7 +1,9 @@
 import hashlib
 import json
+import re
 
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
@@ -14,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import Action, Summary, record
-from catalog.models import Product, UnitOfMeasure
+from catalog.models import CatalogRevision, Product, UnitOfMeasure
 from catalog.serializers import UnitOfMeasureSerializer
 from core import features
 from core.models import Entity, Role, Store
@@ -32,6 +34,8 @@ from .serializers import (
     AddLineSerializer, CloseShiftSerializer, CompleteSaleSerializer, OfflineSaleSerializer, RecordFiscalSerializer,
     SaleSerializer, ShiftSerializer, VoidSaleSerializer,
 )
+
+_ROW_BREAK = chr(10)  # between rows in a sync fingerprint (TillSnapshotView._sync)
 
 _POS_ROLES = (Role.CASHIER, Role.STOREKEEPER, Role.STORE_MANAGER, Role.ENTITY_ADMIN)
 
@@ -271,32 +275,95 @@ class TillSnapshotView(APIView):
     version it holds (?catalog=<version>) gets `products` and `units` as
     null when they are unchanged, and keeps its own copy. Stock is summed
     per product and expiry date: all the till needs to tell what is
-    sellable today, in fewer rows than one per batch."""
+    sellable today, in fewer rows than one per batch.
+
+    Every till asks for this after each sale it records, so the catalog is
+    built once per change, not once per request: it is cached as JSON under
+    the shop's CatalogRevision, which any catalog edit moves on. A till
+    whose copy is current costs one small query for the catalog.
+
+    Stock and prices change with every sale, so they are sent in part:
+    every product falls in one of SYNC_BUCKETS groups (sync_bucket()), and
+    `sync_state` is a fingerprint of each group's stock and price rows. A
+    till that sends back the sync_state it holds (?sync=) gets
+    `sync_buckets`, the groups that changed, and the stock and price rows
+    of those groups only; it replaces its rows in those groups and keeps
+    the rest. Nothing is kept on the server, so any server can answer; a
+    till without a valid state gets everything, with `sync_buckets` null."""
+
+    CATALOG_CACHE_SECONDS = 60 * 60
+    SYNC_BUCKETS = 128
+    _SYNC_STATE = re.compile(rf'^[0-9a-f]{{{SYNC_BUCKETS * 8}}}$')
+
+    @classmethod
+    def sync_bucket(cls, product_id):
+        """The group a product's rows are fingerprinted in: from the first 8
+        hex digits of its id. offline/snapshotMerge.js does the same."""
+        return int(str(product_id)[:8], 16) % cls.SYNC_BUCKETS
+
+    @classmethod
+    def _sync(cls, stock, prices, held):
+        """(stock, prices, sync_state, changed buckets or None): only the
+        rows of groups whose fingerprint differs from `held` (the till's
+        sync_state), or all of them when `held` isn't a valid state."""
+        groups = [([], []) for _ in range(cls.SYNC_BUCKETS)]
+        for row in stock:
+            groups[cls.sync_bucket(row['product'])][0].append(row)
+        for row in sorted(prices, key=lambda r: (r['product'], r['uom'] or '')):
+            groups[cls.sync_bucket(row['product'])][1].append(row)
+        # Each row's values as plain text: str() of a Decimal or date is
+        # exact, and far cheaper than JSON-encoding thousands of rows.
+        hashes = [hashlib.sha256(_ROW_BREAK.join('|'.join(map(str, row.values())) for rows in g for row in rows)
+                                 .encode()).hexdigest()[:8] for g in groups]
+        state = ''.join(hashes)
+        if not (held and cls._SYNC_STATE.match(held)):
+            return stock, prices, state, None
+        changed = [i for i, h in enumerate(hashes) if held[i * 8:i * 8 + 8] != h]
+        return ([row for i in changed for row in groups[i][0]],
+                [row for i in changed for row in groups[i][1]], state, changed)
 
     @staticmethod
-    def _catalog(entity):
+    def _build_catalog(entity_id):
+        """(version, JSON text of [products, units]). The version is a hash
+        of the content, so it only changes when the till's copy would."""
         products = [{
-            'id': str(p.pk), 'name': p.name, 'short_name': p.short_name, 'brand': p.brand, 'size': p.size,
-            'barcode': p.barcode, 'category_name': p.category.name if p.category_id else '',
-            'uom': str(p.uom_id), 'vat_class': p.vat_class, 'tracks_expiry': p.tracks_expiry,
-            'generic_name': p.generic_drug.name if p.generic_drug_id else '',
-            'prescription_only': p.is_prescription_only, 'controlled': p.is_controlled_substance,
-        } for p in Product.objects.filter(entity=entity).select_related('uom', 'category', 'generic_drug')]
-        units = UnitOfMeasureSerializer(UnitOfMeasure.objects.filter(entity=entity), many=True).data
+            'id': str(p['id']), 'name': p['name'], 'short_name': p['short_name'], 'brand': p['brand'],
+            'size': p['size'], 'barcode': p['barcode'], 'category_name': p['category__name'] or '',
+            'uom': str(p['uom_id']), 'vat_class': p['vat_class'], 'tracks_expiry': p['tracks_expiry'],
+            'generic_name': p['generic_drug__name'] or '',
+            'prescription_only': p['is_prescription_only'], 'controlled': p['is_controlled_substance'],
+        } for p in Product.objects.filter(entity_id=entity_id).values(
+            'id', 'name', 'short_name', 'brand', 'size', 'barcode', 'category__name', 'uom_id', 'vat_class',
+            'tracks_expiry', 'generic_drug__name', 'is_prescription_only', 'is_controlled_substance')]
+        units = UnitOfMeasureSerializer(UnitOfMeasure.objects.filter(entity_id=entity_id), many=True).data
         payload = json.dumps([products, units], cls=DjangoJSONEncoder, sort_keys=True)
-        return products, units, hashlib.sha256(payload.encode()).hexdigest()[:16]
+        return hashlib.sha256(payload.encode()).hexdigest()[:16], payload
+
+    @classmethod
+    def _catalog(cls, entity_id):
+        """(version, JSON text), from the cache while the shop's catalog
+        revision is unchanged."""
+        key = f'till-catalog:{entity_id}:{CatalogRevision.current(entity_id)}'
+        hit = cache.get(key)
+        if hit is None:
+            hit = cls._build_catalog(entity_id)
+            cache.set(key, hit, cls.CATALOG_CACHE_SECONDS)
+        return hit
 
     def get(self, request):
         store = Store.objects.filter(pk=request.query_params.get('store')).select_related('entity').first()
         if store is None or not can_access_store(request.user, store):
             raise NotFound(gettext('Store not found.'))
         entity = store.entity
-        products, units, catalog_version = self._catalog(entity)
+        catalog_version, catalog_json = self._catalog(entity.pk)
         if request.query_params.get('catalog') == catalog_version:
             products = units = None
+        else:
+            products, units = json.loads(catalog_json)
         price_store = store if entity.price_mode == Entity.PriceMode.STORE else None
-        prices = {(p.product_id, p.uom_id): {'unit_price': p.unit_price, 'regular_price': p.unit_price, 'promotion': None}
-                  for p in Price.objects.filter(entity=entity, store=price_store)}
+        prices = {(product_id, uom_id): {'unit_price': unit_price, 'regular_price': unit_price, 'promotion': None}
+                  for product_id, uom_id, unit_price in Price.objects.filter(entity=entity, store=price_store)
+                  .values_list('product_id', 'uom_id', 'unit_price')}
         # Store-level promotions come first, so they win over firm-wide ones.
         for promo in reversed(list(Promotion.running(store=store))):
             row = prices.setdefault((promo.product_id, promo.uom_id), {'regular_price': None})
@@ -304,6 +371,11 @@ class TillSnapshotView(APIView):
         stock = (sellable_batches(StockBatch.objects.filter(store=store))
                  .values('product_id', 'expiry_date').annotate(qty=Sum('qty_on_hand'))
                  .order_by('product_id', 'expiry_date'))
+        stock, prices, sync_state, sync_buckets = self._sync(
+            [{'product': str(row['product_id']), 'qty_on_hand': money(row['qty']), 'expiry_date': row['expiry_date']}
+             for row in stock],
+            [{'product': str(product), 'uom': str(uom) if uom else None, **row} for (product, uom), row in prices.items()],
+            request.query_params.get('sync'))
         shift = Shift.open_for(store=store, cashier=request.user).first()
         customers = (with_balances(Customer.objects.filter(entity=entity, is_active=True))
                      if features.is_enabled('customer_credit', store=store) else Customer.objects.none())
@@ -318,10 +390,10 @@ class TillSnapshotView(APIView):
             'catalog_version': catalog_version,
             'products': products,
             'units': units,
-            'prices': [{'product': str(product), 'uom': str(uom) if uom else None, **row}
-                       for (product, uom), row in prices.items()],
-            'stock': [{'product': str(row['product_id']), 'qty_on_hand': money(row['qty']), 'expiry_date': row['expiry_date']}
-                      for row in stock],
+            'prices': prices,
+            'stock': stock,
+            'sync_state': sync_state,
+            'sync_buckets': sync_buckets,
             'payment_methods': PaymentMethodSerializer(PaymentMethod.active_for(entity), many=True,
                                                        context={'entity': entity}).data,
             'customers': [{'id': str(c.pk), 'name': c.name, 'phone': c.phone, 'owing': c.owing,

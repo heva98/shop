@@ -1,16 +1,15 @@
 import uuid
 
-from django.db.models import Q
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from .models import Role, StoreRole
-from .queryset_scoping import accessible_store_ids
+from .models import Role
+from .queryset_scoping import accessible_store_ids, store_roles
 
 
 def _has_any_role(user, allowed_roles):
     if user.is_superuser:
         return True
-    return StoreRole.objects.filter(user=user, role__in=allowed_roles).exists()
+    return any(role in allowed_roles for role, _ in store_roles(user))
 
 
 def has_role_at(user, allowed_roles, store_ids):
@@ -20,7 +19,7 @@ def has_role_at(user, allowed_roles, store_ids):
     core.queryset_scoping.accessible_store_ids."""
     if user.is_superuser:
         return True
-    rows = list(StoreRole.objects.filter(user=user).values_list('role', 'store_id'))
+    rows = store_roles(user)
     if any(role == Role.ENTITY_ADMIN for role, _ in rows):
         return any(role in allowed_roles for role, _ in rows)
     store_ids = {str(s) for s in store_ids}
@@ -139,11 +138,10 @@ def is_store_manager(user, store):
         return False
     if user.is_superuser:
         return True
-    return StoreRole.objects.filter(
-        Q(store=store, role=Role.STORE_MANAGER)
-        | Q(store__isnull=True, role=Role.ENTITY_ADMIN, user__entity_id=store.entity_id),
-        user=user,
-    ).exists()
+    return any(
+        (role == Role.STORE_MANAGER and store_id == store.id)
+        or (role == Role.ENTITY_ADMIN and store_id is None and user.entity_id == store.entity_id)
+        for role, store_id in store_roles(user))
 
 
 class SuperuserForWrite(BasePermission):

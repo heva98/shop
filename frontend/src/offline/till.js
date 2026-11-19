@@ -7,23 +7,22 @@
 import { getTillSnapshot } from '../api/pos.js'
 import { kvGet, kvSet } from './db.js'
 import { withLock } from './outbox.js'
+import { heldVersions, mergeSnapshot } from './snapshotMerge.js'
 
 const key = (userId, storeId) => `till:${userId}:${storeId}`
 
 export const loadTill = (userId, storeId) => kvGet(key(userId, storeId))
 
 /** Fetches a fresh copy; under the outbox lock, so stock never reflects a
- * sale halfway through being recorded. The catalog (products, units) is
- * only sent when it changed since the copy saved here: the server answers
- * null for both when the saved catalog_version is still current. */
+ * sale halfway through being recorded. Only what changed since the copy
+ * saved here is sent: the catalog when its version moved, and the stock and
+ * prices of the products whose figures changed (see snapshotMerge.js). */
 export function refreshTill(userId, storeId) {
   return withLock(async () => {
     const saved = await kvGet(key(userId, storeId)).catch(() => null)
-    const hasCatalog = Boolean(saved?.catalog_version && saved.products && saved.units)
-    const fresh = await getTillSnapshot(storeId, hasCatalog ? saved.catalog_version : undefined)
-    const snapshot = fresh.products === null || fresh.units === null
-      ? { ...fresh, products: saved.products, units: saved.units }
-      : fresh
+    const held = heldVersions(saved)
+    const fresh = await getTillSnapshot(storeId, held.catalog, held.sync)
+    const snapshot = mergeSnapshot(saved, fresh)
     await kvSet(key(userId, storeId), snapshot)
     return snapshot
   })
@@ -34,21 +33,53 @@ export const todayIso = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Lookups the till makes on every keystroke and scan, built once per
+// snapshot (a WeakMap, so an index goes when its snapshot does) instead
+// of re-scanning thousands of products, stock rows and prices each time.
+const indexes = new WeakMap()
+
+function groupBy(rows, key) {
+  const out = new Map()
+  for (const row of rows) {
+    const list = out.get(row[key])
+    if (list) list.push(row)
+    else out.set(row[key], [row])
+  }
+  return out
+}
+
+function indexOf(snapshot) {
+  let index = indexes.get(snapshot)
+  if (!index) {
+    index = {
+      searchText: snapshot.products.map((p) => `${p.name} ${p.short_name} ${p.brand} ${p.size} ${p.barcode} ${p.category_name} ${p.generic_name ?? ''}`.toLowerCase()),
+      byId: new Map(snapshot.products.map((p) => [p.id, p])),
+      byBarcode: groupBy(snapshot.products.filter((p) => p.barcode), 'barcode'),
+      stock: groupBy(snapshot.stock, 'product'),
+      prices: groupBy(snapshot.prices, 'product'),
+      units: new Map(snapshot.units.map((u) => [u.id, u])),
+    }
+    indexes.set(snapshot, index)
+  }
+  return index
+}
+
 /** Products matching every word of `q` in name, short name, brand, size,
  * barcode or category — what the API's ?search= matches. */
 export function searchTill(snapshot, q, limit = 6) {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
+  const { searchText } = indexOf(snapshot)
   const out = []
-  for (const p of snapshot.products) {
-    const text = `${p.name} ${p.short_name} ${p.brand} ${p.size} ${p.barcode} ${p.category_name} ${p.generic_name ?? ''}`.toLowerCase()
-    if (words.every((w) => text.includes(w))) out.push(p)
-    if (out.length >= limit) break
+  for (let i = 0; i < searchText.length && out.length < limit; i++) {
+    if (words.every((w) => searchText[i].includes(w))) out.push(snapshot.products[i])
   }
   return out
 }
 
-export const findByBarcode = (snapshot, code) => snapshot.products.filter((p) => p.barcode && p.barcode === code)
+export const findByBarcode = (snapshot, code) => (code && indexOf(snapshot).byBarcode.get(code)) || []
+
+export const findProduct = (snapshot, id) => indexOf(snapshot).byId.get(id)
 
 /** One till option per way a product can be sold: its stock unit, plus
  * any other unit that has its own price (e.g. "Crate of 24"). Stock is
@@ -57,14 +88,14 @@ export const findByBarcode = (snapshot, code) => snapshot.products.filter((p) =>
  * in the cloud (outbox.unsyncedStock). */
 export function sellOptions(snapshot, products, unsynced = {}) {
   const today = todayIso()
-  const unitById = Object.fromEntries(snapshot.units.map((u) => [u.id, u]))
+  const index = indexOf(snapshot)
   return products.flatMap((product) => {
-    const onHand = snapshot.stock
-      .filter((b) => b.product === product.id && (b.expiry_date === null || b.expiry_date >= today))
+    const onHand = (index.stock.get(product.id) ?? [])
+      .filter((b) => b.expiry_date === null || b.expiry_date >= today)
       .reduce((sum, b) => sum + Number(b.qty_on_hand), 0)
     const stockAvailable = Math.max(0, onHand - (unsynced[product.id] ?? 0))
-    const prices = snapshot.prices.filter((p) => p.product === product.id)
-    const baseUnit = unitById[product.uom]
+    const prices = index.prices.get(product.id) ?? []
+    const baseUnit = index.units.get(product.uom)
     const common = {
       productId: product.id, name: product.name, size: product.size, vatClass: product.vat_class, tracksExpiry: product.tracks_expiry,
       genericName: product.generic_name ?? '', prescriptionOnly: Boolean(product.prescription_only), controlled: Boolean(product.controlled),
@@ -78,7 +109,7 @@ export function sellOptions(snapshot, products, unsynced = {}) {
     })
     const options = [{ ...common, uomId: null, unitName: baseUnit?.name ?? '', perUnit: 1, ...pricing(base) }]
     for (const row of prices) {
-      const unit = unitById[row.uom]
+      const unit = index.units.get(row.uom)
       if (!row.uom || !unit || !baseUnit) continue
       options.push({ ...common, uomId: row.uom, unitName: unit.name, perUnit: Number(unit.unit_value) / Number(baseUnit.unit_value), ...pricing(row) })
     }

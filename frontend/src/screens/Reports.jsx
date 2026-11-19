@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Button, Card, Chip, Field, Icon, Input, NoticeBox, PageHeader } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
 import { downloadCsv } from '../lib/exportCsv.js'
 import {
-  getExpiryReport, getLossesReport, getPurchasesReport, getSalesReport, getShiftsReport, getStockReport,
+  getAllSalesRows, getExpiryReport, getLossesReport, getPurchasesReport, getSalesReport, getShiftsReport, getStockReport,
   getTransfersReport,
 } from '../api/reports.js'
 import { listAllCustomers } from '../api/credit.js'
@@ -23,6 +24,8 @@ const num = (v) => Number(v).toLocaleString('en-US')
 const REPORTS = [
   {
     id: 'sales', title: 'Sales', roles: ALL, usesDates: true, fetch: getSalesReport,
+    // The sales come a page at a time; a download or printout gets them all.
+    loadAll: async (d, params) => ({ ...d, sales: await getAllSalesRows(params), sales_page: null }),
     description: 'Every sale in the period with payment method, discount, credit, EFD receipt and VAT, plus totals by payment method and by product.',
     summary: (d) => [
       ['Sales', d.summary.sales_count], ['Gross sales', money(d.summary.gross_total)], ['VAT included', money(d.summary.vat_total)],
@@ -32,7 +35,7 @@ const REPORTS = [
     ],
     tables: (d) => [
       {
-        title: 'Sales', rows: d.sales, columns: [
+        title: 'Sales', rows: d.sales, paging: d.sales_page, columns: [
           { label: 'No.', value: (r) => r.number }, { label: 'Date', value: (r) => dateTime(r.completed_at) },
           { label: 'Store', value: (r) => r.store }, { label: 'Cashier', value: (r) => r.cashier },
           { label: 'Paid by', value: (r) => (Number(r.credit) ? (Number(r.credit) < Number(r.total) ? `${t(r.payment_method)} + ${t('credit')}` : t('On credit')) : t(r.payment_method)) },
@@ -279,6 +282,11 @@ export default function Reports({ roles, storeId, storeName, entity, features })
   const [end, setEnd] = useState(todayIso())
   const [days, setDays] = useState('90')
   const [state, setState] = useState({ data: null, loading: false, error: '' })
+  // What the report on screen was run with, for its other pages and for
+  // fetching all its rows; and that whole report while it is printed.
+  const [params, setParams] = useState(null)
+  const [printData, setPrintData] = useState(null)
+  const [exporting, setExporting] = useState(false)
   const report = available.find((r) => r.id === reportId)
   // Owners and managers land on the plain summary (ReportsHome); everyone
   // else, and "All reports", gets the list of detailed reports.
@@ -291,11 +299,45 @@ export default function Reports({ roles, storeId, storeName, entity, features })
       const params = { store: storeId || undefined }
       if (target.usesDates) Object.assign(params, { start: range.start, end: range.end })
       if (target.usesDays) params.days = range.days
+      setParams(params)
       setState({ data: await target.fetch(params), loading: false, error: '' })
     } catch (err) {
       setState({ data: null, loading: false, error: err.body?.detail || t('Could not load the report.') })
     }
   }
+
+  /** Another page of the report's rows; the totals stay as they are. */
+  async function goToPage(page) {
+    setState((s) => ({ ...s, loading: true, error: '' }))
+    try {
+      setState({ data: await report.fetch({ ...params, page }), loading: false, error: '' })
+    } catch (err) {
+      setState((s) => ({ ...s, loading: false, error: err.body?.detail || t('Could not load the report.') }))
+    }
+  }
+
+  /** The report with every row, not just the page on screen. */
+  async function withAllRows(action) {
+    setExporting(true)
+    try {
+      await action(report.loadAll ? await report.loadAll(data, params) : data)
+    } catch (err) {
+      setState((s) => ({ ...s, error: err.body?.detail || t('Could not load the report.') }))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const download = (title) => withAllRows((full) => {
+    const tb = report.tables(full).find((x) => x.title === title)
+    downloadCsv(`${report.id}-${tb.title.toLowerCase().replace(/\s+/g, '-')}-${todayIso()}.csv`, tb.columns.map((c) => ({ ...c, label: t(c.label) })), tb.rows)
+  })
+
+  const print = () => withAllRows((full) => {
+    flushSync(() => setPrintData(full))
+    window.print()
+    setPrintData(null)
+  })
 
   /** A summary card's "See details": that report, for the same period, already run. */
   function openReport(id, opts = {}) {
@@ -351,11 +393,11 @@ export default function Reports({ roles, storeId, storeName, entity, features })
             {data && (
               <>
                 {report.tables(data).map((tb) => (
-                  <Button key={tb.title} onClick={() => downloadCsv(`${report.id}-${tb.title.toLowerCase().replace(/\s+/g, '-')}-${todayIso()}.csv`, tb.columns.map((c) => ({ ...c, label: t(c.label) })), tb.rows)}>
+                  <Button key={tb.title} onClick={() => download(tb.title)} disabled={exporting}>
                     <Icon name="download" size={16} /> {report.tables(data).length > 1 ? `${t(tb.title)} (Excel/CSV)` : 'Excel (CSV)'}
                   </Button>
                 ))}
-                <Button onClick={() => window.print()}><Icon name="download" size={16} /> {t('Print / PDF')}</Button>
+                <Button onClick={print} disabled={exporting}><Icon name="download" size={16} /> {exporting ? t('Preparing…') : t('Print / PDF')}</Button>
               </>
             )}
           </div>
@@ -363,12 +405,12 @@ export default function Reports({ roles, storeId, storeName, entity, features })
       )}
 
       {state.error && <NoticeBox variant="error" style={{ maxWidth: 900 }}>{state.error}</NoticeBox>}
-      {data && <ReportBody report={report} data={data} />}
+      {data && <ReportBody report={report} data={data} onPage={goToPage} loading={state.loading} />}
       {data && (
         <PrintArea kind="report">
           <h2 style={{ margin: '0 0 4px' }}>{entity?.name} — {t(report.title)}</h2>
           <div style={{ marginBottom: 12 }}>{scope} · {period} · {t('printed {date}', { date: new Date().toLocaleString(dateLocale()) })}</div>
-          <ReportBody report={report} data={data} plain />
+          <ReportBody report={report} data={printData ?? data} plain />
         </PrintArea>
       )}
       </>)}
@@ -376,7 +418,7 @@ export default function Reports({ roles, storeId, storeName, entity, features })
   )
 }
 
-function ReportBody({ report, data, plain }) {
+function ReportBody({ report, data, plain, onPage, loading }) {
   useT()
   const box = plain ? {} : { background: 'var(--white)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflowX: 'auto' }
   return (
@@ -410,8 +452,23 @@ function ReportBody({ report, data, plain }) {
               </tbody>
             </table>
           </div>
+          {!plain && tb.paging && tb.paging.num_pages > 1 && <Pager paging={tb.paging} onPage={onPage} loading={loading} />}
         </div>
       ))}
+    </div>
+  )
+}
+
+/** "Rows 101–200 of 1,523" with Previous / Next, under a paged table. */
+function Pager({ paging, onPage, loading }) {
+  const { page, page_size: size, count, num_pages: pages } = paging
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-end', marginTop: 8, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>
+        {t('Rows {from}–{to} of {count}', { from: num((page - 1) * size + 1), to: num(Math.min(page * size, count)), count: num(count) })}
+      </span>
+      <Button onClick={() => onPage(page - 1)} disabled={loading || page <= 1}>{t('Previous')}</Button>
+      <Button onClick={() => onPage(page + 1)} disabled={loading || page >= pages}>{t('Next')}</Button>
     </div>
   )
 }

@@ -36,7 +36,7 @@ from inventory.models import StoreProduct
 from pos.models import Sale, SaleLine
 from receiving.models import ReceivingInvoice
 
-from .queries import sale_totals, stores_for, usable_stock
+from .queries import day_start, on_days, sale_totals, stores_for, usable_stock
 
 PERIODS = ('today', 'week', 'month', 'last_month')
 NOT_SELLING_DAYS = 30
@@ -62,8 +62,7 @@ def period_range(period, today):
 
 
 def _completed(stores, start, end):
-    return Sale.objects.filter(store__in=stores, status=Sale.Status.COMPLETED,
-                               completed_at__date__gte=start, completed_at__date__lte=end)
+    return Sale.objects.filter(on_days('completed_at', start, end), store__in=stores, status=Sale.Status.COMPLETED)
 
 
 @api_view(['GET'])
@@ -127,7 +126,7 @@ def summary(request):
 
     sold_recently = set(SaleLine.objects.filter(
         sale__store__in=stores, sale__status=Sale.Status.COMPLETED,
-        sale__completed_at__date__gt=today - timedelta(days=NOT_SELLING_DAYS),
+        sale__completed_at__gte=day_start(today - timedelta(days=NOT_SELLING_DAYS - 1)),
     ).values_list('batch__product_id', flat=True).distinct())
     on_hand = {}
     for (_store, pid), (usable, _expired, _cost) in levels.items():

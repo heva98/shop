@@ -21,6 +21,7 @@ from catalog.seed_data import seed_uoms
 
 from .authentication import revoke_sessions
 from .models import Entity, Role, Store, StoreRole, User
+from .request_cache import forget
 from .serializers import normalize_mobile, normalize_phone, validate_daily_sms_time
 from .tz_locations import check_location
 
@@ -78,6 +79,7 @@ class OwnerSerializer(serializers.ModelSerializer):
                for store in entity.stores.filter(is_active=True)
                for role in Role if role != Role.ENTITY_ADMIN]
         )
+        forget('store_roles')  # bulk_create sends no signals
         return user
 
 
