@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
-import { Button, Card, Chip, Field, Icon, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
+import { useEffect, useState } from 'react'
+import { Button, Card, Chip, DataTable, Field, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
 import { useApi } from '../hooks/useApi.js'
 import { searchProducts } from '../api/catalog.js'
@@ -330,6 +330,119 @@ function Transfers({ store, transfers, onChanged, onPrint }) {
     try { await fn(); setOpen(null); onChanged() } catch (err) { setError(apiErrorText(err, t('Could not save.'))) }
   }
 
+  const columns = [
+    { key: 'number', header: t('No.'), primary: true, cell: (tx) => `#${tx.number}` },
+    {
+      key: 'dispatched_at', header: t('Sent'),
+      cell: (tx) => <div>{new Date(tx.dispatched_at).toLocaleDateString(dateLocale())}<div style={sub}>{tx.dispatched_by_name}</div></div>,
+    },
+    { key: 'route', header: t('From → to'), cell: (tx) => `${tx.from_store_name} → ${tx.to_store_name}` },
+    {
+      key: 'items', header: t('Items'),
+      cell: (tx) => (
+        <div style={{ textAlign: 'left' }}>
+          {tx.lines.map((l) => (
+            <div key={l.id}>
+              {l.product_name} ×{qtyText(l.qty)} {l.unit}
+              {l.received_qty !== null && Number(l.received_qty) !== Number(l.qty) && <span style={{ color: 'var(--red-700)' }}> ({t('got {qty}', { qty: qtyText(l.received_qty) })})</span>}
+              {(l.batch_no || l.expiry_date) && <span style={sub}> · {[l.batch_no && `${t('batch')} ${l.batch_no}`, l.expiry_date && `${t('exp')} ${l.expiry_date}`].filter(Boolean).join(', ')}</span>}
+            </div>
+          ))}
+          {tx.note && <div style={sub}>“{tx.note}”</div>}
+        </div>
+      ),
+    },
+    {
+      key: 'status', header: t('Status'),
+      cell: (tx) => (
+        <div>
+          <Tag variant={STATUS_TAG[tx.status]}>{t(tx.status_label)}</Tag>
+          {tx.discrepancy_note && <div style={{ ...sub, whiteSpace: 'pre-line', maxWidth: 240 }}>{tx.discrepancy_note}</div>}
+          {tx.received_by_name && <div style={sub}>{t('Received by {name}', { name: tx.received_by_name })}</div>}
+        </div>
+      ),
+    },
+    {
+      key: 'owed', header: t('Owed'), align: 'end',
+      cell: (tx) => {
+        if (tx.mode !== 'hub' || tx.amount === null) return ''
+        if (tx.paid_at) return <span style={sub}>{t('Paid')} {fmt(Number(tx.amount))}<br />{t(tx.payment_method_name)}</span>
+        if (Number(tx.balance) > 0) return fmt(Number(tx.balance))
+        return tx.status === 'cancelled' ? '' : <span style={sub}>{fmt(Number(tx.amount))}<br />{t('on receipt')}</span>
+      },
+    },
+    {
+      key: 'actions', header: t('Actions'), label: '', align: 'end',
+      cell: (tx) => {
+        const incoming = tx.to_store === store
+        const outgoing = tx.from_store === store
+        const isOpen = open?.id === tx.id
+        return (
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {incoming && tx.status === 'dispatched' && (
+              <Button size="small" variant="primary" aria-expanded={isOpen && open.kind === 'receive'} onClick={() => setOpen({ id: tx.id, kind: 'receive', note: '', qty: Object.fromEntries(tx.lines.map((l) => [l.id, String(Number(l.qty))])) })}>{t('Confirm receipt')}</Button>
+            )}
+            {tx.status === 'discrepancy' && <Button size="small" aria-expanded={isOpen && open.kind === 'resolve'} onClick={() => setOpen({ id: tx.id, kind: 'resolve', resolution: RESOLUTIONS[0].value, note: '' })}>{t('Resolve')}</Button>}
+            {outgoing && tx.status === 'dispatched' && <Button size="small" aria-expanded={isOpen && open.kind === 'cancel'} onClick={() => setOpen({ id: tx.id, kind: 'cancel', reason: '' })}>{t('Cancel')}</Button>}
+            {outgoing && Number(tx.balance) > 0 && <Button size="small" aria-expanded={isOpen && open.kind === 'pay'} onClick={() => setOpen({ id: tx.id, kind: 'pay', method: activeMethods[0]?.id ?? '', reference: '' })}>{t('Record payment')}</Button>}
+            <Button size="small" icon="download" onClick={() => onPrint(tx)}>{t('Delivery note')}</Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  function renderAction(tx) {
+    return (
+      <>
+        {open.kind === 'receive' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
+            <div style={{ fontSize: 13, color: 'var(--grey-700)' }}>{t('Count what arrived. If anything is missing or broken, enter what you actually got and say why.')}</div>
+            {tx.lines.map((l) => (
+              <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ flex: '1 1 auto', fontSize: 13 }}>{l.product_name}, {t('batch')} {l.batch_no} ({t('sent {qty} {unit}', { qty: qtyText(l.qty), unit: l.unit })})</span>
+                <Input value={open.qty[l.id]} style={{ width: 100 }} onChange={(e) => setOpen((o) => ({ ...o, qty: { ...o.qty, [l.id]: e.target.value } }))} />
+              </div>
+            ))}
+            {tx.lines.some((l) => Number(open.qty[l.id]) < Number(l.qty)) && (
+              <Field label={t('What is missing?')} required><Input value={open.note} onChange={(e) => setOpen((o) => ({ ...o, note: e.target.value }))} placeholder={t('e.g. 2 strips missing from the box')} /></Field>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="primary" onClick={() => run(() => confirmReceipt(tx.id, { receivedQtyByLine: open.qty, note: open.note }))}>{t('Confirm')}</Button>
+              <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
+            </div>
+          </div>
+        )}
+        {open.kind === 'resolve' && (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Field label={t('What happened to the missing stock?')} required>
+              <Select value={open.resolution} onChange={(e) => setOpen((o) => ({ ...o, resolution: e.target.value }))} options={tOptions(RESOLUTIONS)} style={{ width: 420 }} />
+            </Field>
+            <Field label={t('Note')}><Input value={open.note} onChange={(e) => setOpen((o) => ({ ...o, note: e.target.value }))} style={{ width: 240 }} /></Field>
+            <Button variant="primary" onClick={() => run(() => resolveTransfer(tx.id, { resolution: open.resolution, note: open.note }))}>{t('Resolve')}</Button>
+            <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
+          </div>
+        )}
+        {open.kind === 'cancel' && (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Field label={t('Why cancel? The stock goes back into your shelves.')} required><Input value={open.reason} onChange={(e) => setOpen((o) => ({ ...o, reason: e.target.value }))} style={{ width: 360 }} /></Field>
+            <Button variant="destructive" onClick={() => run(() => cancelTransfer(tx.id, open.reason))} disabled={!open.reason.trim()}>{t('Cancel transfer')}</Button>
+            <Button onClick={() => setOpen(null)}>{t('Keep it')}</Button>
+          </div>
+        )}
+        {open.kind === 'pay' && (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, color: 'var(--grey-700)', alignSelf: 'center' }}>{t('{store} paid {amount}', { store: tx.to_store_name, amount: fmt(Number(tx.balance)) })}</div>
+            <Field label={t('Paid by')}><Select value={open.method} onChange={(e) => setOpen((o) => ({ ...o, method: e.target.value }))} options={activeMethods.map((m) => ({ value: m.id, label: t(m.name) }))} style={{ width: 200 }} /></Field>
+            <Field label={t('Reference')}><Input value={open.reference} onChange={(e) => setOpen((o) => ({ ...o, reference: e.target.value }))} style={{ width: 200 }} /></Field>
+            <Button variant="primary" onClick={() => run(() => payTransfer(tx.id, { paymentMethod: open.method, reference: open.reference }))}>{t('Save payment')}</Button>
+            <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
+          </div>
+        )}
+      </>
+    )
+  }
+
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -337,113 +450,17 @@ function Transfers({ store, transfers, onChanged, onPrint }) {
         <Chip selected={filter === 'all'} onClick={() => setFilter('all')}>{t('All transfers')}</Chip>
       </div>
       {error && <NoticeBox variant="error" style={{ marginBottom: 12 }}>{error}</NoticeBox>}
-      <div className="ds-table-card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-          <thead>
-            <tr>{['No.', 'Sent', 'From → to', 'Items', 'Status', 'Owed', ''].map((h) => <th key={h} style={th(h === 'Owed' ? 'right' : undefined)}>{h && t(h)}</th>)}</tr>
-          </thead>
-          <tbody>
-            {shown.map((tx) => {
-              const incoming = tx.to_store === store
-              const outgoing = tx.from_store === store
-              return (
-                <Fragment key={tx.id}>
-                  <tr>
-                    <td style={td()}>#{tx.number}</td>
-                    <td style={td()}>{new Date(tx.dispatched_at).toLocaleDateString(dateLocale())}<div style={sub}>{tx.dispatched_by_name}</div></td>
-                    <td style={td()}>{tx.from_store_name} → {tx.to_store_name}</td>
-                    <td style={td()}>
-                      {tx.lines.map((l) => (
-                        <div key={l.id}>
-                          {l.product_name} ×{qtyText(l.qty)} {l.unit}
-                          {l.received_qty !== null && Number(l.received_qty) !== Number(l.qty) && <span style={{ color: 'var(--red-700)' }}> ({t('got {qty}', { qty: qtyText(l.received_qty) })})</span>}
-                          {(l.batch_no || l.expiry_date) && <span style={sub}> · {[l.batch_no && `${t('batch')} ${l.batch_no}`, l.expiry_date && `${t('exp')} ${l.expiry_date}`].filter(Boolean).join(', ')}</span>}
-                        </div>
-                      ))}
-                      {tx.note && <div style={sub}>“{tx.note}”</div>}
-                    </td>
-                    <td style={td()}>
-                      <Tag variant={STATUS_TAG[tx.status]}>{t(tx.status_label)}</Tag>
-                      {tx.discrepancy_note && <div style={{ ...sub, whiteSpace: 'pre-line', maxWidth: 240 }}>{tx.discrepancy_note}</div>}
-                      {tx.received_by_name && <div style={sub}>{t('Received by {name}', { name: tx.received_by_name })}</div>}
-                    </td>
-                    <td style={td('right')}>
-                      {tx.mode === 'hub' && tx.amount !== null && (tx.paid_at
-                        ? <span style={sub}>{t('Paid')} {fmt(Number(tx.amount))}<br />{t(tx.payment_method_name)}</span>
-                        : Number(tx.balance) > 0 ? fmt(Number(tx.balance))
-                          : tx.status === 'cancelled' ? '' : <span style={sub}>{fmt(Number(tx.amount))}<br />{t('on receipt')}</span>)}
-                    </td>
-                    <td style={{ ...td('right'), whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        {incoming && tx.status === 'dispatched' && (
-                          <Button size="small" variant="primary" onClick={() => setOpen({ id: tx.id, kind: 'receive', note: '', qty: Object.fromEntries(tx.lines.map((l) => [l.id, String(Number(l.qty))])) })}>{t('Confirm receipt')}</Button>
-                        )}
-                        {tx.status === 'discrepancy' && <Button size="small" onClick={() => setOpen({ id: tx.id, kind: 'resolve', resolution: RESOLUTIONS[0].value, note: '' })}>{t('Resolve')}</Button>}
-                        {outgoing && tx.status === 'dispatched' && <Button size="small" onClick={() => setOpen({ id: tx.id, kind: 'cancel', reason: '' })}>{t('Cancel')}</Button>}
-                        {outgoing && Number(tx.balance) > 0 && <Button size="small" onClick={() => setOpen({ id: tx.id, kind: 'pay', method: activeMethods[0]?.id ?? '', reference: '' })}>{t('Record payment')}</Button>}
-                        <Button size="small" onClick={() => onPrint(tx)}><Icon name="download" size={16} /> {t('Delivery note')}</Button>
-                      </div>
-                    </td>
-                  </tr>
-                  {open?.id === tx.id && (
-                    <tr>
-                      <td colSpan={7} style={{ padding: 16, borderBottom: '1px solid var(--grey-300)', background: 'var(--grey-050)' }}>
-                        {open.kind === 'receive' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
-                            <div style={{ fontSize: 13, color: 'var(--grey-700)' }}>{t('Count what arrived. If anything is missing or broken, enter what you actually got and say why.')}</div>
-                            {tx.lines.map((l) => (
-                              <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span style={{ flex: '1 1 auto', fontSize: 13 }}>{l.product_name}, {t('batch')} {l.batch_no} ({t('sent {qty} {unit}', { qty: qtyText(l.qty), unit: l.unit })})</span>
-                                <Input value={open.qty[l.id]} style={{ width: 100 }} onChange={(e) => setOpen((o) => ({ ...o, qty: { ...o.qty, [l.id]: e.target.value } }))} />
-                              </div>
-                            ))}
-                            {tx.lines.some((l) => Number(open.qty[l.id]) < Number(l.qty)) && (
-                              <Field label={t('What is missing?')} required><Input value={open.note} onChange={(e) => setOpen((o) => ({ ...o, note: e.target.value }))} placeholder={t('e.g. 2 strips missing from the box')} /></Field>
-                            )}
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <Button variant="primary" onClick={() => run(() => confirmReceipt(tx.id, { receivedQtyByLine: open.qty, note: open.note }))}>{t('Confirm')}</Button>
-                              <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
-                            </div>
-                          </div>
-                        )}
-                        {open.kind === 'resolve' && (
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                            <Field label={t('What happened to the missing stock?')} required>
-                              <Select value={open.resolution} onChange={(e) => setOpen((o) => ({ ...o, resolution: e.target.value }))} options={tOptions(RESOLUTIONS)} style={{ width: 420 }} />
-                            </Field>
-                            <Field label={t('Note')}><Input value={open.note} onChange={(e) => setOpen((o) => ({ ...o, note: e.target.value }))} style={{ width: 240 }} /></Field>
-                            <Button variant="primary" onClick={() => run(() => resolveTransfer(tx.id, { resolution: open.resolution, note: open.note }))}>{t('Resolve')}</Button>
-                            <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
-                          </div>
-                        )}
-                        {open.kind === 'cancel' && (
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                            <Field label={t('Why cancel? The stock goes back into your shelves.')} required><Input value={open.reason} onChange={(e) => setOpen((o) => ({ ...o, reason: e.target.value }))} style={{ width: 360 }} /></Field>
-                            <Button variant="destructive" onClick={() => run(() => cancelTransfer(tx.id, open.reason))} disabled={!open.reason.trim()}>{t('Cancel transfer')}</Button>
-                            <Button onClick={() => setOpen(null)}>{t('Keep it')}</Button>
-                          </div>
-                        )}
-                        {open.kind === 'pay' && (
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: 13, color: 'var(--grey-700)', alignSelf: 'center' }}>{t('{store} paid {amount}', { store: tx.to_store_name, amount: fmt(Number(tx.balance)) })}</div>
-                            <Field label={t('Paid by')}><Select value={open.method} onChange={(e) => setOpen((o) => ({ ...o, method: e.target.value }))} options={activeMethods.map((m) => ({ value: m.id, label: t(m.name) }))} style={{ width: 200 }} /></Field>
-                            <Field label={t('Reference')}><Input value={open.reference} onChange={(e) => setOpen((o) => ({ ...o, reference: e.target.value }))} style={{ width: 200 }} /></Field>
-                            <Button variant="primary" onClick={() => run(() => payTransfer(tx.id, { paymentMethod: open.method, reference: open.reference }))}>{t('Save payment')}</Button>
-                            <Button onClick={() => setOpen(null)}>{t('Cancel')}</Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              )
-            })}
-            {shown.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{filter === 'open' ? t('Nothing waiting. Switch to All transfers for the history.') : t('No transfers yet. When one branch runs short, it asks another here, and the stock that is sent moves between them.')}</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        caption={t('Transfers')}
+        columns={columns}
+        rows={shown}
+        density="compact"
+        minWidth={760}
+        empty={filter === 'open'
+          ? t('Nothing waiting. Switch to All transfers for the history.')
+          : t('No transfers yet. When one branch runs short, it asks another here, and the stock that is sent moves between them.')}
+        renderDetail={(tx) => (open?.id === tx.id ? renderAction(tx) : null)}
+      />
     </>
   )
 }
@@ -481,9 +498,3 @@ function DeliveryNote({ transfer: tx, entity }) {
 
 const cell = { padding: '6px 8px', borderBottom: '1px solid var(--grey-300)', fontSize: 13 }
 const sub = { fontSize: 12, color: 'var(--fg-subtle)' }
-function th(align) {
-  return { textAlign: align || 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 12px', borderBottom: '1px solid var(--grey-300)' }
-}
-function td(align) {
-  return { padding: '10px 12px', borderBottom: '1px solid var(--grey-300)', textAlign: align || 'left', fontSize: 13, verticalAlign: 'top' }
-}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Card, Checkbox, Field, Icon, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
+import { Button, Card, Checkbox, DataTable, Field, Icon, Input, NoticeBox, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import {
@@ -113,6 +113,39 @@ export default function AdminUsers() {
     setNotice(null)
     setShowForm(true)
   }
+
+  const userColumns = [
+    { key: 'fullName', header: t('Name'), primary: true, sortable: true },
+    { key: 'username', header: t('Username'), sortable: true },
+    {
+      key: 'roles', header: t('Role · Store scope'),
+      cell: (u) => (u.roles.length === 0 ? '—' : u.roles.map((r) => (
+        <div key={r.id} style={{ marginBottom: 4 }}><Tag>{t(r.label)}</Tag> {r.scope ?? t('All stores')}</div>
+      ))),
+    },
+    {
+      key: 'is_active', header: t('Status'), sortable: true, firstDirection: 'desc',
+      cell: (u) => (u.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Disabled')}</Tag>),
+    },
+    {
+      key: 'actions', header: t('Actions'),
+      cell: (u) => {
+        const isSelf = u.id === auth.profile?.id
+        // Another owner's account is the system administrator's to change.
+        if (!isSelf && isOwner(u)) return <span className="ds-dt-sub">{t('Managed by the system administrator')}</span>
+        return (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Button size="small" onClick={() => openEdit(u)}>{t('Edit')}</Button>
+            {!isSelf && (
+              <Button size="small" variant={u.is_active ? 'destructive' : undefined} loading={busyUserId === u.id} onClick={() => toggleActive(u)}>
+                {u.is_active ? t('Disable') : t('Enable')}
+              </Button>
+            )}
+          </div>
+        )
+      },
+    },
+  ]
 
   function openEdit(row) {
     setEditing(row)
@@ -279,58 +312,17 @@ export default function AdminUsers() {
       )}
 
       {!showForm && (
-        <div className="ds-table-card" style={{ marginBottom: 16 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
-            <thead>
-              <tr>
-                <th style={th()}>{t('Name')}</th>
-                <th style={th()}>{t('Username')}</th>
-                <th style={th()}>{t('Role · Store scope')}</th>
-                <th style={th()}>{t('Status')}</th>
-                <th style={th()}>{t('Actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td style={td()} colSpan={5}>{t('Loading users…')}</td></tr>}
-              {loadError && <tr><td style={td('var(--red-600)')} colSpan={5}>{t('Could not load users:')} {loadError.message}</td></tr>}
-              {rows.map((u) => {
-                const isSelf = u.id === auth.profile?.id
-                // Another owner's account is the system administrator's to change.
-                const locked = !isSelf && isOwner(u)
-                return (
-                  <tr key={u.id}>
-                    <td style={td('var(--grey-900)')}>{u.fullName}</td>
-                    <td style={td()}>{u.username}</td>
-                    <td style={td()}>
-                      {u.roles.length === 0 && '—'}
-                      {u.roles.map((r) => <div key={r.id} style={{ marginBottom: 4 }}><Tag>{t(r.label)}</Tag> {r.scope ?? t('All stores')}</div>)}
-                    </td>
-                    <td style={td()}>
-                      {u.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Disabled')}</Tag>}
-                    </td>
-                    <td style={td()}>
-                      {locked ? <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>{t('Managed by the system administrator')}</span> : (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <Button size="small" onClick={() => openEdit(u)}>{t('Edit')}</Button>
-                        {!isSelf && (
-                          <Button
-                            size="small"
-                            variant={u.is_active ? 'destructive' : undefined}
-                            disabled={busyUserId === u.id}
-                            onClick={() => toggleActive(u)}
-                          >
-                            {u.is_active ? t('Disable') : t('Enable')}
-                          </Button>
-                        )}
-                      </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          caption={t('Users')}
+          columns={userColumns}
+          rows={rows}
+          loading={loading}
+          error={loadError}
+          onRetry={refetchUsers}
+          defaultSort={{ key: 'fullName', direction: 'asc' }}
+          minWidth={820}
+          style={{ marginBottom: 16 }}
+        />
       )}
     </>
   )

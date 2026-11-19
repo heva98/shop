@@ -1670,4 +1670,19 @@ export default {
 
   // Controlled drugs sold by anyone at the till
   "Controlled drug: every sale is recorded in the register": "Dawa ya kudhibitiwa: kila mauzo yanarekodiwa kwenye rejista",
+
+  // Shared components: tables, loading and error states
+  "Could not load this.": "Imeshindwa kupakia.",
+  "Nothing to show yet.": "Bado hakuna cha kuonyesha.",
+  "Sort by": "Panga kwa",
+  "Default order": "Mpangilio wa kawaida",
+  "{label}, low to high": "{label}, kidogo kwenda kikubwa",
+  "{label}, high to low": "{label}, kikubwa kwenda kidogo",
+  "Show details": "Onyesha maelezo",
+  "Hide details": "Ficha maelezo",
+  "Stock counts": "Hesabu za stock",
+  "Users": "Watumiaji",
+  "Sales in this shift": "Mauzo ya zamu hii",
+  "Qty change": "Mabadiliko ya idadi",
+  "Stock at {store}": "Stock ya {store}",
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card, Chip, Field, Icon, NoticeBox, Select } from '../../components/ds/index.js'
+import { Button, Card, Chip, DataTable, Field, Icon, NoticeBox, Select } from '../../components/ds/index.js'
 import { useApi } from '../../hooks/useApi.js'
 import { listImportKinds, runImport, downloadImportTemplate } from '../../api/imports.js'
 import { listAllStores } from '../../api/core.js'
@@ -115,26 +115,22 @@ function ImportResult({ result }) {
         <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{t('Columns not used:')} {result.ignored_columns.join(', ')}</div>
       )}
       {result.preview.length > 0 && result.error_count === 0 && (
-        <div className="ds-table-card">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr>{['Row', ...columns].map((c) => <th key={c} style={th}>{c === 'Row' ? t('Row') : c.replace(/_/g, ' ')}</th>)}</tr>
-            </thead>
-            <tbody>
-              {result.preview.map((r) => (
-                <tr key={r.row}>
-                  <td style={td}>{r.row}</td>
-                  {columns.map((c) => <td key={c} style={td}>{r[c] ?? '—'}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {result.rows > result.preview.length && <div style={{ ...td, color: 'var(--fg-subtle)' }}>{t('Showing the first {n} rows.', { n: result.preview.length })}</div>}
-        </div>
+        <DataTable
+          caption={t('Preview')}
+          columns={[
+            { key: 'row', header: t('Row'), width: 64 },
+            ...columns.map((c) => ({ key: c, header: c.replace(/_/g, ' ') })),
+          ]}
+          rows={result.preview}
+          rowKey="row"
+          layout="scroll"
+          density="compact"
+          footer={result.rows > result.preview.length && (
+            <span className="ds-dt-sub">{t('Showing the first {n} rows.', { n: result.preview.length })}</span>
+          )}
+        />
       )}
     </div>
   )
 }
 
-const th = { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-const td = { padding: '14px 16px', borderBottom: '1px solid var(--grey-300)', color: 'var(--grey-700)' }

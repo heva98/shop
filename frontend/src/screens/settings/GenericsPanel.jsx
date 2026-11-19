@@ -7,7 +7,7 @@ import { useForm, introStyle, gridStyle } from './shared.js'
 
 export default function GenericsPanel({ entity }) {
   useT()
-  const { data: generics, refetch } = useApi(() => listAllGenericDrugs(), [])
+  const { data: generics, loading, error, refetch } = useApi(() => listAllGenericDrugs(), [])
   const form = useForm({ name: '', short_name: '', description: '' })
   const save = (d) => (d.id ? updateGenericDrug(d.id, d) : createGenericDrug({ ...d, entity: entity.id }))
   return (
@@ -29,7 +29,8 @@ export default function GenericsPanel({ entity }) {
       <Table
         headers={['Name', 'Short name', 'Description', '']}
         rows={(generics ?? []).map((g) => [g.name, g.short_name || '—', g.description || '—', <Button key="edit" size="small" onClick={() => form.open(g)}>{t('Edit')}</Button>])}
-        empty={generics ? t('No generic medicines yet. They are also created when you type a new one while adding a product.') : t('Loading…')}
+        caption={t('Generic medicines')} loading={loading} error={error} onRetry={refetch}
+        empty={t('No generic medicines yet. They are also created when you type a new one while adding a product.')}
       />
     </>
   )

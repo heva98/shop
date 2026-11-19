@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { Button, Card, Checkbox, EmptyState, Field, Icon, Input, NoticeBox, PageHeader, Select, Switch, Tag } from '../components/ds/index.js'
+import { useEffect, useRef, useState } from 'react'
+import { Button, Card, Checkbox, DataTable, EmptyState, Field, Icon, Input, NoticeBox, PageHeader, Select, Switch, Tag } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
 import { useApi } from '../hooks/useApi.js'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -30,6 +30,8 @@ export default function Customers({ storeId, storeName, roles, features }) {
   const [filters, setFilters] = useState({ search: '', owing: false, inactive: false })
   const [customers, setCustomers] = useState([])
   const [next, setNext] = useState(null)
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState(null)
   const [message, setMessage] = useState(null)
   const [editing, setEditing] = useState(null) // {id?, ...fields}
   const [paying, setPaying] = useState(null) // {customer, amount, payment_method, reference, note}
@@ -40,6 +42,7 @@ export default function Customers({ storeId, storeName, roles, features }) {
   const latest = useRef(0)
   async function load(url) {
     const request = ++latest.current
+    setListLoading(true); setListError(null)
     try {
       const params = {
         search: filters.search.trim() || undefined, owing: filters.owing ? 'true' : undefined,
@@ -50,7 +53,9 @@ export default function Customers({ storeId, storeName, roles, features }) {
       setCustomers((prev) => (url ? [...prev, ...page.results] : page.results))
       setNext(page.next)
     } catch (err) {
-      setMessage({ variant: 'error', text: apiErrorText(err, t('Could not load the customers.')) })
+      if (request === latest.current) setListError(err)
+    } finally {
+      if (request === latest.current) setListLoading(false)
     }
   }
   const [version, setVersion] = useState(0)
@@ -95,6 +100,84 @@ export default function Customers({ storeId, storeName, roles, features }) {
   const creditOff = features?.customer_credit === false
   const payMethod = methods.find((m) => m.id === paying?.payment_method)
 
+
+  const customerColumns = [
+    {
+      key: 'name', header: t('Customer'), primary: true,
+      cell: (c) => (
+        <div style={{ textAlign: 'left' }}>
+          <span>{c.name}</span>
+          {!c.is_active && <> <Tag variant="neutral">{t('Inactive')}</Tag></>}
+          {c.note && <div className="ds-dt-sub" style={{ fontWeight: 400 }}>{c.note}</div>}
+        </div>
+      ),
+    },
+    { key: 'phone', header: t('Phone') },
+    {
+      key: 'owing', header: t('Owes'), align: 'end',
+      cell: (c) => {
+        const owing = Number(c.owing)
+        const over = c.credit_limit !== null && owing > Number(c.credit_limit)
+        return (
+          <div>
+            <span style={{ color: over ? 'var(--red-700)' : owing > 0 ? 'var(--ink)' : 'var(--muted)', fontWeight: owing > 0 ? 600 : 400 }}>
+              {owing < 0 ? t('{amount} in credit', { amount: money(-owing) }) : money(owing)}
+            </span>
+            {over && <div className="ds-dt-sub" style={{ color: 'var(--red-700)' }}>{t('over the limit')}</div>}
+          </div>
+        )
+      },
+    },
+    {
+      key: 'credit_limit', header: t('Credit limit'), align: 'end',
+      cell: (c) => (c.credit_limit === null ? t('No limit') : Number(c.credit_limit) === 0 ? t('No credit') : money(c.credit_limit)),
+    },
+    {
+      key: 'actions', header: t('Actions'), label: '', align: 'end',
+      cell: (c) => {
+        const owing = Number(c.owing)
+        return (
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <Button
+              size="small" disabled={!storeId} aria-expanded={paying?.customer.id === c.id}
+              onClick={() => { setStatementFor(null); setPaying({ customer: c, amount: owing > 0 ? String(owing) : '', payment_method: methods.find((m) => m.implementation === 'cash')?.id ?? methods[0]?.id ?? '', reference: '', note: '' }) }}
+            >
+              {t('Take payment')}
+            </Button>
+            <Button size="small" aria-expanded={statementFor === c.id} onClick={() => { setPaying(null); setStatementFor(statementFor === c.id ? null : c.id) }}>
+              {statementFor === c.id ? t('Hide statement') : t('Statement')}
+            </Button>
+            <Button size="small" onClick={() => setEditing({
+              id: c.id, name: c.name, phone: c.phone, address: c.address, note: c.note, is_active: c.is_active,
+              credit_limit: c.credit_limit === null ? '' : String(Number(c.credit_limit)),
+            })}>{t('Edit')}</Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  function renderPayment() {
+    return (
+      <>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <Field label={t('Amount paid')} required><Input value={paying.amount} onChange={(e) => setPaying((p) => ({ ...p, amount: e.target.value }))} style={{ width: 150 }} /></Field>
+          <Field label={t('Paid by')}>
+            <Select value={paying.payment_method} onChange={(e) => setPaying((p) => ({ ...p, payment_method: e.target.value }))} options={methods.map((m) => ({ value: m.id, label: t(m.name) }))} style={{ width: 170 }} />
+          </Field>
+          {payMethod && payMethod.implementation !== 'cash' && (
+            <Field label={t('Transaction reference')} required><Input value={paying.reference} onChange={(e) => setPaying((p) => ({ ...p, reference: e.target.value }))} placeholder={t('e.g. QK7Y2ZT1')} style={{ width: 170 }} /></Field>
+          )}
+          <Field label={t('Note')}><Input value={paying.note} onChange={(e) => setPaying((p) => ({ ...p, note: e.target.value }))} style={{ width: 200 }} /></Field>
+          <Button variant="primary" onClick={takePayment} disabled={parseAmount(paying.amount) <= 0 || !payMethod || (payMethod.implementation !== 'cash' && !paying.reference.trim())}>{t('Record payment')}</Button>
+          <Button onClick={() => setPaying(null)}>{t('Cancel')}</Button>
+        </div>
+        {payMethod?.implementation === 'cash' && (
+          <div style={{ ...sub, marginTop: 8 }}>{t('Cash taken by a cashier counts in their open shift’s drawer at {store}.', { store: storeName })}</div>
+        )}
+      </>
+    )
+  }
   return (
     <div>
       <PageHeader title={t('Customers')} subtitle={t('Customers who buy on credit, what they owe, and their repayments.')} />
@@ -157,88 +240,31 @@ export default function Customers({ storeId, storeName, roles, features }) {
         </Card>
       )}
 
-      <div className="ds-table-card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-          <thead>
-            <tr>{['Customer', 'Phone', 'Owes', 'Credit limit', ''].map((h, i) => <th key={i} style={th(['Owes', 'Credit limit'].includes(h) ? 'right' : undefined)}>{h && t(h)}</th>)}</tr>
-          </thead>
-          <tbody>
-            {customers.map((c) => {
-              const owing = Number(c.owing)
-              const over = c.credit_limit !== null && owing > Number(c.credit_limit)
-              return (
-                <Fragment key={c.id}>
-                  <tr>
-                    <td style={td()}>
-                      <span style={{ fontWeight: 600, color: 'var(--grey-900)' }}>{c.name}</span>
-                      {!c.is_active && <> <Tag variant="neutral">{t('Inactive')}</Tag></>}
-                      {c.note && <div style={sub}>{c.note}</div>}
-                    </td>
-                    <td style={td()}>{c.phone || '—'}</td>
-                    <td style={td('right')}>
-                      <span style={{ color: over ? 'var(--red-700)' : owing > 0 ? 'var(--grey-900)' : 'var(--fg-subtle)', fontWeight: owing > 0 ? 600 : 400 }}>
-                        {owing < 0 ? t('{amount} in credit', { amount: money(-owing) }) : money(owing)}
-                      </span>
-                      {over && <div style={{ ...sub, color: 'var(--red-700)' }}>{t('over the limit')}</div>}
-                    </td>
-                    <td style={td('right')}>{c.credit_limit === null ? t('No limit') : Number(c.credit_limit) === 0 ? t('No credit') : money(c.credit_limit)}</td>
-                    <td style={{ ...td('right'), whiteSpace: 'nowrap' }}>
-                      <Button size="small" onClick={() => setPaying({ customer: c, amount: owing > 0 ? String(owing) : '', payment_method: methods.find((m) => m.implementation === 'cash')?.id ?? methods[0]?.id ?? '', reference: '', note: '' })} disabled={!storeId}>
-                        {t('Take payment')}
-                      </Button>{' '}
-                      <Button size="small" onClick={() => setStatementFor(statementFor === c.id ? null : c.id)}>{statementFor === c.id ? t('Hide statement') : t('Statement')}</Button>{' '}
-                      <Button size="small" onClick={() => setEditing({
-                        id: c.id, name: c.name, phone: c.phone, address: c.address, note: c.note, is_active: c.is_active,
-                        credit_limit: c.credit_limit === null ? '' : String(Number(c.credit_limit)),
-                      })}>{t('Edit')}</Button>
-                    </td>
-                  </tr>
-                  {paying?.customer.id === c.id && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 16, background: 'var(--grey-050)', borderBottom: '1px solid var(--grey-300)' }}>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                          <Field label={t('Amount paid')} required><Input value={paying.amount} onChange={(e) => setPaying((p) => ({ ...p, amount: e.target.value }))} style={{ width: 150 }} /></Field>
-                          <Field label={t('Paid by')}>
-                            <Select value={paying.payment_method} onChange={(e) => setPaying((p) => ({ ...p, payment_method: e.target.value }))} options={methods.map((m) => ({ value: m.id, label: t(m.name) }))} style={{ width: 170 }} />
-                          </Field>
-                          {payMethod && payMethod.implementation !== 'cash' && (
-                            <Field label={t('Transaction reference')} required><Input value={paying.reference} onChange={(e) => setPaying((p) => ({ ...p, reference: e.target.value }))} placeholder={t('e.g. QK7Y2ZT1')} style={{ width: 170 }} /></Field>
-                          )}
-                          <Field label={t('Note')}><Input value={paying.note} onChange={(e) => setPaying((p) => ({ ...p, note: e.target.value }))} style={{ width: 200 }} /></Field>
-                          <Button variant="primary" onClick={takePayment} disabled={parseAmount(paying.amount) <= 0 || !payMethod || (payMethod.implementation !== 'cash' && !paying.reference.trim())}>{t('Record payment')}</Button>
-                          <Button onClick={() => setPaying(null)}>{t('Cancel')}</Button>
-                        </div>
-                        {payMethod?.implementation === 'cash' && (
-                          <div style={{ ...sub, marginTop: 8 }}>{t('Cash taken by a cashier counts in their open shift’s drawer at {store}.', { store: storeName })}</div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                  {statementFor === c.id && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 16, background: 'var(--grey-050)', borderBottom: '1px solid var(--grey-300)' }}>
-                        <Statement customerId={c.id} entity={entity} isManager={isManager} onChanged={reload} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              )
-            })}
-            {customers.length === 0 && (
-              <tr><td colSpan={5} style={{ ...td(), textAlign: 'center', color: 'var(--fg-subtle)', padding: 32 }}>
-                {filters.search || filters.owing ? t('No customers match.') : (
-                  <EmptyState
-                    icon="customers" title={t('No credit customers yet')}
-                    hint={t('Add the customers you let take goods now and pay later (madeni). At the till you then put a sale on their account, and here you see what each one owes and take their repayments.')}
-                    action={<Button variant="primary" onClick={() => setEditing({ ...EMPTY_CUSTOMER })}><Icon name="add" size={16} /> {t('Add customer')}</Button>}
-                  />
-                )}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {next && <div style={{ marginTop: 12 }}><Button onClick={() => load(next)}>{t('Load more')}</Button></div>}
+      <DataTable
+        caption={t('Customers')}
+        columns={customerColumns}
+        rows={customers}
+        loading={listLoading}
+        error={listError}
+        errorTitle={t('Could not load the customers.')}
+        onRetry={() => load(listError && customers.length ? next : null)}
+        manualSort
+        density="compact"
+        minWidth={760}
+        empty={filters.search || filters.owing ? <EmptyState icon="search" title={t('No customers match.')} /> : (
+          <EmptyState
+            icon="customers" title={t('No credit customers yet')}
+            hint={t('Add the customers you let take goods now and pay later (madeni). At the till you then put a sale on their account, and here you see what each one owes and take their repayments.')}
+            action={<Button variant="primary" icon="add" onClick={() => setEditing({ ...EMPTY_CUSTOMER })}>{t('Add customer')}</Button>}
+          />
+        )}
+        renderDetail={(c) => {
+          if (paying?.customer.id === c.id) return renderPayment()
+          if (statementFor === c.id) return <Statement customerId={c.id} entity={entity} isManager={isManager} onChanged={reload} />
+          return null
+        }}
+        footer={next && <Button loading={listLoading && customers.length > 0} onClick={() => load(next)}>{t('Load more')}</Button>}
+      />
       {!storeId && <div style={{ ...sub, marginTop: 12 }}>{t('Choose a store in the top bar to take payments.')}</div>}
     </div>
   )

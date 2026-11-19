@@ -7,7 +7,7 @@ import { useForm, introStyle, gridStyle } from './shared.js'
 
 export default function SuppliersPanel({ entity }) {
   useT()
-  const { data: suppliers, refetch } = useApi(() => listAllSuppliers(), [])
+  const { data: suppliers, loading, error, refetch } = useApi(() => listAllSuppliers(), [])
   const form = useForm({ name: '', description: '', location: '', email: '', phone: '', payment_terms_days: '0' })
   const save = (d) => (d.id ? updateSupplier(d.id, d) : createSupplier({ ...d, entity: entity.id }))
   return (
@@ -31,13 +31,14 @@ export default function SuppliersPanel({ entity }) {
         headers={['Name', 'Location', 'Phone', 'Email', 'Credit', '']}
         rows={(suppliers ?? []).map((s) => [s.name, s.location || '—', s.phone || '—', s.email || '—',
           s.payment_terms_days ? t('{n} days', { n: s.payment_terms_days }) : t('Pay on delivery'), <Button key="edit" size="small" onClick={() => form.open(s)}>{t('Edit')}</Button>])}
-        empty={suppliers ? (
+        caption={t('Suppliers')} loading={loading} error={error} onRetry={refetch}
+        empty={(
           <EmptyState
             icon="receiving" title={t('No suppliers yet')}
             hint={t('Suppliers are the businesses you buy stock from. Add them to record deliveries and keep track of what you owe each one.')}
             action={<Button variant="primary" onClick={() => form.open()}><Icon name="add" size={16} /> {t('Add supplier')}</Button>}
           />
-        ) : t('Loading…')}
+        )}
       />
     </>
   )

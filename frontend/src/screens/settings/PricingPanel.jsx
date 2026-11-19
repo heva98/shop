@@ -16,7 +16,7 @@ export default function PricingPanel({ entity }) {
   const { data: stores } = useApi(() => (perStore ? listAllStores() : null), [perStore])
   const [storeId, setStoreId] = useState('')
   const activeStore = perStore ? (storeId || stores?.[0]?.id || '') : null
-  const { data: products } = useApi(() => listAllProducts(), [])
+  const { data: products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useApi(() => listAllProducts(), [])
   const { data: prices, refetch } = useApi(() => listAllPrices(), [])
   const [filter, setFilter] = useState('')
   const [editing, setEditing] = useState({}) // productId -> draft string
@@ -83,7 +83,8 @@ export default function PricingPanel({ entity }) {
             />,
           ]
         })}
-        empty={products ? t('No products yet — add them under Products.') : t('Loading…')}
+        caption={t('Selling prices')} loading={productsLoading} error={productsError} onRetry={refetchProducts}
+        empty={q ? t('Nothing matches.') : t('No products yet — add them under Products.')}
       />
     </>
   )

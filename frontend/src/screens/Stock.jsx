@@ -1,5 +1,5 @@
-import { Fragment, useMemo, useState } from 'react'
-import { Button, Chip, EmptyState, Icon, NoticeBox, PageHeader, Tag } from '../components/ds/index.js'
+import { useMemo, useState } from 'react'
+import { Button, Chip, DataTable, EmptyState, Icon, NoticeBox, PageHeader, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { listAllBatches, listAllStoreProducts, listAllLedger } from '../api/inventory.js'
 import { listAllProducts } from '../api/catalog.js'
@@ -43,7 +43,7 @@ export default function Stock({ storeId, storeName, roles, goTo, canGo = () => f
     () => (storeId ? listAllBatches({ store: storeId }) : null), [storeId],
   )
   const { data: storeProducts, refetch: refetchStoreProducts } = useApi(() => (storeId ? listAllStoreProducts({ store: storeId }) : null), [storeId])
-  const { data: ledger, loading: ledgerLoading } = useApi(
+  const { data: ledger, loading: ledgerLoading, error: ledgerError, refetch: refetchLedger } = useApi(
     () => (storeId && tab === 'ledger' ? listAllLedger({ store: storeId }) : null), [storeId, tab],
   )
 
@@ -80,7 +80,7 @@ export default function Stock({ storeId, storeName, roles, goTo, canGo = () => f
   const expiryFilter = tab === 'nearly-expired' ? 'nearly-expired' : tab === 'expired' ? 'expired' : null
   const visibleBatches = (expiryFilter ? batchesWithStatus.filter((b) => b.status === expiryFilter) : batchesWithStatus)
     .map((b, i) => ({
-      name: b.productName, batch: b.batch_no, qty: b.qty, expiry: b.expiry_date, daysLabel: b.daysLabel, statusLabel: b.statusLabel,
+      id: b.id, name: b.productName, batch: b.batch_no, qty: b.qty, expiry: b.expiry_date, daysLabel: b.daysLabel, statusLabel: b.statusLabel,
       num: i + 1, isExpired: b.status === 'expired', isNearlyExpired: b.status === 'nearly-expired',
       isOk: b.status === 'ok', isStockedOut: b.status === 'stocked-out',
     }))
@@ -132,6 +132,7 @@ export default function Stock({ storeId, storeName, roles, goTo, canGo = () => f
       const delta = Number(le.qty_delta)
       const type = LEDGER_TYPE_LABEL[le.ledger_type] ? t(LEDGER_TYPE_LABEL[le.ledger_type]) : le.ledger_type
       return {
+        id: le.id,
         product: batchLookup[le.batch]?.productName ?? '', batch: batchLookup[le.batch]?.batchNo ?? '',
         store: storeName, type, timestamp: new Date(le.created_at).toLocaleString(dateLocale()),
         source: le.ref_type ? `${le.ref_type} ${le.ref_id}`.trim() : '—',
@@ -147,11 +148,79 @@ export default function Stock({ storeId, storeName, roles, goTo, canGo = () => f
 
   if (!storeId) return <NoticeBox variant="warning" title={t('No store selected')}>{t('Select a store to view stock.')}</NoticeBox>
 
+  const batchState = { loading: batchesLoading, error: batchesError, errorTitle: t('Could not load stock data.'), onRetry: refetchBatches }
+  const rowNumber = { key: 'num', header: '#', label: '', width: 40, align: 'center', hideOnMobile: true, cell: (_, i) => i + 1 }
+  const listColumns = [
+    rowNumber,
+    { key: 'name', header: t('Product'), primary: true, sortable: true },
+    { key: 'totalQty', header: t('Total qty'), align: 'end', sortable: true, firstDirection: 'desc' },
+    { key: 'expiredQty', header: t('Expired qty'), align: 'end', sortable: true, firstDirection: 'desc' },
+    { key: 'eligibleQty', header: t('Eligible qty'), align: 'end', sortable: true, firstDirection: 'desc' },
+    { key: 'batchCount', header: t('Batches'), align: 'end', sortable: true, firstDirection: 'desc' },
+    {
+      key: 'expand', header: <span className="sr-only">{t('Show details')}</span>, label: '', width: 44, align: 'center',
+      cell: (p) => (
+        <button
+          type="button" className="ds-dt-expand" aria-expanded={p.expanded} onClick={p.toggle}
+          aria-label={`${p.expanded ? t('Hide details') : t('Show details')}: ${p.name}`}
+        >
+          <Icon name={p.chevronIcon} size={16} />
+        </button>
+      ),
+    },
+  ]
+  const levelColumns = [
+    rowNumber,
+    { key: 'name', header: t('Product'), primary: true, sortable: true },
+    { key: 'qty', header: t('Qty on hand'), align: 'end', sortable: true },
+    { key: 'reorderLevel', header: t('Warn at'), align: 'end', sortable: true, firstDirection: 'desc' },
+  ]
+  const batchColumns = [
+    rowNumber,
+    { key: 'name', header: t('Product'), primary: true, sortable: true },
+    { key: 'batch', header: t('Batch') },
+    { key: 'qty', header: t('Qty'), align: 'end', sortable: true, firstDirection: 'desc' },
+    {
+      key: 'expiry', header: t('Expiry'), sortable: true,
+      cell: (b) => <div><div>{b.expiry || '—'}</div><div className="ds-dt-sub">{b.daysLabel}</div></div>,
+    },
+    {
+      key: 'status', header: t('Status'),
+      cell: (b) => (
+        <>
+          {b.isExpired && <Tag variant="negative">{b.statusLabel}</Tag>}
+          {b.isNearlyExpired && <Tag>{b.statusLabel}</Tag>}
+          {b.isOk && <Tag variant="positive">{b.statusLabel}</Tag>}
+          {b.isStockedOut && <Tag variant="negative" bold>{b.statusLabel}</Tag>}
+        </>
+      ),
+    },
+  ]
+  const ledgerColumns = [
+    { key: 'product', header: t('Product'), primary: true },
+    { key: 'batch', header: t('Batch') },
+    { key: 'store', header: t('Store'), hideOnMobile: true },
+    { key: 'delta', header: t('Qty change'), align: 'end', cell: (le) => <span style={{ color: le.deltaColor }}>{le.deltaLabel}</span> },
+    {
+      key: 'type', header: t('Type'),
+      cell: (le) => (
+        <>
+          {le.isPositive && <Tag variant="positive">{le.type}</Tag>}
+          {le.isNegative && <Tag variant="negative">{le.type}</Tag>}
+          {le.isNeutral && <Tag>{le.type}</Tag>}
+          {!le.isPositive && !le.isNegative && !le.isNeutral && le.type}
+        </>
+      ),
+    },
+    { key: 'timestamp', header: t('Timestamp') },
+    { key: 'source', header: t('Source') },
+  ]
+
   return (
     <div>
       <PageHeader
         title={t('Stock')} subtitle={t('Batches, stock levels and movements at {store}.', { store: storeName })}
-        actions={isOwner && <Button variant="primary" onClick={() => setAdding({})}><Icon name="add" size={16} /> {t('Add product')}</Button>}
+        actions={isOwner && <Button variant="primary" icon="add" onClick={() => setAdding({})}>{t('Add product')}</Button>}
       />
       {adding && (
         <QuickAddProduct
@@ -166,204 +235,82 @@ export default function Stock({ storeId, storeName, roles, goTo, canGo = () => f
       {tab === 'count' && <StockTake storeId={storeId} storeName={storeName} isManager={isManager} />}
       {tab === 'write-offs' && <WriteOffs storeId={storeId} isManager={isManager} />}
 
-      {batchesError && <NoticeBox variant="error">{t('Could not load stock data.')}</NoticeBox>}
-      {batchesLoading && <NoticeBox variant="info">{t('Loading…')}</NoticeBox>}
-
-      {!batchesLoading && tab === 'list' && (
-        <div className="ds-table-card">
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-            <thead>
-              <tr>
-                <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>{t('Product')}</th>
-                <th style={th('right')}>{t('Total qty')}</th>
-                <th style={th('right')}>{t('Expired qty')}</th>
-                <th style={th('right')}>{t('Eligible qty')}</th>
-                <th style={th('right')}>{t('Batches')}</th>
-                <th style={{ width: 32, borderBottom: '1px solid var(--grey-300)' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {stockList.length === 0 && (
-                <tr><td colSpan={7}>
-                  <EmptyState
-                    icon="stock" title={t('No stock at {store} yet', { store: storeName })}
-                    hint={t('Stock shows here once you enter what is on your shelves, or record a delivery from a supplier. Each sale then takes it down by itself.')}
-                    action={(
-                      <>
-                        {isOwner && <Button variant="primary" onClick={() => setAdding({})}><Icon name="add" size={16} /> {t('Add product')}</Button>}
-                        {canGo('receiving') && <Button onClick={() => goTo('receiving')}>{t('Record a delivery')}</Button>}
-                      </>
-                    )}
-                  />
-                </td></tr>
-              )}
-              {stockList.map((p) => (
-                <Fragment key={p.name}>
-                  <tr onClick={p.toggle} style={{ cursor: 'pointer' }}>
-                    <td style={td('center')}>{p.num}</td>
-                    <td style={{ ...td('left'), color: 'var(--grey-900)' }}>{p.name}</td>
-                    <td style={{ ...td('right'), color: 'var(--grey-900)' }}>{p.totalQty}</td>
-                    <td style={td('right')}>{p.expiredQty}</td>
-                    <td style={{ ...td('right'), color: 'var(--grey-900)' }}>{p.eligibleQty}</td>
-                    <td style={td('right')}>{p.batchCount}</td>
-                    <td style={td('center')}><Icon name={p.chevronIcon} size={16} /></td>
-                  </tr>
-                  {p.expanded && (
-                    <tr>
-                      <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--grey-300)', background: 'var(--grey-050)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <tbody>
-                            {p.batches.map((pb) => (
-                              <tr key={pb.batch}>
-                                <td style={{ padding: '8px 16px 8px 48px', fontSize: 13, color: 'var(--grey-700)', fontFamily: 'var(--font-family-mono)' }}>{pb.batch || '—'}</td>
-                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>{t('Qty')} {pb.qty}</td>
-                                <td style={{ padding: '8px 16px', fontSize: 13, color: 'var(--grey-700)' }}>{pb.expiry ? `${t('Exp')} ${pb.expiry}` : t('No expiry')}</td>
-                              </tr>
-                            ))}
-                            <tr>
-                              <td colSpan={3} style={{ padding: '8px 16px 12px 48px' }}>
-                                <Button size="small" disabled={!isOwner} onClick={() => addStockTo(p.id)}>
-                                  <Icon name="add" size={16} /> {t('Add batch')}
-                                </Button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+      {tab === 'list' && (
+        <DataTable
+          caption={t('Stock at {store}', { store: storeName })}
+          columns={listColumns}
+          rows={stockList}
+          {...batchState}
+          minWidth={640}
+          renderDetail={(p) => (p.expanded ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 32 }}>
+              {p.batches.map((pb) => (
+                <div key={pb.batch ?? 'none'} style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13 }}>
+                  <span style={{ minWidth: 120 }}>{pb.batch || '—'}</span>
+                  <span>{t('Qty')} {pb.qty}</span>
+                  <span>{pb.expiry ? `${t('Exp')} ${pb.expiry}` : t('No expiry')}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+              <div><Button size="small" icon="add" disabled={!isOwner} onClick={() => addStockTo(p.id)}>{t('Add batch')}</Button></div>
+            </div>
+          ) : null)}
+          empty={(
+            <EmptyState
+              icon="stock" title={t('No stock at {store} yet', { store: storeName })}
+              hint={t('Stock shows here once you enter what is on your shelves, or record a delivery from a supplier. Each sale then takes it down by itself.')}
+              action={(
+                <>
+                  {isOwner && <Button variant="primary" icon="add" onClick={() => setAdding({})}>{t('Add product')}</Button>}
+                  {canGo('receiving') && <Button onClick={() => goTo('receiving')}>{t('Record a delivery')}</Button>}
+                </>
+              )}
+            />
+          )}
+        />
       )}
 
-      {!batchesLoading && (tab === 'nearly-stocked' || tab === 'stocked-out') && (
-        <div className="ds-table-card">
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-            <thead>
-              <tr>
-                <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>{t('Product')}</th>
-                <th style={th('right')}>{t('Qty on hand')}</th>
-                <th style={th('right')}>{t('Warn at')}</th>
-                <th style={{ width: 44, borderBottom: '1px solid var(--grey-300)' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {visibleStockLevels.map((lv) => (
-                <tr key={lv.name}>
-                  <td style={td('center')}>{lv.num}</td>
-                  <td style={{ ...td('left'), color: 'var(--grey-900)' }}>{lv.name}</td>
-                  <td style={{ ...td('right'), color: 'var(--grey-900)' }}>{lv.qty}</td>
-                  <td style={td('right')}>{lv.reorderLevel}</td>
-                  <td style={td('center')}><Icon name="location" size={16} /></td>
-                </tr>
-              ))}
-              {visibleStockLevels.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No products match this view.')}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {(tab === 'nearly-stocked' || tab === 'stocked-out') && (
+        <DataTable
+          caption={tab === 'stocked-out' ? t('Out of stock') : t('Running low')}
+          columns={levelColumns}
+          rows={visibleStockLevels}
+          rowKey="name"
+          {...batchState}
+          minWidth={520}
+          empty={t('No products match this view.')}
+        />
       )}
 
-      {!batchesLoading && (tab === 'nearly-expired' || tab === 'expired') && (
-        <div className="ds-table-card">
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-            <thead>
-              <tr>
-                <th style={th('center', 32)}>#</th>
-                <th style={th('left')}>{t('Product')}</th>
-                <th style={th('left')}>{t('Batch')}</th>
-                <th style={th('right')}>{t('Qty')}</th>
-                <th style={th('left')}>{t('Expiry')}</th>
-                <th style={th('left')}>{t('Status')}</th>
-                <th style={{ width: 44, borderBottom: '1px solid var(--grey-300)' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {visibleBatches.map((b) => (
-                <tr key={b.name + b.batch}>
-                  <td style={td('center')}>{b.num}</td>
-                  <td style={{ ...td('left'), color: 'var(--grey-900)' }}>{b.name}</td>
-                  <td style={{ ...td('left'), fontFamily: 'var(--font-family-mono)' }}>{b.batch || '—'}</td>
-                  <td style={{ ...td('right'), color: 'var(--grey-900)' }}>{b.qty}</td>
-                  <td style={td('left')}>
-                    <div>{b.expiry || '—'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{b.daysLabel}</div>
-                  </td>
-                  <td style={td('left')}>
-                    {b.isExpired && <Tag variant="negative">{b.statusLabel}</Tag>}
-                    {b.isNearlyExpired && <Tag>{b.statusLabel}</Tag>}
-                    {b.isOk && <Tag variant="positive">{b.statusLabel}</Tag>}
-                    {b.isStockedOut && <Tag variant="negative" bold>{b.statusLabel}</Tag>}
-                  </td>
-                  <td style={td('center')}><Icon name="location" size={16} /></td>
-                </tr>
-              ))}
-              {visibleBatches.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No batches match this filter.')}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {(tab === 'nearly-expired' || tab === 'expired') && (
+        <DataTable
+          caption={tab === 'expired' ? t('Expired') : t('Expiring soon')}
+          columns={batchColumns}
+          rows={visibleBatches}
+          {...batchState}
+          defaultSort={{ key: 'expiry', direction: 'asc' }}
+          minWidth={640}
+          empty={t('No batches match this filter.')}
+        />
       )}
 
       {tab === 'ledger' && (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             {ledgerGroupChips.map((lg) => <Chip key={lg.label} selected={lg.active} dense onClick={lg.select}>{lg.label}</Chip>)}
           </div>
-          {ledgerLoading && <NoticeBox variant="info">{t('Loading…')}</NoticeBox>}
-          {!ledgerLoading && (
-            <div className="ds-table-card">
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-                <thead>
-                  <tr>
-                    <th style={th('left')}>{t('Product')}</th>
-                    <th style={th('left')}>{t('Batch')}</th>
-                    <th style={th('left')}>{t('Store')}</th>
-                    <th style={th('right')}>Qty Δ</th>
-                    <th style={th('left')}>{t('Type')}</th>
-                    <th style={th('left')}>{t('Timestamp')}</th>
-                    <th style={th('left')}>{t('Source')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleLedger.map((le, i) => (
-                    <tr key={i}>
-                      <td style={{ ...td('left'), color: 'var(--grey-900)' }}>{le.product}</td>
-                      <td style={{ ...td('left'), fontFamily: 'var(--font-family-mono)' }}>{le.batch}</td>
-                      <td style={td('left')}>{le.store}</td>
-                      <td style={{ ...td('right'), color: le.deltaColor }}>{le.deltaLabel}</td>
-                      <td style={td('left')}>
-                        {le.isPositive && <Tag variant="positive">{le.type}</Tag>}
-                        {le.isNegative && <Tag variant="negative">{le.type}</Tag>}
-                        {le.isNeutral && <Tag>{le.type}</Tag>}
-                      </td>
-                      <td style={{ ...td('left'), fontSize: 13 }}>{le.timestamp}</td>
-                      <td style={{ ...td('left'), fontSize: 13, color: 'var(--fg-link)' }}>{le.source}</td>
-                    </tr>
-                  ))}
-                  {visibleLedger.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>{t('No stock movements match this filter.')}</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            caption={t('Stock history')}
+            columns={ledgerColumns}
+            rows={visibleLedger}
+            loading={ledgerLoading}
+            error={ledgerError}
+            onRetry={refetchLedger}
+            density="compact"
+            minWidth={760}
+            empty={t('No stock movements match this filter.')}
+          />
         </>
       )}
     </div>
   )
-}
-
-function th(align, width) {
-  return { width, textAlign: align, fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: align === 'center' ? '12px 8px' : '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-}
-function td(align) {
-  return { padding: align === 'left' ? '14px 16px' : align === 'center' ? '14px 8px' : '14px 16px', borderBottom: '1px solid var(--grey-300)', textAlign: align, fontSize: 14, color: 'var(--grey-700)' }
 }

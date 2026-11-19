@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Button, Card, Chip, Field, Icon, Input, NoticeBox, PageHeader } from '../components/ds/index.js'
+import { Button, Card, Chip, DataTable, Field, Icon, Input, NoticeBox, PageHeader } from '../components/ds/index.js'
 import PrintArea from '../components/PrintArea.jsx'
 import { downloadCsv } from '../lib/exportCsv.js'
 import {
@@ -418,9 +418,15 @@ export default function Reports({ roles, storeId, storeName, entity, features })
   )
 }
 
+/** One report cell: money formatted, decimal strings as numbers, else as given. */
+function reportCell(c, r) {
+  const v = c.value(r)
+  if (c.money) return money(v)
+  return typeof v === 'number' || /^-?\d+\.\d+$/.test(v ?? '') ? num(v) : v
+}
+
 function ReportBody({ report, data, plain, onPage, loading }) {
   useT()
-  const box = plain ? {} : { background: 'var(--white)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflowX: 'auto' }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -434,7 +440,7 @@ function ReportBody({ report, data, plain, onPage, loading }) {
       {report.tables(data).map((tb) => (
         <div key={tb.title}>
           {report.tables(data).length > 1 && <h3 style={{ fontSize: 14, fontWeight: 500, margin: '0 0 8px' }}>{t(tb.title)}</h3>}
-          <div style={box}>
+          {plain ? (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>{tb.columns.map((c) => <th key={c.label} style={th(c.align)}>{t(c.label)}</th>)}</tr>
@@ -442,16 +448,32 @@ function ReportBody({ report, data, plain, onPage, loading }) {
               <tbody>
                 {tb.rows.map((r, i) => (
                   <tr key={i}>
-                    {tb.columns.map((c) => {
-                      const v = c.value(r)
-                      return <td key={c.label} style={c.money ? { ...td(c.align), whiteSpace: 'nowrap' } : td(c.align)}>{c.money ? money(v) : (typeof v === 'number' || /^-?\d+\.\d+$/.test(v ?? '') ? num(v) : v)}</td>
-                    })}
+                    {tb.columns.map((c) => (
+                      <td key={c.label} style={c.money ? { ...td(c.align), whiteSpace: 'nowrap' } : td(c.align)}>{reportCell(c, r)}</td>
+                    ))}
                   </tr>
                 ))}
                 {tb.rows.length === 0 && <tr><td colSpan={tb.columns.length} style={{ ...td(), textAlign: 'center' }}>{t('Nothing in this period.')}</td></tr>}
               </tbody>
             </table>
-          </div>
+          ) : (
+            <DataTable
+              caption={t(tb.title)}
+              columns={tb.columns.map((c) => ({
+                key: c.label,
+                header: t(c.label),
+                align: c.align === 'right' ? 'end' : c.align === 'center' ? 'center' : undefined,
+                cell: (r) => (c.money ? <span style={{ whiteSpace: 'nowrap' }}>{reportCell(c, r)}</span> : reportCell(c, r)),
+              }))}
+              rows={tb.rows}
+              rowKey={(_, i) => i}
+              loading={loading}
+              manualSort
+              layout="scroll"
+              density="compact"
+              empty={t('Nothing in this period.')}
+            />
+          )}
           {!plain && tb.paging && tb.paging.num_pages > 1 && <Pager paging={tb.paging} onPage={onPage} loading={loading} />}
         </div>
       ))}

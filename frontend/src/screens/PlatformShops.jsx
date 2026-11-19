@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Field, Icon, Input, Modal, NoticeBox, PageHeader, Radio, Select, Tag } from '../components/ds/index.js'
+import { Button, DataTable, EmptyState, Field, Icon, Input, Modal, NoticeBox, PageHeader, Radio, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import LocationFields, { TANZANIA, countryName } from '../components/LocationFields.jsx'
 import { addShopOwner, listAllShops, registerShop, updateShop } from '../api/platform.js'
@@ -19,13 +19,6 @@ const LABEL = {
   name: 'Shop name', business_type: 'Type of shop', tin: 'TIN', phone: 'Phone', email: 'Email', region: 'Region',
   country: 'Country', council: 'Council', address: 'Street / area', store_mode: 'Store setup', first_name: 'First name',
   last_name: 'Last name', username: 'Username', password: 'Password', owner: 'Owner', daily_sms_time: 'Daily sales SMS time',
-}
-
-function th() {
-  return { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-}
-function td(color) {
-  return { padding: '14px 16px', borderBottom: '1px solid var(--grey-300)', fontSize: 14, color: color || 'var(--grey-700)', verticalAlign: 'top' }
 }
 
 /** Flattens a DRF error body, including the nested {owner: {field: [msg]}}
@@ -93,6 +86,75 @@ export default function PlatformShops() {
     }
   }
 
+  const linkButton = { background: 'none', border: 0, padding: 0, color: 'var(--blue-700)', cursor: 'pointer', fontSize: 12 }
+  const columns = [
+    {
+      key: 'name', header: t('Shop'), primary: true, sortable: true,
+      cell: (s) => (
+        <div>
+          <div>{s.name}</div>
+          <div className="ds-dt-sub" style={{ fontWeight: 400 }}>{t(s.business_type_label)}{s.phone ? ` · ${s.phone}` : ''}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'location', header: t('Location'), sortable: true,
+      sortValue: (s) => [s.council, s.region].filter(Boolean).join(', '),
+      cell: (s) => (
+        <div>
+          {[s.council, s.region, s.country !== TANZANIA && countryName(s.country, lang)].filter(Boolean).join(', ') || '—'}
+          {s.address && <div className="ds-dt-sub">{s.address}</div>}
+        </div>
+      ),
+    },
+    {
+      key: 'owners', header: t('Owner'),
+      cell: (s) => (s.owners.length === 0 ? '—' : (
+        <div style={{ textAlign: 'left' }}>
+          {s.owners.map((o) => (
+            <div key={o.id} style={{ marginBottom: 6 }}>
+              <div>{[o.first_name, o.last_name].filter(Boolean).join(' ') || o.username}</div>
+              <div className="ds-dt-sub">
+                {o.username}{o.phone ? ` · ${o.phone}` : ''}{!o.last_login && ` · ${t('never signed in')}`}
+                {' · '}
+                <button type="button" style={linkButton} onClick={() => { setNotice(null); setDialog({ kind: 'password', shop: s, owner: o }) }}>
+                  {t('Reset password')}
+                </button>
+              </div>
+              <div className="ds-dt-sub">
+                {t('Daily sales SMS at {time}', { time: smsTimeLabel(o.daily_sms_time) })}
+                {' · '}
+                <button type="button" style={linkButton} onClick={() => { setNotice(null); setDialog({ kind: 'smsTime', shop: s, owner: o }) }}>
+                  {t('Change')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )),
+    },
+    {
+      key: 'store_count', header: t('Stores · Staff'), label: t('Stores · Staff'), sortable: true, firstDirection: 'desc',
+      cell: (s) => `${s.store_count} · ${s.staff_count}`,
+    },
+    {
+      key: 'is_active', header: t('Status'), sortable: true, firstDirection: 'desc',
+      cell: (s) => (s.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Suspended')}</Tag>),
+    },
+    {
+      key: 'actions', header: t('Actions'),
+      cell: (s) => (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'edit', shop: s }) }}>{t('Edit')}</Button>
+          <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'owner', shop: s }) }}>{t('Add owner')}</Button>
+          <Button size="small" variant={s.is_active ? 'destructive' : undefined} loading={busyId === s.id} onClick={() => toggleActive(s)}>
+            {s.is_active ? t('Suspend') : t('Reactivate')}
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div>
       <PageHeader
@@ -107,76 +169,20 @@ export default function PlatformShops() {
       )}
       {notice && <NoticeBox variant="valid" title={notice} style={{ marginBottom: 12 }} />}
       <div style={{ maxWidth: 320, marginBottom: 12 }}>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search shop, place, phone or owner…')} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search shop, place, phone or owner…')} prefixIcon="search" aria-label={t('Search shop, place, phone or owner…')} />
       </div>
-      <div className="ds-table-card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
-          <thead>
-            <tr>
-              <th style={th()}>{t('Shop')}</th>
-              <th style={th()}>{t('Location')}</th>
-              <th style={th()}>{t('Owner')}</th>
-              <th style={th()}>Stores · Staff</th>
-              <th style={th()}>{t('Status')}</th>
-              <th style={th()}>{t('Actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td style={td()} colSpan={6}>{t('Loading shops…')}</td></tr>}
-            {loadError && <tr><td style={td('var(--red-600)')} colSpan={6}>{t('Could not load shops:')} {loadError.message}</td></tr>}
-            {!loading && !loadError && rows.length === 0 && (
-              <tr><td style={td()} colSpan={6}>{search ? t('No shop matches.') : t('No shops yet. Register the first one.')}</td></tr>
-            )}
-            {rows.map((s) => (
-              <tr key={s.id}>
-                <td style={td('var(--grey-900)')}>
-                  <div style={{ fontWeight: 500 }}>{s.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{t(s.business_type_label)}{s.phone ? ` · ${s.phone}` : ''}</div>
-                </td>
-                <td style={td()}>
-                  {[s.council, s.region, s.country !== TANZANIA && countryName(s.country, lang)].filter(Boolean).join(', ') || '—'}
-                  {s.address && <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{s.address}</div>}
-                </td>
-                <td style={td()}>
-                  {s.owners.length === 0 && '—'}
-                  {s.owners.map((o) => (
-                    <div key={o.id} style={{ marginBottom: 6 }}>
-                      <div>{[o.first_name, o.last_name].filter(Boolean).join(' ') || o.username}</div>
-                      <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
-                        {o.username}{o.phone ? ` · ${o.phone}` : ''}{!o.last_login && ` · ${t('never signed in')}`}
-                        {' · '}
-                        <button type="button" style={{ background: 'none', border: 0, padding: 0, color: 'var(--blue-700)', cursor: 'pointer', fontSize: 12 }}
-                          onClick={() => { setNotice(null); setDialog({ kind: 'password', shop: s, owner: o }) }}>
-                          {t('Reset password')}
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
-                        {t('Daily sales SMS at {time}', { time: smsTimeLabel(o.daily_sms_time) })}
-                        {' · '}
-                        <button type="button" style={{ background: 'none', border: 0, padding: 0, color: 'var(--blue-700)', cursor: 'pointer', fontSize: 12 }}
-                          onClick={() => { setNotice(null); setDialog({ kind: 'smsTime', shop: s, owner: o }) }}>
-                          {t('Change')}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </td>
-                <td style={td()}>{s.store_count} · {s.staff_count}</td>
-                <td style={td()}>{s.is_active ? <Tag variant="positive">{t('Active')}</Tag> : <Tag variant="negative">{t('Suspended')}</Tag>}</td>
-                <td style={td()}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'edit', shop: s }) }}>{t('Edit')}</Button>
-                    <Button size="small" onClick={() => { setNotice(null); setDialog({ kind: 'owner', shop: s }) }}>{t('Add owner')}</Button>
-                    <Button size="small" variant={s.is_active ? 'destructive' : undefined} disabled={busyId === s.id} onClick={() => toggleActive(s)}>
-                      {s.is_active ? t('Suspend') : t('Reactivate')}
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        caption={t('Shops')}
+        columns={columns}
+        rows={rows}
+        loading={loading}
+        error={loadError}
+        onRetry={refetch}
+        minWidth={900}
+        empty={search
+          ? <EmptyState icon="search" title={t('No shop matches.')} />
+          : <EmptyState icon="store" title={t('No shops yet. Register the first one.')} />}
+      />
 
       {dialog?.kind === 'register' && <ShopDialog onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === 'edit' && <ShopDialog shop={dialog.shop} onClose={() => setDialog(null)} onDone={done} />}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Field, Input, NoticeBox, Tag } from '../../components/ds/index.js'
+import { Button, DataTable, Field, Input, NoticeBox, Tag } from '../../components/ds/index.js'
 import { useApi } from '../../hooks/useApi.js'
 import { isTransient } from '../../api/client.js'
 import { listAllSales, voidSale } from '../../api/pos.js'
@@ -8,7 +8,7 @@ import { fmt } from '../../appData.js'
 import { apiErrorText } from '../../lib/apiError.js'
 import { dateLocale, t, useT } from '../../i18n/index.js'
 import { EfdReceiptEntry } from './CompletedSale.jsx'
-import { offlineNo, tdStyle, thStyle } from './format.js'
+import { offlineNo } from './format.js'
 import { useAsyncAction } from '../../hooks/useAsyncAction.js'
 
 /** Sales on this till the cloud refused when they were sent (e.g. its
@@ -71,67 +71,73 @@ export function ShiftSales({ shift, unsent, isManager, onPrint, onChanged }) {
   // A waiting sale that just got recorded moves from the till's list to the server's.
   useEffect(() => subscribe((e) => { if (e.synced) refetchSales() }), [refetchSales])
 
-  if (loading && !data && !unsent.length) return <NoticeBox variant="info">{t('Loading…')}</NoticeBox>
+  // Sales still waiting on this till first (newest first), then the recorded ones.
+  const rows = [
+    ...[...unsent].reverse().map((r) => ({ kind: 'unsent', key: `u-${r.id}`, id: r.id, sale: r.receipt, record: r })),
+    ...sales.map((s) => ({ kind: 'sale', key: `s-${s.id}`, id: s.id, sale: s })),
+  ]
+  const time = (iso) => new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
+
+  const columns = [
+    { key: 'number', header: t('No.'), primary: true, cell: (r) => (r.kind === 'unsent' ? offlineNo(r.sale) : `#${r.sale.number}`) },
+    { key: 'time', header: t('Time'), cell: (r) => time(r.kind === 'unsent' ? r.record.createdAt : r.sale.completed_at) },
+    { key: 'paid_by', header: t('Paid by'), cell: (r) => <PaidBy sale={r.sale} /> },
+    { key: 'total', header: t('Total'), align: 'end', cell: (r) => <span style={{ color: 'var(--ink)' }}>{fmt(Number(r.sale.total))}</span> },
+    {
+      key: 'efd', header: t('EFD receipt'),
+      cell: (r) => {
+        if (r.sale.efd_receipt_no) return r.sale.efd_receipt_no
+        if (r.kind === 'sale' && r.sale.status !== 'completed') return '—'
+        if (efdFor === r.id) {
+          return <EfdReceiptEntry sale={r.sale} onUpdated={() => { setEfdFor(null); if (r.kind === 'sale') refetch() }} />
+        }
+        return <Button size="small" onClick={() => setEfdFor(r.id)}>{t('Enter')}</Button>
+      },
+    },
+    {
+      key: 'status', header: t('Status'),
+      cell: (r) => {
+        if (r.kind === 'unsent') {
+          return r.record.status === 'rejected' ? <Tag variant="negative">{t('Not recorded')}</Tag> : <Tag variant="neutral">{t('Waiting to send')}</Tag>
+        }
+        return r.sale.status === 'voided'
+          ? <div><Tag variant="negative">{t('Voided')}</Tag><div className="ds-dt-sub" style={{ marginTop: 2 }}>{r.sale.void_reason}</div></div>
+          : <Tag variant="positive">{t('Completed')}</Tag>
+      },
+    },
+    {
+      key: 'actions', header: t('Actions'), label: '', align: 'end',
+      cell: (r) => (
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <Button size="small" onClick={() => onPrint(r.sale)}>{t('Print')}</Button>
+          {r.kind === 'sale' && r.sale.status === 'completed' && (
+            <Button size="small" variant="destructive" aria-expanded={voiding?.id === r.id} onClick={() => setVoiding(voiding?.id === r.id ? null : r.sale)}>{t('Void')}</Button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
   return (
-    <div className="ds-table-card">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {error && (
-        <NoticeBox variant="warning" style={{ margin: 16 }}>
+        <NoticeBox variant="warning">
           {isTransient(error) ? t('Offline: only the sales still saved on this till are shown.') : apiErrorText(error, t('Could not load the shift’s sales.'))}
         </NoticeBox>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-        <thead>
-          <tr>
-            <th style={thStyle('left')}>{t('No.')}</th><th style={thStyle('left')}>{t('Time')}</th><th style={thStyle('left')}>{t('Paid by')}</th>
-            <th style={thStyle('right')}>{t('Total')}</th><th style={thStyle('left')}>{t('EFD receipt')}</th><th style={thStyle('left')}>{t('Status')}</th><th style={thStyle('right')} />
-          </tr>
-        </thead>
-        <tbody>
-          {[...unsent].reverse().map((r) => (
-            <tr key={r.id}>
-              <td style={tdStyle('left', true)}>{offlineNo(r.receipt)}</td>
-              <td style={tdStyle('left', true)}>{new Date(r.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</td>
-              <td style={tdStyle('left', true)}><PaidBy sale={r.receipt} /></td>
-              <td style={{ ...tdStyle('right', true), color: 'var(--grey-900)' }}>{fmt(Number(r.receipt.total))}</td>
-              <td style={tdStyle('left', true)}>
-                {r.receipt.efd_receipt_no || (efdFor === r.id
-                  ? <EfdReceiptEntry sale={r.receipt} onUpdated={() => setEfdFor(null)} />
-                  : <Button size="small" onClick={() => setEfdFor(r.id)}>{t('Enter')}</Button>)}
-              </td>
-              <td style={tdStyle('left', true)}>
-                {r.status === 'rejected' ? <Tag variant="negative">{t('Not recorded')}</Tag> : <Tag variant="neutral">{t('Waiting to send')}</Tag>}
-              </td>
-              <td style={{ ...tdStyle('right', true), whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => onPrint(r.receipt)}>{t('Print')}</Button>
-              </td>
-            </tr>
-          ))}
-          {sales.map((s) => (
-            <tr key={s.id}>
-              <td style={tdStyle('left', true)}>#{s.number}</td>
-              <td style={tdStyle('left', true)}>{new Date(s.completed_at).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</td>
-              <td style={tdStyle('left', true)}><PaidBy sale={s} /></td>
-              <td style={{ ...tdStyle('right', true), color: 'var(--grey-900)' }}>{fmt(Number(s.total))}</td>
-              <td style={tdStyle('left', true)}>
-                {s.efd_receipt_no || (s.status === 'completed' && (efdFor === s.id
-                  ? <EfdReceiptEntry sale={s} onUpdated={() => { setEfdFor(null); refetch() }} />
-                  : <Button size="small" onClick={() => setEfdFor(s.id)}>{t('Enter')}</Button>))}
-              </td>
-              <td style={tdStyle('left', true)}>
-                {s.status === 'voided'
-                  ? <><Tag variant="negative">{t('Voided')}</Tag><div style={{ fontSize: 12, marginTop: 2 }}>{s.void_reason}</div></>
-                  : <Tag variant="positive">{t('Completed')}</Tag>}
-              </td>
-              <td style={{ ...tdStyle('right', true), whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => onPrint(s)}>{t('Print')}</Button>{' '}
-                {s.status === 'completed' && <Button size="small" variant="destructive" onClick={() => setVoiding(s)}>{t('Void')}</Button>}
-              </td>
-            </tr>
-          ))}
-          {sales.length === 0 && unsent.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: 'var(--fg-subtle)', fontSize: 14 }}>{t('No sales in this shift yet.')}</td></tr>}
-        </tbody>
-      </table>
-      {voiding && <VoidDialog sale={voiding} isManager={isManager} onClose={() => setVoiding(null)} onVoided={() => { setVoiding(null); refetch() }} />}
+      <DataTable
+        caption={t('Sales in this shift')}
+        columns={columns}
+        rows={rows}
+        rowKey="key"
+        // Offline the server's list can't load, but the till's own sales still show.
+        loading={loading && !data}
+        minWidth={720}
+        empty={t('No sales in this shift yet.')}
+        renderDetail={(r) => (r.kind === 'sale' && voiding?.id === r.id
+          ? <VoidDialog sale={voiding} isManager={isManager} onClose={() => setVoiding(null)} onVoided={() => { setVoiding(null); refetch() }} />
+          : null)}
+      />
     </div>
   )
 }
@@ -163,7 +169,7 @@ function VoidDialog({ sale, isManager, onClose, onVoided }) {
   }
 
   return (
-    <div style={{ padding: 16, borderTop: '1px solid var(--grey-300)', display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 480 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 480 }}>
       <div style={{ fontSize: 15, fontWeight: 500 }}>{t('Void sale #{n} ({amount})', { n: sale.number, amount: fmt(Number(sale.total)) })}</div>
       <div style={{ fontSize: 13, color: 'var(--fg-muted)' }}>
         {t('The items go back into stock and the sale is excluded from takings.')}{' '}

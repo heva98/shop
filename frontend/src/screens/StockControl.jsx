@@ -10,6 +10,7 @@ import {
 import { fmt } from '../appData.js'
 import { dateLocale, t, tOptions, useT } from '../i18n/index.js'
 import { useAsyncAction } from '../hooks/useAsyncAction.js'
+import { Table } from './settings/FormParts.jsx'
 
 const statusTag = (status) => ({
   draft: <Tag>{t('Counting')}</Tag>, submitted: <Tag variant="neutral">{t('Awaiting approval')}</Tag>,
@@ -22,7 +23,7 @@ const signed = (v) => (Number(v) > 0 ? `+${n(v)}` : n(v))
  * then a manager reviews the differences and approves the corrections. */
 export function StockTake({ storeId, storeName, isManager }) {
   useT()
-  const { data: counts, refetch: refetchList } = useApi(() => listStockCounts({ store: storeId }), [storeId])
+  const { data: counts, loading: countsLoading, error: countsError, refetch: refetchList } = useApi(() => listStockCounts({ store: storeId }), [storeId])
   const [openId, setOpenId] = useState(null)
   const { busy, error, run } = useAsyncAction()
   const active = (counts?.results ?? []).find((c) => c.status === 'draft' || c.status === 'submitted')
@@ -48,13 +49,14 @@ export function StockTake({ storeId, storeName, isManager }) {
         {error && <NoticeBox variant="error" style={{ marginBottom: 12 }}>{error}</NoticeBox>}
         <Button variant="primary" onClick={start} disabled={busy}>{t('Start stock count')}</Button>
       </Card>
-      <SimpleTable
+      <Table
         headers={['Started', 'Status', 'Batches', 'Counted by', 'Approved by', '']}
         rows={(counts?.results ?? []).map((c) => [
           new Date(c.created_at).toLocaleString(dateLocale()), statusTag(c.status), c.line_count, c.submitted_by_name || c.created_by_name,
           c.approved_by_name || '—', <Button key="open" size="small" onClick={() => setOpenId(c.id)}>{t('Open')}</Button>,
         ])}
-        empty={counts ? t('No stock counts yet. Count once a month, or whenever the shelf and the system seem to disagree.') : t('Loading…')}
+        caption={t('Stock counts')} loading={countsLoading} error={countsError} onRetry={refetchList}
+        empty={t('No stock counts yet. Count once a month, or whenever the shelf and the system seem to disagree.')}
       />
     </div>
   )
@@ -145,7 +147,7 @@ function CountSheet({ id, storeName, isManager, onClose, onChanged }) {
       )}
 
       <div style={{ marginBottom: 8, maxWidth: 360 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Filter by product or batch')} prefixIcon="search" /></div>
-      <SimpleTable
+      <Table
         headers={reviewing
           ? ['Product', 'Batch', 'Expiry', 'Expected', 'Counted', 'Difference', 'Value']
           : ['Product', 'Batch', 'Expiry', 'Counted']}
@@ -236,8 +238,8 @@ const REASONS = [
  * to Stock can see the history. */
 export function WriteOffs({ storeId, isManager }) {
   useT()
-  const { data: batches, refetch: refetchBatches } = useApi(() => listAllBatches({ store: storeId }), [storeId])
-  const { data: history, refetch: refetchHistory } = useApi(() => listAdjustments({ store: storeId }), [storeId])
+  const { data: batches, loading: batchesLoading, error: batchesError, refetch: refetchBatches } = useApi(() => listAllBatches({ store: storeId }), [storeId])
+  const { data: history, loading: historyLoading, error: historyError, refetch: refetchHistory } = useApi(() => listAdjustments({ store: storeId }), [storeId])
   const [filter, setFilter] = useState('')
   const [form, setForm] = useState(null) // {batch, qty, reason, note, add}
   const { busy, error, setError, run } = useAsyncAction()
@@ -297,7 +299,7 @@ export function WriteOffs({ storeId, isManager }) {
       {isManager && (
         <>
           <div style={{ marginBottom: 8, maxWidth: 360 }}><Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Find the stock that was lost or damaged')} prefixIcon="search" /></div>
-          <SimpleTable
+          <Table
             headers={['Product', 'Batch', 'Expiry', 'In stock', '']}
             rows={visible.map((b) => [
               b.product_name, b.batch_no,
@@ -305,40 +307,25 @@ export function WriteOffs({ storeId, isManager }) {
               `${n(b.qty_on_hand)} ${b.unit_name}`,
               <Button key="w" size="small" onClick={() => setForm({ batch: b, qty: '', reason: b.expiry_date && b.expiry_date < today ? 'expired' : 'damaged', note: '', add: false })}>{t('Write off')}</Button>,
             ])}
-            empty={batches ? t('No stock in this store.') : t('Loading…')}
+            loading={batchesLoading} error={batchesError} onRetry={refetchBatches}
+            empty={filter.trim() ? t('Nothing matches.') : t('No stock in this store.')}
           />
         </>
       )}
 
       <h3 style={{ fontSize: 15, fontWeight: 500, margin: '24px 0 8px' }}>{t('History')}</h3>
-      <SimpleTable
+      <Table
         headers={['Date', 'Product', 'Batch', 'Reason', 'Qty', 'Value at cost', 'By', 'Note']}
         rows={(history?.results ?? []).map((a) => [
           new Date(a.created_at).toLocaleString(dateLocale()), a.product_name, a.batch_no, t(a.reason_label), signed(a.qty_delta),
           fmt(Number(a.value_at_cost)), a.created_by_name, a.note || '—',
         ])}
-        empty={history ? t('Nothing recorded yet. When stock is lost, damaged, stolen or expires, record it here so your stock and profit stay right.') : t('Loading…')}
+        loading={historyLoading} error={historyError} onRetry={refetchHistory}
+        empty={t('Nothing recorded yet. When stock is lost, damaged, stolen or expires, record it here so your stock and profit stay right.')}
       />
     </div>
   )
 }
 
-function SimpleTable({ headers, rows, empty }) {
-  useT()
-  return (
-    <div className="ds-table-card">
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-        <thead><tr>{headers.map((h, i) => <th key={i} style={th}>{h && t(h)}</th>)}</tr></thead>
-        <tbody>
-          {rows.map((cells, i) => <tr key={i}>{cells.map((c, j) => <td key={j} style={td}>{c}</td>)}</tr>)}
-          {rows.length === 0 && <tr><td colSpan={headers.length} style={{ ...td, textAlign: 'center', color: 'var(--fg-subtle)' }}>{empty}</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-const th = { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)', whiteSpace: 'nowrap' }
-const td = { padding: '14px 16px', borderBottom: '1px solid var(--grey-300)', fontSize: 14, color: 'var(--grey-700)', verticalAlign: 'middle' }
 const label = { fontSize: 12, color: 'var(--fg-subtle)' }
 const big = { fontSize: 24, lineHeight: '32px', fontWeight: 700, color: 'var(--navy-800)' }

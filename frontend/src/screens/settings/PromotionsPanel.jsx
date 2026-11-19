@@ -20,7 +20,7 @@ const PROMOTION_STATUS = (p) => {
 
 export default function PromotionsPanel({ entity }) {
   useT()
-  const { data: promotions, refetch } = useApi(() => listAllPromotions(), [])
+  const { data: promotions, loading, error: loadError, refetch } = useApi(() => listAllPromotions(), [])
   const { data: products } = useApi(() => listAllProducts(), [])
   const { data: uoms } = useApi(() => listAllUnitsOfMeasure(), [])
   const { data: stores } = useApi(() => (entity.store_mode === 'multi' ? listAllStores() : null), [entity.store_mode])
@@ -99,7 +99,7 @@ export default function PromotionsPanel({ entity }) {
             </div>,
           ]
         })}
-        empty={promotions ? t('No promotions yet.') : t('Loading…')}
+        caption={t('Promotions')} loading={loading} error={loadError} onRetry={refetch} empty={t('No promotions yet.')}
       />
     </>
   )

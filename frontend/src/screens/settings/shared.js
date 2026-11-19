@@ -35,11 +35,3 @@ export const omit = (obj, key) => Object.fromEntries(Object.entries(obj).filter(
 export const introStyle = { fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px', maxWidth: 640 }
 
 export const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }
-
-export function th(align) {
-  return { textAlign: align || 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-}
-
-export function td(align) {
-  return { padding: '10px 16px', borderBottom: '1px solid var(--grey-300)', textAlign: align || 'left', fontSize: 14, color: 'var(--grey-700)', verticalAlign: 'middle' }
-}

@@ -14,7 +14,7 @@ export default function ReorderPanel() {
   const { data: stores } = useApi(() => listAllStores(), [])
   const [storeId, setStoreId] = useState('')
   const activeStore = storeId || stores?.[0]?.id || ''
-  const { data: products } = useApi(() => listAllProducts(), [])
+  const { data: products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useApi(() => listAllProducts(), [])
   const { data: storeProducts, refetch } = useApi(() => (activeStore ? listAllStoreProducts({ store: activeStore }) : null), [activeStore])
   const [editing, setEditing] = useState({})
   const [filter, setFilter] = useState('')
@@ -62,7 +62,8 @@ export default function ReorderPanel() {
               : <Button key="edit" size="small" onClick={() => setEditing({ ...editing, [p.id]: sp ? String(Number(sp.reorder_level)) : '' })}>{sp ? t('Edit') : t('Set')}</Button>,
           ]
         })}
-        empty={products ? t('No products yet.') : t('Loading…')}
+        caption={t('Low-stock warnings')} loading={productsLoading} error={productsError} onRetry={refetchProducts}
+        empty={q ? t('Nothing matches.') : t('No products yet.')}
       />
     </>
   )

@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Button, Card, Field, Input, Modal, NoticeBox, Select, Switch, Tag } from '../../components/ds/index.js'
+import { Button, Card, DataTable, Field, Input, Modal, NoticeBox, Select, Switch, Tag } from '../../components/ds/index.js'
 import { useApi } from '../../hooks/useApi.js'
 import {
   getSmsBatch, getSmsConfig, listSmsBatches, listSmsTemplates, previewSms, resendFailedSms, sendSms,
   updateSmsConfig, updateSmsTemplate,
 } from '../../api/sms.js'
 import { apiErrorText } from '../../lib/apiError.js'
-import { useT } from '../../i18n/index.js'
+import { dateLocale, useT } from '../../i18n/index.js'
 
 const KIND = 'DAILY_SALES_SUMMARY'
 const STATUS_TAG = { COMPLETED: 'positive', SENT: 'positive', DELIVERED: 'positive', FAILED: 'negative', SKIPPED: 'warning' }
@@ -173,7 +173,7 @@ function SendNow({ onSent }) {
 function DeliveryLog({ version }) {
   const t = useT()
   const [filters, setFilters] = useState({ status: '', date_from: '', date_to: '' })
-  const { data, refetch } = useApi(() => listSmsBatches({ kind: KIND, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) }), [filters, version])
+  const { data, loading, error, refetch } = useApi(() => listSmsBatches({ kind: KIND, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) }), [filters, version])
   const [openId, setOpenId] = useState(null)
   const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
   return (
@@ -186,25 +186,28 @@ function DeliveryLog({ version }) {
         <Field label={t('From')}><Input type="date" value={filters.date_from} onChange={set('date_from')} style={{ width: 160 }} /></Field>
         <Field label={t('To')}><Input type="date" value={filters.date_to} onChange={set('date_to')} style={{ width: 160 }} /></Field>
       </div>
-      <div className="ds-table-card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-          <thead><tr>{['When', 'Status', 'Sent', 'Failed', 'Skipped', 'SMS parts', ''].map((h) => <th key={h} style={th}>{h && t(h)}</th>)}</tr></thead>
-          <tbody>
-            {rows(data).map((b) => (
-              <tr key={b.id}>
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>{new Date(b.created_at).toLocaleString()}{b.dry_run && <> · <Tag variant="neutral">{t('Not sent (trial)')}</Tag></>}</td>
-                <td style={td}><Tag variant={STATUS_TAG[b.status] || 'neutral'}>{b.status_label}</Tag></td>
-                <td style={td}>{b.sent_count}</td>
-                <td style={td}>{b.failed_count}</td>
-                <td style={td}>{b.skipped_count}</td>
-                <td style={td}>{b.total_segments}</td>
-                <td style={td}><Button onClick={() => setOpenId(b.id)}>{t('Details')}</Button></td>
-              </tr>
-            ))}
-            {rows(data).length === 0 && <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: 'var(--fg-subtle)' }}>{t('No SMS sent yet.')}</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        caption={t('Delivery log')}
+        columns={[
+          {
+            key: 'created_at', header: t('When'), primary: true,
+            cell: (b) => <span>{new Date(b.created_at).toLocaleString(dateLocale())}{b.dry_run && <> · <Tag variant="neutral">{t('Not sent (trial)')}</Tag></>}</span>,
+          },
+          { key: 'status', header: t('Status'), cell: (b) => <Tag variant={STATUS_TAG[b.status] || 'neutral'}>{b.status_label}</Tag> },
+          { key: 'sent_count', header: t('Sent'), align: 'end' },
+          { key: 'failed_count', header: t('Failed'), align: 'end' },
+          { key: 'skipped_count', header: t('Skipped'), align: 'end' },
+          { key: 'total_segments', header: t('SMS parts'), align: 'end' },
+          { key: 'actions', header: t('Actions'), label: '', align: 'end', cell: (b) => <Button size="small" onClick={() => setOpenId(b.id)}>{t('Details')}</Button> },
+        ]}
+        rows={data ? rows(data) : null}
+        loading={loading}
+        error={error}
+        onRetry={refetch}
+        density="compact"
+        minWidth={600}
+        empty={Object.values(filters).some(Boolean) ? t('Nothing matches.') : t('No SMS sent yet.')}
+      />
       {openId && <BatchDetail id={openId} onClose={() => { setOpenId(null); refetch() }} />}
     </div>
   )
@@ -245,5 +248,3 @@ function BatchDetail({ id, onClose }) {
 const h3 = { fontSize: 16, fontWeight: 600, margin: 0, color: 'var(--grey-900)' }
 const h4 = { fontSize: 14, fontWeight: 600, margin: '0 0 4px', color: 'var(--grey-900)' }
 const muted = { fontSize: 13, color: 'var(--fg-subtle)', margin: '0 0 12px' }
-const th = { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-const td = { padding: '10px 16px', borderBottom: '1px solid var(--grey-300)', fontSize: 13, color: 'var(--grey-700)', verticalAlign: 'top' }

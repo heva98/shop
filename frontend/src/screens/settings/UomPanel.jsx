@@ -7,7 +7,7 @@ import { useForm, introStyle, gridStyle } from './shared.js'
 
 export default function UomPanel({ entity }) {
   useT()
-  const { data: uoms, refetch } = useApi(() => listAllUnitsOfMeasure(), [])
+  const { data: uoms, loading, error, refetch } = useApi(() => listAllUnitsOfMeasure(), [])
   const form = useForm({ name: '', description: '', unit_value: '1' })
   const save = (d) => (d.id ? updateUnitOfMeasure(d.id, d) : createUnitOfMeasure({ ...d, entity: entity.id }))
   return (
@@ -27,7 +27,7 @@ export default function UomPanel({ entity }) {
       <Table
         headers={['Name', 'Description', 'Units inside', '']}
         rows={(uoms ?? []).map((u) => [u.name, u.description || '—', Number(u.unit_value), <Button key="edit" size="small" onClick={() => form.open(u)}>{t('Edit')}</Button>])}
-        empty={uoms ? t('No units yet.') : t('Loading…')}
+        caption={t('Units (piece, packet…)')} loading={loading} error={error} onRetry={refetch} empty={t('No units yet.')}
       />
     </>
   )

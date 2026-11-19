@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Chip, EmptyState, Field, Input, NoticeBox, PageHeader, Select, Tag } from '../components/ds/index.js'
+import { Button, Card, Chip, DataTable, EmptyState, Field, Input, NoticeBox, PageHeader, Select, Tag } from '../components/ds/index.js'
 import { useApi } from '../hooks/useApi.js'
 import { searchProducts, listAllUnitsOfMeasure } from '../api/catalog.js'
 import {
@@ -47,7 +47,7 @@ export default function Receiving({ storeId, roles }) {
 
   const { data: suppliers } = useApi(() => (storeId ? listAllSuppliers() : null), [storeId])
   const { data: uoms } = useApi(() => (storeId ? listAllUnitsOfMeasure() : null), [storeId])
-  const { data: invoicesPage, loading: invoicesLoading, refetch: refetchInvoices } = useApi(
+  const { data: invoicesPage, loading: invoicesLoading, error: invoicesError, refetch: refetchInvoices } = useApi(
     () => (storeId && tab === 'list' ? listInvoices({
       store: storeId, supplier: filters.supplier || undefined, status: filters.status || undefined,
       received_date_after: filters.receivedDateAfter || undefined, received_date_before: filters.receivedDateBefore || undefined,
@@ -190,6 +190,30 @@ export default function Receiving({ storeId, roles }) {
   const uomOptions = (uoms ?? []).map((u) => ({ label: u.name, value: u.id }))
   const invoices = invoicesPage?.results ?? []
   const supplierNameById = Object.fromEntries((suppliers ?? []).map((s) => [s.id, s.name]))
+  const invoiceColumns = [
+    { key: 'invoice_number', header: t('Invoice #'), primary: true, sortable: true },
+    { key: 'supplier', header: t('Supplier'), sortable: true, sortValue: (inv) => supplierNameById[inv.supplier] ?? '', cell: (inv) => supplierNameById[inv.supplier] ?? inv.supplier },
+    { key: 'received_date', header: t('Received date'), sortable: true, firstDirection: 'desc' },
+    {
+      key: 'status', header: t('Status'),
+      cell: (inv) => (inv.status === 'draft' ? <Tag>{t('Draft')}</Tag> : inv.status === 'received' ? <Tag variant="positive">{t('Received')}</Tag> : inv.status),
+    },
+    { key: 'total', header: t('Total'), align: 'end', sortable: true, firstDirection: 'desc', sortValue: (inv) => Number(inv.total), cell: (inv) => fmt(Number(inv.total)) },
+    {
+      key: 'balance', header: t('Still owed'), align: 'end', sortable: true, firstDirection: 'desc',
+      sortValue: (inv) => (inv.status === 'received' ? Number(inv.balance) : null),
+      cell: (inv) => (inv.status !== 'received' ? '—' : Number(inv.balance) > 0 ? fmt(Number(inv.balance)) : <Tag variant="positive">{t('Paid')}</Tag>),
+    },
+    {
+      key: 'due_date', header: t('Due'), sortable: true,
+      sortValue: (inv) => (inv.status === 'received' ? inv.due_date : null),
+      cell: (inv) => <span style={{ color: isOverdue(inv) ? 'var(--danger)' : undefined }}>{inv.status === 'received' ? inv.due_date ?? '—' : '—'}</span>,
+    },
+    {
+      key: 'actions', header: t('Actions'), label: '', align: 'end',
+      cell: (inv) => <Button size="small" onClick={() => openInvoice(inv.id)}>{inv.status === 'draft' ? t('Resume') : t('View')}</Button>,
+    },
+  ]
   const isReadOnly = invoiceStatus === 'received'
 
   if (!storeId) return <NoticeBox variant="warning" title={t('No store selected')}>{t('Select a store to manage receiving.')}</NoticeBox>
@@ -307,59 +331,22 @@ export default function Receiving({ storeId, roles }) {
             <Field label={t('To')}><Input type="date" value={filters.receivedDateBefore} onChange={(e) => setFilters((f) => ({ ...f, receivedDateBefore: e.target.value }))} /></Field>
           </div>
 
-          {invoicesLoading && <NoticeBox variant="info">{t('Loading…')}</NoticeBox>}
-          {!invoicesLoading && (
-            <div className="ds-table-card">
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-                <thead>
-                  <tr>
-                    <th style={th('left')}>Invoice #</th>
-                    <th style={th('left')}>{t('Supplier')}</th>
-                    <th style={th('left')}>{t('Received date')}</th>
-                    <th style={th('left')}>{t('Status')}</th>
-                    <th style={th('right')}>{t('Total')}</th>
-                    <th style={th('right')}>{t('Still owed')}</th>
-                    <th style={th('left')}>{t('Due')}</th>
-                    <th style={{ width: 100, borderBottom: '1px solid var(--grey-300)' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td style={{ ...td(), fontFamily: 'var(--font-family-mono)' }}>{inv.invoice_number}</td>
-                      <td style={td()}>{supplierNameById[inv.supplier] ?? inv.supplier}</td>
-                      <td style={{ ...td(), color: 'var(--grey-700)' }}>{inv.received_date}</td>
-                      <td style={td()}>
-                        {inv.status === 'draft' && <Tag>{t('Draft')}</Tag>}
-                        {inv.status === 'received' && <Tag variant="positive">{t('Received')}</Tag>}
-                      </td>
-                      <td style={{ ...td('right') }}>{fmt(Number(inv.total))}</td>
-                      <td style={{ ...td('right') }}>
-                        {inv.status !== 'received' ? '—' : Number(inv.balance) > 0 ? fmt(Number(inv.balance)) : <Tag variant="positive">{t('Paid')}</Tag>}
-                      </td>
-                      <td style={{ ...td(), color: isOverdue(inv) ? 'var(--status-error)' : 'var(--grey-700)' }}>
-                        {inv.status === 'received' ? inv.due_date ?? '—' : '—'}
-                      </td>
-                      <td style={{ ...td('right') }}>
-                        <Button size="small" onClick={() => openInvoice(inv.id)}>{inv.status === 'draft' ? t('Resume') : t('View')}</Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {invoices.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14, color: 'var(--fg-subtle)' }}>
-                      {Object.values(filters).some(Boolean) ? t('No invoices match this filter.') : (
-                        <EmptyState
-                          icon="receiving" title={t('No deliveries recorded yet')}
-                          hint={t('When goods arrive from a supplier, record their invoice here: what came, how many and at what price. The stock is added for you, and you can see what you still owe the supplier.')}
-                          action={<Button variant="primary" onClick={() => { resetForm(); setTab('new') }}>{t('Record a delivery')}</Button>}
-                        />
-                      )}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            caption={t('Supplier invoices')}
+            columns={invoiceColumns}
+            rows={invoicesPage ? invoices : null}
+            loading={invoicesLoading}
+            error={invoicesError}
+            onRetry={refetchInvoices}
+            minWidth={560}
+            empty={Object.values(filters).some(Boolean) ? t('No invoices match this filter.') : (
+              <EmptyState
+                icon="receiving" title={t('No deliveries recorded yet')}
+                hint={t('When goods arrive from a supplier, record their invoice here: what came, how many and at what price. The stock is added for you, and you can see what you still owe the supplier.')}
+                action={<Button variant="primary" onClick={() => { resetForm(); setTab('new') }}>{t('Record a delivery')}</Button>}
+              />
+            )}
+          />
         </>
       )}
     </div>

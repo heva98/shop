@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Field, Input, NoticeBox, Select } from '../components/ds/index.js'
+import { Button, DataTable, EmptyState, Field, Input, Select } from '../components/ds/index.js'
 import { client } from '../api/client.js'
-import { apiErrorText } from '../lib/apiError.js'
-import { useT } from '../i18n/index.js'
+import { dateLocale, useT } from '../i18n/index.js'
 
 const ACTIONS = [
   ['', 'All activity'],
@@ -34,13 +33,13 @@ export default function ActivityLog() {
   const [filters, setFilters] = useState({ action: '', search: '', start: '', end: '' })
   const [events, setEvents] = useState([])
   const [next, setNext] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const latest = useRef(0) // a slower, older response must not overwrite a newer one
   async function load(url) {
     const request = ++latest.current
-    setLoading(true); setError('')
+    setLoading(true); setError(null)
     try {
       const page = url
         ? await client.get(url.replace(/^https?:\/\/[^/]+/, ''))
@@ -52,8 +51,8 @@ export default function ActivityLog() {
       setEvents((prev) => (url ? [...prev, ...page.results] : page.results))
       setNext(page.next)
     } catch (err) {
-      setError(apiErrorText(err, t('Could not load the activity log.')))
-    } finally { setLoading(false) }
+      if (request === latest.current) setError(err)
+    } finally { if (request === latest.current) setLoading(false) }
   }
   // Reload whenever a filter changes; the text search waits for a pause in typing.
   useEffect(() => {
@@ -63,6 +62,20 @@ export default function ActivityLog() {
   }, [filters])
 
   const set = (field) => (e) => setFilters((f) => ({ ...f, [field]: e.target.value }))
+  const columns = [
+    { key: 'created_at', header: t('When'), cell: (e) => <span style={{ whiteSpace: 'nowrap' }}>{new Date(e.created_at).toLocaleString(dateLocale())}</span> },
+    { key: 'username', header: t('Who'), primary: true },
+    {
+      key: 'action', header: t('What'),
+      cell: (e) => (
+        <span style={{ whiteSpace: 'nowrap', color: ALERT_ACTIONS.has(e.action) ? 'var(--danger)' : undefined }}>
+          {ACTION_LABEL[e.action] ? t(ACTION_LABEL[e.action]) : e.action_label}
+        </span>
+      ),
+    },
+    { key: 'summary', header: t('Details') },
+    { key: 'store_name', header: t('Store') },
+  ]
   return (
     <div>
       <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: '0 0 16px', maxWidth: 640 }}>
@@ -74,30 +87,22 @@ export default function ActivityLog() {
         <Field label={t('From')}><Input type="date" value={filters.start} onChange={set('start')} style={{ width: 160 }} /></Field>
         <Field label={t('To')}><Input type="date" value={filters.end} onChange={set('end')} style={{ width: 160 }} /></Field>
       </div>
-      {error && <NoticeBox variant="error" style={{ marginBottom: 12 }}>{error}</NoticeBox>}
-      <div className="ds-table-card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-          <thead>
-            <tr>{['When', 'Who', 'What', 'Details', 'Store'].map((h) => <th key={h} style={th}>{t(h)}</th>)}</tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id}>
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>{new Date(e.created_at).toLocaleString()}</td>
-                <td style={td}>{e.username || '—'}</td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: ALERT_ACTIONS.has(e.action) ? 'var(--status-error)' : undefined }}>{ACTION_LABEL[e.action] ? t(ACTION_LABEL[e.action]) : e.action_label}</td>
-                <td style={td}>{e.summary}</td>
-                <td style={td}>{e.store_name || '—'}</td>
-              </tr>
-            ))}
-            {!loading && events.length === 0 && <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--fg-subtle)' }}>{t('Nothing matches.')}</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {next && <Button onClick={() => load(next)} disabled={loading} style={{ marginTop: 12 }}>{loading ? t('Loading…') : t('Load more')}</Button>}
+      <DataTable
+        caption={t('Activity log')}
+        columns={columns}
+        rows={events}
+        loading={loading}
+        error={error}
+        errorTitle={t('Could not load the activity log.')}
+        onRetry={() => load(error && events.length ? next : null)}
+        manualSort
+        density="compact"
+        minWidth={640}
+        empty={<EmptyState icon="search" title={t('Nothing matches.')} />}
+        footer={next && (
+          <Button loading={loading && events.length > 0} onClick={() => load(next)}>{t('Load more')}</Button>
+        )}
+      />
     </div>
   )
 }
-
-const th = { textAlign: 'left', fontWeight: 600, fontSize: 11, lineHeight: '16px', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--fg-subtle)', padding: '12px 16px', borderBottom: '1px solid var(--grey-300)' }
-const td = { padding: '14px 16px', borderBottom: '1px solid var(--grey-300)', fontSize: 13, color: 'var(--grey-700)', verticalAlign: 'top' }

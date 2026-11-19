@@ -193,3 +193,88 @@ button.ds-stat:hover{box-shadow:0 14px 34px rgba(11,61,122,.13)}
 .ds-empty-title{font-size:15px;line-height:22px;font-weight:600;color:var(--ink)}
 .ds-empty-hint{font-size:13px;line-height:20px;color:var(--muted);max-width:480px}
 .ds-empty-action{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}
+
+/* ----- Loading: spinner, skeleton (DESIGN.md › Loading) ----- */
+.ds-spinner-wrap{display:inline-flex;align-items:center}
+.ds-spinner{display:inline-block;flex:0 0 auto;border-style:solid;border-color:var(--surface-input);border-top-color:var(--blue-600);border-radius:50%;animation:dsSpin .8s linear infinite}
+.ds-spinner.current{border-color:currentColor;border-top-color:transparent;opacity:.9}
+@keyframes dsSpin{to{transform:rotate(360deg)}}
+.ds-skeleton{display:block;max-width:100%;background:linear-gradient(90deg,var(--surface-input) 0%,var(--surface-thead) 40%,var(--surface-input) 80%);background-size:300% 100%;animation:dsShimmer 1.4s ease-in-out infinite}
+.ds-skeleton-text{display:flex;flex-direction:column;width:100%}
+@keyframes dsShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+.ds-async[data-refreshing]{opacity:.6;transition:opacity .15s .2s}
+
+/* ----- Button: loading ----- */
+.ds-btn.loading{cursor:progress;color:transparent}
+.ds-btn.loading>:not(.ds-btn-spinner){visibility:hidden}
+.ds-btn-spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--navy-800)}
+.ds-btn.primary .ds-btn-spinner,.ds-btn.destructive .ds-btn-spinner{color:#fff}
+
+/* ----- Field: hint and error ----- */
+.ds-field-hint{margin:6px 0 0;font-size:12px;line-height:16px;color:var(--muted)}
+.ds-field-error{margin:6px 0 0;font-size:12px;line-height:16px;font-weight:500;color:var(--danger)}
+.ds-field-error:empty{display:none}
+
+/* ----- DataTable (DESIGN.md › Table) ----- */
+.ds-dt{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ds-dt table{font-size:14px}
+.ds-dt th{text-align:left;font-weight:600;font-size:11px;line-height:16px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+.ds-dt td{padding:14px 16px;border-bottom:1px solid var(--border);color:var(--ink-2);vertical-align:middle}
+.ds-dt tbody tr:last-child>td{border-bottom:0}
+.ds-dt td.primary{color:var(--ink);font-weight:600}
+.ds-dt .end{text-align:right;font-variant-numeric:tabular-nums}
+.ds-dt th.end .ds-dt-sort{flex-direction:row-reverse}
+.ds-dt .center{text-align:center}
+.ds-dt-caption{caption-side:top;text-align:left;padding:16px 16px 4px;font-size:16px;line-height:24px;font-weight:600;color:var(--ink)}
+.ds-dt-sort{display:inline-flex;align-items:center;gap:4px;min-height:32px;margin:-8px -6px;padding:0 6px;border:0;border-radius:6px;background:transparent;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.ds-dt-sort:hover{background:var(--surface-input);color:var(--ink)}
+.ds-dt th[aria-sort="ascending"],.ds-dt th[aria-sort="descending"]{color:var(--navy-800)}
+.ds-dt-sort-icon.idle{opacity:0;transition:opacity .12s}
+.ds-dt-sort:hover .ds-dt-sort-icon.idle,.ds-dt-sort:focus-visible .ds-dt-sort-icon.idle{opacity:.6}
+.ds-dt tbody tr.ds-dt-skeleton:hover>td,.ds-dt tbody tr.ds-dt-state-row:hover>td{background:transparent}
+.ds-dt-state{padding:8px 0}
+.ds-dt table[data-refreshing] tbody{opacity:.6;transition:opacity .15s .2s}
+.ds-dt-foot{display:flex;justify-content:center;gap:8px}
+.ds-dt-mobile-sort{display:none}
+.ds-table-card:focus-visible{outline:2px solid var(--blue-600);outline-offset:2px}
+.ds-dt[data-density="compact"] table{font-size:13px}
+.ds-dt[data-density="compact"] th{padding:10px 12px}
+.ds-dt[data-density="compact"] td{padding:10px 12px;vertical-align:top}
+.ds-dt-empty-text{margin:0;padding:24px 16px;text-align:center;font-size:14px;line-height:22px;color:var(--muted)}
+.ds-dt-sub{font-size:12px;line-height:18px;color:var(--muted)}
+.ds-dt tbody tr.has-detail>td{border-bottom-color:transparent}
+.ds-dt tbody tr.ds-dt-detail>td{padding:16px;background:var(--surface-subtle);border-bottom:1px solid var(--border)}
+.ds-dt tbody tr.ds-dt-detail:hover>td{background:var(--surface-subtle)}
+.ds-dt-expand{display:inline-flex;align-items:center;justify-content:center;width:var(--touch-min);height:32px;margin:-6px -8px;border:0;border-radius:6px;background:transparent;color:var(--ink-2);cursor:pointer}
+.ds-dt-expand:hover{background:var(--surface-input)}
+
+/* Phones: one card per row, each value labelled by its column header. */
+@media (max-width:640px){
+  .ds-dt[data-layout="cards"] .ds-dt-mobile-sort{display:block}
+  .ds-dt[data-layout="cards"] table{min-width:0 !important}
+  .ds-dt[data-layout="cards"] thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .ds-dt[data-layout="cards"] caption.ds-dt-caption{display:block}
+  .ds-dt[data-layout="cards"] table,.ds-dt[data-layout="cards"] tbody,.ds-dt[data-layout="cards"] tr,.ds-dt[data-layout="cards"] td{display:block;width:100%}
+  .ds-dt[data-layout="cards"] tbody tr{padding:12px 16px;border-bottom:1px solid var(--border)}
+  .ds-dt[data-layout="cards"] tbody tr:last-child{border-bottom:0}
+  .ds-dt[data-layout="cards"] td{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px;padding:4px 0;border:0;text-align:right}
+  .ds-dt[data-layout="cards"] td::before{content:attr(data-label);flex:0 0 auto;max-width:45%;text-align:left;font-size:11px;line-height:16px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+  .ds-dt[data-layout="cards"] td[data-label=""]::before{content:none}
+  .ds-dt[data-layout="cards"] td.primary{justify-content:flex-start;font-size:15px;text-align:left;padding-bottom:6px}
+  .ds-dt[data-layout="cards"] td.primary::before{content:none}
+  .ds-dt[data-layout="cards"] td.hide-mobile{display:none}
+  .ds-dt[data-layout="cards"] tr.ds-dt-state-row td{display:block;text-align:center}
+  .ds-dt[data-layout="cards"] tr.ds-dt-state-row td::before{content:none}
+  .ds-dt[data-layout="cards"] tbody tr:hover>td{background:transparent}
+  .ds-dt[data-layout="cards"] tbody tr.has-detail{border-bottom:0}
+  .ds-dt[data-layout="cards"] tr.ds-dt-detail{padding:0}
+  .ds-dt[data-layout="cards"] tr.ds-dt-detail>td{display:block;text-align:left;padding:12px 16px}
+  .ds-dt[data-layout="cards"] tr.ds-dt-detail>td::before{content:none}
+}
+
+/* Motion off when the user asks for less: no spin, no shimmer. */
+@media (prefers-reduced-motion:reduce){
+  .ds-spinner{animation-duration:2.4s}
+  .ds-skeleton{animation:none}
+  .ds-async[data-refreshing],.ds-dt table[data-refreshing] tbody{transition:none}
+}

@@ -12,7 +12,7 @@ import { VAT_OPTIONS, VAT_LABEL, useForm, introStyle, gridStyle } from './shared
 
 export default function ProductsPanel({ entity }) {
   useT()
-  const { data: products, refetch } = useApi(() => listAllProducts(), [])
+  const { data: products, loading, error, refetch } = useApi(() => listAllProducts(), [])
   const { data: categories, refetch: refetchCategories } = useApi(() => listAllCategories(), [])
   const { data: uoms } = useApi(() => listAllUnitsOfMeasure(), [])
   const [filter, setFilter] = useState('')
@@ -107,13 +107,14 @@ export default function ProductsPanel({ entity }) {
           </span>,
           <Button key="edit" size="small" onClick={() => form.open(p)}>{t('Edit')}</Button>,
         ])}
-        empty={products ? (
+        caption={t('Products')} loading={loading} error={error} onRetry={refetch}
+        empty={q ? t('Nothing matches.') : (
           <EmptyState
             icon="stock" title={t('No products yet')}
             hint={t('Add each product with its price and how many you have, or load them all at once under Import from Excel.')}
             action={<Button variant="primary" onClick={() => setQuickAdd(true)}><Icon name="add" size={16} /> {t('Add product')}</Button>}
           />
-        ) : t('Loading…')}
+        )}
       />
     </>
   )
