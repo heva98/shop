@@ -15,6 +15,7 @@ from django.db.models import Q
 from django.utils import timezone, translation
 from django.utils.translation import gettext
 
+from core.jobs import JobAlreadyRunning, single_flight
 from core.models import Role, Store, User
 from notifications.channels.email_channel import EmailChannel
 from notifications.models import NotificationLog, SmsMessage
@@ -69,6 +70,15 @@ class Command(BaseCommand):
     help = "Send each active store's end-of-day summary: email to its managers, SMS to the owner."
 
     def handle(self, *args, **options):
+        # The timer fires on every app server, and a slow run can overlap the
+        # next tick: one copy at a time, or two could send the same paid SMS.
+        try:
+            with single_flight('send_daily_summaries', minutes=30):
+                self.send_all()
+        except JobAlreadyRunning:
+            self.stdout.write('Another copy is already sending the summaries; skipped.')
+
+    def send_all(self):
         now = timezone.localtime()
         failures = self.send_emails(now.date()) if now.time() >= default_summary_time() else 0
         for batch in daily_sales_sms_run(now):

@@ -27,6 +27,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
+from core.jobs import JobAlreadyRunning, single_flight
+
 logger = logging.getLogger('core.management.backup')
 
 
@@ -59,6 +61,14 @@ class Command(BaseCommand):
         parser.add_argument('--keep', type=int, default=None, help='Overrides BACKUP_KEEP.')
 
     def handle(self, *args, **options):
+        # With several app servers, the timer fires on each: one backup is enough.
+        try:
+            with single_flight('backup', minutes=120):
+                self.back_up(options)
+        except JobAlreadyRunning:
+            self.stdout.write('Another backup is already running; skipped.')
+
+    def back_up(self, options):
         backup_dir = Path(options['dir'] or settings.BACKUP_DIR or '')
         if not str(backup_dir) or str(backup_dir) == '.':
             raise CommandError('Set BACKUP_DIR in .env (or pass --dir).')

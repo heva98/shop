@@ -254,3 +254,20 @@ class PhoneCode(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['phone', 'purpose', 'created_at'])]
+
+
+class JobLease(models.Model):
+    """Who is running a scheduled job right now (core.jobs.single_flight).
+
+    The timers fire on every app server, and a run can outlast the timer's
+    interval, so without this two copies of a job could send the same paid
+    SMS twice. A lease ends when its holder lets go, or by itself at
+    expires_at if the holder crashed.
+    """
+    name = models.CharField(max_length=100, primary_key=True)
+    holder = models.CharField(max_length=64, blank=True)
+    acquired_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+
+    def __str__(self):
+        return f'{self.name} (held by {self.holder or "nobody"} until {self.expires_at})'

@@ -20,6 +20,7 @@ from rest_framework.response import Response
 
 from catalog.models import Product
 from core.models import display_name
+from core.db_routing import on_replica
 from core.money import ZERO, money
 from core.permissions import roles
 from enquiry.models import Enquiry
@@ -38,6 +39,7 @@ from .queries import (
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@on_replica
 def dashboard(request):
     stores = stores_for(request)
     today = timezone.localdate()
@@ -87,6 +89,7 @@ def _page(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@on_replica
 def sales(request):
     """The period's totals, by product and by payment method, and its sales
     one page at a time: ?page= (from 1) and ?page_size= (default
@@ -183,6 +186,7 @@ def sales(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@on_replica
 def sales_trend(request):
     stores = stores_for(request)
     try:
@@ -208,6 +212,7 @@ def sales_trend(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@on_replica
 def shifts(request):
     stores = stores_for(request)
     start, end = date_range(request)
@@ -234,6 +239,7 @@ def shifts(request):
 
 @api_view(['GET'])
 @permission_classes([roles(*MANAGEMENT_ROLES)])
+@on_replica
 def stock(request):
     stores = stores_for(request)
     today = timezone.localdate()
@@ -274,6 +280,7 @@ def stock(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@on_replica
 def expiry(request):
     stores = stores_for(request)
     today = timezone.localdate()
@@ -306,6 +313,7 @@ def expiry(request):
 
 @api_view(['GET'])
 @permission_classes([roles(*MANAGEMENT_ROLES)])
+@on_replica
 def purchases(request):
     stores = stores_for(request)
     start, end = date_range(request)
@@ -349,6 +357,7 @@ _LOSS_TYPES = [
 
 @api_view(['GET'])
 @permission_classes([roles(*MANAGEMENT_ROLES)])
+@on_replica
 def losses(request):
     """Every stock movement that isn't a sale, purchase or transfer —
     write-offs and stock-count corrections — valued at cost."""

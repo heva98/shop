@@ -10,7 +10,7 @@ from django.urls import include, path
 
 from core import signup
 from core.auth_views import obtain_token
-from core.health import health
+from core.health import health, live, ready
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -20,6 +20,8 @@ urlpatterns = [
     path('api/password-reset/code/', signup.password_reset_code),
     path('api/password-reset/', signup.password_reset),
     path('api/health/', health),
+    path('api/health/live/', live),
+    path('api/health/ready/', ready),
     path('api/core/', include('core.urls')),
     path('api/platform/', include('core.platform_urls')),
     path('api/catalog/', include('onboarding.urls')),  # quick-add/, getting-started/

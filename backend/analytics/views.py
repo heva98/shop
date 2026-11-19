@@ -8,6 +8,7 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.db_routing import on_replica
 from core.features import feature_enabled
 from core.models import Role
 from core.permissions import roles
@@ -39,6 +40,7 @@ class AnalyticsQueryView(_VisualizerView):
     stores x other dimensions, in the DHIS2 /api/analytics shape. See
     `analytics.query` for the parameters."""
 
+    @on_replica
     def get(self, request):
         try:
             return Response(run_query(request.query_params, Context.for_user(request.user)))
@@ -52,6 +54,7 @@ class DimensionItemsView(_VisualizerView):
     customers) matching the text, plus the given ids so a saved selection
     can be named."""
 
+    @on_replica
     def get(self, request):
         ctx = Context.for_user(request.user)
         visible = {d.id: d for d, _ in visible_dimensions(ctx)}

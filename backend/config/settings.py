@@ -104,6 +104,8 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'core.User'
 
 MIDDLEWARE = [
+    # First, so every log line of the request carries its id (core.request_id).
+    'core.request_id.RequestIdMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -158,6 +160,15 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
     # sales queue up (for up to `timeout` seconds) rather than both reading
     # the same stock or the same last receipt number. Postgres needs neither.
     DATABASES['default'].setdefault('OPTIONS', {}).update({'transaction_mode': 'IMMEDIATE', 'timeout': 20})
+
+# Optional read replica (a streaming copy of the Postgres primary). Reports
+# and analytics read from it (core.db_routing.on_replica); everything else,
+# and every write, uses the primary. Unset = everything on the primary.
+# DATABASE_REPLICA_URL=postgres://shop_ro:<password>@replica-host:5432/shop
+if env('DATABASE_REPLICA_URL', default=''):
+    DATABASES['replica'] = dj_database_url.parse(env('DATABASE_REPLICA_URL'), conn_max_age=600)
+    DATABASES['replica']['TEST'] = {'MIRROR': 'default'}
+DATABASE_ROUTERS = ['core.db_routing.ReplicaRouter']
 
 
 # Password validation
@@ -239,7 +250,24 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
     'EXCEPTION_HANDLER': 'config.exceptions.custom_exception_handler',
+    # A ceiling against runaway clients (a retry loop, a scraper), far above
+    # what a busy till does: a till catching up on a backlog of offline
+    # sales sends a few a second, and treats a 429 as "try again later",
+    # so a sale is never lost to this. Counted in the cache, so per process
+    # with the default in-memory cache and exact once CACHE_URL is Redis.
+    # Sign-in, sign-up and SMS codes have their own stricter limits.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': env('THROTTLE_USER_RATE', default='1200/min'),
+        'anon': env('THROTTLE_ANON_RATE', default='120/min'),
+    },
 }
+if 'test' in sys.argv:
+    # Tests make many requests as the same user from the same address.
+    REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
 
 
 # Sign-in rules (core.authentication): a session lasts TOKEN_TTL_HOURS
@@ -291,13 +319,16 @@ ADMINS = [tuple(a.split(':', 1)) for a in env.list('ADMINS', default=[]) if ':' 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'request_id': {'()': 'core.request_id.RequestIdFilter'},
+    },
     'formatters': {
-        'plain': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+        'plain': {'format': '{asctime} {levelname} [{request_id}] {name}: {message}', 'style': '{'},
     },
     'handlers': {
         # gunicorn's output goes to journald (see deploy/systemd), so
         # stderr is the log file in production.
-        'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'},
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'plain', 'filters': ['request_id']},
         'mail_admins': {'class': 'django.utils.log.AdminEmailHandler', 'level': 'ERROR'},
     },
     'root': {'handlers': ['console'], 'level': 'INFO'},
