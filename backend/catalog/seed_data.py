@@ -122,6 +122,49 @@ _HARDWARE = {
     ],
 }
 
+_AUTOMOTIVE = {
+    'units': [
+        ('Piece', 'Single item', 1),
+        ('Pair', 'Two pieces (e.g. wiper blades)', 2),
+        ('Set of 4', 'Set of 4 (e.g. brake pads, spark plugs)', 4),
+        ('Kit', 'Full kit (e.g. clutch kit, gasket set)', 1),
+        ('Box', 'Single box', 1),
+        ('Packet', 'Single packet', 1),
+        ('Litre', 'Sold by volume (L)', 1),
+        ('Bottle', 'Single bottle', 1),
+        ('Jerrycan', 'Jerrycan / gallon (4-5 L)', 1),
+        ('Metre', 'Sold by length (m), e.g. hose', 1),
+    ],
+    'categories': [
+        ('Engine parts', 'ENG', 'Gaskets, belts, spark plugs, timing parts'),
+        ('Filters', 'FLT', 'Oil, air and fuel filters'),
+        ('Brakes & clutch', 'BRK', 'Brake pads, shoes, discs, clutch kits'),
+        ('Suspension & steering', 'SUS', 'Shock absorbers, bushes, ball joints, tie rods'),
+        ('Electrical', 'ELC', 'Batteries, bulbs, fuses, wiring'),
+        ('Oils & fluids', 'OIL', 'Engine oil, gear oil, brake fluid, coolant'),
+        ('Tyres & tubes', 'TYR', 'Tyres, tubes, valves'),
+        ('Body & accessories', 'ACC', 'Wiper blades, mirrors, mats, covers'),
+    ],
+    'products': [
+        ('Engine oil 15W-40 5L', 'Oils & fluids', '', '5 L', 'Jerrycan', 'standard', False),
+        ('Engine oil 20W-50 1L', 'Oils & fluids', '', '1 L', 'Bottle', 'standard', False),
+        ('Brake fluid DOT 4 500ml', 'Oils & fluids', '', '500 ml', 'Bottle', 'standard', False),
+        ('Coolant 1L', 'Oils & fluids', '', '1 L', 'Bottle', 'standard', False),
+        ('Oil filter', 'Filters', '', '', 'Piece', 'standard', False),
+        ('Air filter', 'Filters', '', '', 'Piece', 'standard', False),
+        ('Fuel filter', 'Filters', '', '', 'Piece', 'standard', False),
+        ('Front brake pads', 'Brakes & clutch', '', '', 'Set of 4', 'standard', False),
+        ('Clutch kit', 'Brakes & clutch', '', '', 'Kit', 'standard', False),
+        ('Spark plug', 'Engine parts', '', '', 'Piece', 'standard', False),
+        ('Fan belt', 'Engine parts', '', '', 'Piece', 'standard', False),
+        ('Shock absorber', 'Suspension & steering', '', '', 'Piece', 'standard', False),
+        ('Car battery 12V 70Ah', 'Electrical', '', '12V 70Ah', 'Piece', 'standard', False),
+        ('Headlight bulb H4', 'Electrical', '', 'H4 12V', 'Piece', 'standard', False),
+        ('Tyre 195/65 R15', 'Tyres & tubes', '', '195/65 R15', 'Piece', 'standard', False),
+        ('Wiper blades', 'Body & accessories', '', '', 'Pair', 'standard', False),
+    ],
+}
+
 _BAR = {
     'units': [
         ('Bottle', 'Single bottle', 1),
@@ -202,7 +245,8 @@ _PHARMACY = {
 
 KITS = {
     'general': _DUKA, 'supermarket': _DUKA, 'wholesale': _DUKA,
-    'grocery': _GROCERY, 'hardware': _HARDWARE, 'bar': _BAR, 'pharmacy': _PHARMACY,
+    'grocery': _GROCERY, 'hardware': _HARDWARE, 'automotive': _AUTOMOTIVE, 'bar': _BAR,
+    'pharmacy': _PHARMACY,
 }
 # Kinds without a product list of their own still get the everyday units.
 _UNITS_ONLY = {'units': _DUKA_UNITS, 'categories': [], 'products': []}

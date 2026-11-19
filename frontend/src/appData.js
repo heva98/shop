@@ -42,6 +42,7 @@ export const BUSINESS_TYPE_OPTIONS = [
   { value: 'supermarket', label: 'Supermarket / minimarket' },
   { value: 'grocery', label: 'Grocery (fruits & vegetables)' },
   { value: 'hardware', label: 'Hardware' },
+  { value: 'automotive', label: 'Automotive spare parts' },
   { value: 'pharmacy', label: 'Pharmacy / chemist' },
   { value: 'bar', label: 'Bar / pub' },
   { value: 'wholesale', label: 'Wholesale' },

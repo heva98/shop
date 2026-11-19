@@ -15,6 +15,7 @@ const KINDS = [
   { value: 'supermarket', icon: 'pos', label: 'Supermarket / minimarket', hint: 'Many products, barcodes', starter: 'sugar, soda, flour, soap…' },
   { value: 'grocery', icon: 'grocery', label: 'Grocery (fruits & vegetables)', hint: 'Sold by kg, bunch or piece', starter: 'tomatoes, onions, bananas, eggs…' },
   { value: 'hardware', icon: 'tools', label: 'Hardware', hint: 'Building materials and tools', starter: 'cement, iron sheets, nails, pipes…' },
+  { value: 'automotive', icon: 'car', label: 'Automotive spare parts', hint: 'Parts, oils, tyres and batteries', starter: 'engine oil, oil filters, brake pads, spark plugs…' },
   { value: 'pharmacy', icon: 'pharmacy', label: 'Pharmacy / chemist', hint: 'Medicines, prescriptions, expiry', starter: 'paracetamol, amoxicillin, ORS…' },
   { value: 'bar', icon: 'bar', label: 'Bar / pub', hint: 'Drinks by bottle, crate or tot', starter: 'beer, spirits, soda, water…' },
 ]

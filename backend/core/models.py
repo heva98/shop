@@ -27,6 +27,7 @@ class Entity(models.Model):
         SUPERMARKET = 'supermarket', gettext_lazy('Supermarket / minimarket')
         GROCERY = 'grocery', gettext_lazy('Grocery (fruits & vegetables)')
         HARDWARE = 'hardware', gettext_lazy('Hardware')
+        AUTOMOTIVE = 'automotive', gettext_lazy('Automotive spare parts')
         PHARMACY = 'pharmacy', gettext_lazy('Pharmacy / chemist')
         BAR = 'bar', gettext_lazy('Bar / pub')
         WHOLESALE = 'wholesale', gettext_lazy('Wholesale')

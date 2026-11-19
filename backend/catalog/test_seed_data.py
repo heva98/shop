@@ -8,7 +8,7 @@ from core.models import Entity
 class StarterKitTests(TestCase):
     def test_each_kind_of_business_gets_its_own_units_and_products(self):
         expected = {'bar': ('Tot', 'Lager 500ml'), 'pharmacy': ('Strip of 10', 'Paracetamol 500mg tablets'),
-                    'hardware': ('Metre', 'Cement 50kg'), 'grocery': ('Tray of 30', 'Tomatoes'),
+                    'hardware': ('Metre', 'Cement 50kg'), 'grocery': ('Tray of 30', 'Tomatoes'), 'automotive': ('Set of 4', 'Oil filter'),
                     'general': ('Kilogram', 'Sugar 1kg')}
         for kind, (unit, product) in expected.items():
             entity = Entity.objects.create(name=f'A {kind}', business_type=kind)

@@ -1627,6 +1627,9 @@ export default {
   "sugar, soda, flour, soap…": "sukari, soda, unga, sabuni…",
   "tomatoes, onions, bananas, eggs…": "nyanya, vitunguu, ndizi, mayai…",
   "cement, iron sheets, nails, pipes…": "saruji, mabati, misumari, mabomba…",
+  "Automotive spare parts": "Vipuri vya magari",
+  "Parts, oils, tyres and batteries": "Vipuri, oili, matairi na betri",
+  "engine oil, oil filters, brake pads, spark plugs…": "oili ya injini, vichujio vya oili, breki pedi, plagi…",
   "paracetamol, amoxicillin, ORS…": "paracetamol, amoxicillin, ORS…",
   "beer, spirits, soda, water…": "bia, pombe kali, soda, maji…",
 

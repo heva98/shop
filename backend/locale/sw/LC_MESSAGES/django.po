@@ -2909,6 +2909,9 @@ msgstr "Mboga na matunda (gulio)"
 msgid "Bar / pub"
 msgstr "Baa"
 
+msgid "Automotive spare parts"
+msgstr "Vipuri vya magari"
+
 msgid "Electronics & phones"
 msgstr "Vifaa vya kielektroniki na simu"
 
