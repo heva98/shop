@@ -1,15 +1,12 @@
 import uuid
-from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models, transaction
-from django.utils import timezone
-from django.utils.translation import gettext, gettext_lazy
+from django.db import models
+from django.utils.translation import gettext_lazy
 
-from catalog.models import Product, UnitOfMeasure, convert_qty
+from catalog.models import Product, UnitOfMeasure
 from core.models import Entity, Store
-from inventory.models import StockBatch, StockError, StockLedger
 
 
 class Supplier(models.Model):
@@ -33,7 +30,8 @@ class Supplier(models.Model):
 
 class ReceivingInvoice(models.Model):
     """Draft -> Received state machine. Draft invoices are resumable;
-    receiving posts stock to the ledger and locks the invoice."""
+    receiving (receiving.services.receive) posts stock to the ledger and
+    locks the invoice."""
 
     class Status(models.TextChoices):
         DRAFT = 'draft', gettext_lazy('Draft')
@@ -59,50 +57,6 @@ class ReceivingInvoice(models.Model):
     def __str__(self):
         return self.invoice_number
 
-    @transaction.atomic
-    def mark_received(self):
-        """Locks the invoice and posts every line to stock: creates or tops
-        up the named batch and writes a Transfer In ledger entry per line,
-        referencing this invoice — mirrors how the design's own mock data
-        represents a posted receiving invoice."""
-        if self.status == self.Status.RECEIVED:
-            return
-        lines = list(self.lines.select_related('product__uom', 'uom'))
-        if not lines:
-            raise StockError(gettext('Add at least one line before receiving the invoice.'))
-        missing = [line.product.name for line in lines if line.product.tracks_expiry and not line.expiry_date]
-        if missing:
-            raise StockError(gettext('These goods expire, so the expiry date is required for: {join}.').format(join=", ".join(missing)))
-        for line in lines:
-            # The invoice is in the supplier's unit (e.g. Crate of 24); stock
-            # and cost are held in the product's own unit (e.g. Bottle).
-            invoice_qty = line.batch_qty if line.batch_qty is not None else line.order_qty
-            qty = convert_qty(invoice_qty, line.uom, line.product.uom)
-            per_pack = convert_qty(1, line.uom, line.product.uom)
-            unit_cost = (line.pack_price / per_pack).quantize(Decimal('0.01')) if per_pack else line.pack_price
-            # Goods without a batch number top up the batch with the same
-            # expiry (or none), so a shop that doesn't track batches still
-            # keeps one batch per expiry date.
-            batch_key = {'batch_no': line.batch_no} if line.batch_no else {'batch_no': '', 'expiry_date': line.expiry_date}
-            batch, created = StockBatch.objects.get_or_create(
-                store=self.store, product=line.product, **batch_key,
-                defaults={'expiry_date': line.expiry_date, 'unit_cost': unit_cost},
-            )
-            if not created and batch.unit_cost == 0:
-                batch.unit_cost = unit_cost
-                batch.save(update_fields=['unit_cost'])
-            StockLedger.record(
-                store=self.store, batch=batch, qty_delta=qty,
-                ledger_type=StockLedger.LedgerType.TRANSFER_IN,
-                ref_type='receiving_invoice', ref_id=self.id,
-            )
-        self.status = self.Status.RECEIVED
-        self.received_at = timezone.now()
-        if self.due_date is None:
-            self.refresh_from_db(fields=['received_date'])  # may still be the string it was created with
-            self.due_date = self.received_date + timedelta(days=self.supplier.payment_terms_days)
-        self.save(update_fields=['status', 'received_at', 'due_date'])
-
     @property
     def total(self):
         return sum((line.order_qty * line.pack_price for line in self.lines.all()), Decimal('0'))
@@ -115,18 +69,6 @@ class ReceivingInvoice(models.Model):
     def balance(self):
         return self.total - self.amount_paid
 
-    @transaction.atomic
-    def record_payment(self, *, amount, paid_on, method, reference, user):
-        locked = ReceivingInvoice.objects.select_for_update().get(pk=self.pk)
-        if locked.status != self.Status.RECEIVED:
-            raise StockError(gettext('Receive the invoice before recording a payment against it.'))
-        if amount <= 0:
-            raise StockError(gettext('Payment amount must be above zero.'))
-        if amount > locked.balance:
-            raise StockError(gettext('That is more than the {balance:,.0f} still owed on this invoice.').format(balance=locked.balance))
-        return SupplierPayment.objects.create(
-            invoice=locked, amount=amount, paid_on=paid_on, method=method, reference=reference, recorded_by=user,
-        )
 
 
 class ReceivingInvoiceLine(models.Model):

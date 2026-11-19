@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/health/', health),
     path('api/core/', include('core.urls')),
     path('api/platform/', include('core.platform_urls')),
+    path('api/catalog/', include('onboarding.urls')),  # quick-add/, getting-started/
     path('api/catalog/', include('catalog.urls')),
     path('api/inventory/', include('inventory.urls')),
     path('api/receiving/', include('receiving.urls')),

@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Card, NoticeBox, Switch } from '../components/ds/index.js'
-import { useApi } from '../hooks/useApi.js'
-import { useAuth } from '../auth/AuthContext.jsx'
-import { getFeatures, setFeature } from '../api/core.js'
-import { apiErrorText } from '../lib/apiError.js'
-import { useT } from '../i18n/index.js'
+import { Card, NoticeBox, Switch } from '../../components/ds/index.js'
+import { useApi } from '../../hooks/useApi.js'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { getFeatures, setFeature } from '../../api/core.js'
+import { apiErrorText } from '../../lib/apiError.js'
+import { useT } from '../../i18n/index.js'
 
 /** Which parts of the system each store uses. A switched-off feature
  * disappears from that store's menu and the server refuses it. */

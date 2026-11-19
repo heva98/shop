@@ -7,9 +7,11 @@ from django.utils import timezone
 from rest_framework import status
 
 from core.models import Entity, Role, Store, StoreRole, User
-from credit.models import Customer, CustomerPayment
+from credit.models import Customer
+from credit.services import receive_payment
 from inventory.models import StockBatch, StoreProduct
 from pos.models import Sale, Shift
+from pos.services import shifts
 from pos.tests import PosTestBase
 from reports.queries import usable_stock
 
@@ -71,11 +73,11 @@ class ReportTests(PosTestBase):
         self.assertEqual(self.client.get('/api/reports/purchases/').status_code, status.HTTP_403_FORBIDDEN)
 
     def test_losses_report_values_write_offs_at_cost(self):
-        from inventory.models import StockAdjustment
+        from inventory.services import adjustments
         self.expires_later.unit_cost = Decimal('400')
         self.expires_later.save()
-        StockAdjustment.apply(batch=self.expires_later, qty_delta=Decimal('-2'), reason='damaged',
-                              note='Dropped', user=self.manager)
+        adjustments.apply(batch=self.expires_later, qty_delta=Decimal('-2'), reason='damaged',
+                          note='Dropped', user=self.manager)
         response = self.client.get('/api/reports/losses/', {'store': str(self.store.id)})
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data['summary']['value'], Decimal('-800.00'))
@@ -96,13 +98,13 @@ class ReportTests(PosTestBase):
 
     def test_shifts_report_matches_each_shifts_own_z_report(self):
         customer = Customer.objects.create(entity=self.entity, name='Mama Neema', phone='255712000001')
-        CustomerPayment.receive(customer=customer, store=self.store, amount=Decimal('500'),
+        receive_payment(customer=customer, store=self.store, amount=Decimal('500'),
                                 payment_method=self.cash, user=self.cashier)
         self._closed_shift_with_a_sale(self.manager)
         rows = self._shifts_report()
         self.assertEqual(len(rows), 2)
         for row in rows:
-            expected = Shift.objects.get(pk=row['id']).summary()
+            expected = shifts.summary(Shift.objects.get(pk=row['id']))
             self.assertEqual({key: row[key] for key in expected}, expected)
         cashier_row = next(r for r in rows if r['cashier'] == 'cashier')
         self.assertEqual(cashier_row['cash_repayments'], Decimal('500.00'))

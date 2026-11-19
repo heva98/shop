@@ -8,6 +8,7 @@ from catalog.models import Product, UnitOfMeasure
 from core.features import set_feature
 from core.models import Entity, Role, Store, StoreRole, User
 from inventory.models import StockBatch, StockLedger
+from inventory.stock import record_movement
 from payments.models import PaymentMethod
 
 from .models import Enquiry, EnquiryLine, Transfer
@@ -29,7 +30,7 @@ def _batch(store, product, batch_no, qty, *, expiry=None, cost='100'):
         expiry_date=expiry or date.today() + timedelta(days=365), unit_cost=Decimal(cost), qty_on_hand=0,
     )
     if qty:
-        StockLedger.record(store=store, batch=batch, qty_delta=qty, ledger_type=StockLedger.LedgerType.OPENING_STOCK)
+        record_movement(store=store, batch=batch, qty_delta=qty, ledger_type=StockLedger.LedgerType.OPENING_STOCK)
     return batch
 
 
@@ -296,7 +297,7 @@ class TransferTests(APITestCase):
 
     def test_goods_that_never_expire_are_sent_after_dated_stock_and_arrive_undated(self):
         undated = StockBatch.objects.create(store=self.main, product=self.product, unit_cost=Decimal('90'))
-        StockLedger.record(store=self.main, batch=undated, qty_delta=20, ledger_type=StockLedger.LedgerType.OPENING_STOCK)
+        record_movement(store=self.main, batch=undated, qty_delta=20, ledger_type=StockLedger.LedgerType.OPENING_STOCK)
         response = self._send(115)  # SOON 10 + LATER 100, then 5 undated
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual([line['batch_no'] for line in response.data['lines']], ['SOON', 'LATER', ''])

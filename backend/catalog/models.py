@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext, gettext_lazy
 
+from core.errors import DomainError
 from core.models import Entity
 
 
@@ -40,7 +41,7 @@ class UnitOfMeasure(models.Model):
         return self.name
 
 
-class UnitConversionError(ValueError):
+class UnitConversionError(DomainError, ValueError):
     """A quantity in one unit isn't a whole number of hundredths in
     another, e.g. 1 Pack of 3 expressed in Packs of 10. Mapped to HTTP 400
     by config.exceptions.custom_exception_handler."""

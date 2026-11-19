@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Button, Card, Chip, Field, Icon, NoticeBox, Select } from '../components/ds/index.js'
-import { useApi } from '../hooks/useApi.js'
-import { listImportKinds, runImport, downloadImportTemplate } from '../api/imports.js'
-import { listAllStores } from '../api/core.js'
-import { apiErrorText } from '../lib/apiError.js'
-import { useT } from '../i18n/index.js'
-import { useAsyncAction } from '../hooks/useAsyncAction.js'
+import { Button, Card, Chip, Field, Icon, NoticeBox, Select } from '../../components/ds/index.js'
+import { useApi } from '../../hooks/useApi.js'
+import { listImportKinds, runImport, downloadImportTemplate } from '../../api/imports.js'
+import { listAllStores } from '../../api/core.js'
+import { apiErrorText } from '../../lib/apiError.js'
+import { useT } from '../../i18n/index.js'
+import { useAsyncAction } from '../../hooks/useAsyncAction.js'
 
 /** Onboarding from a spreadsheet: pick what to import, preview it (nothing
  * is saved), fix any rows the preview flags, then import. Imports are

@@ -15,6 +15,7 @@ from .serializers import (
     CancelTransferSerializer, ConfirmReceiptSerializer, EnquirySerializer, ResolveSerializer,
     TransferCreateSerializer, TransferPaymentSerializer, TransferSerializer,
 )
+from .services import transfers
 
 _ENQUIRY_ROLES = (Role.STORE_MANAGER, Role.ENTITY_ADMIN)
 
@@ -94,7 +95,7 @@ class EnquiryViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         if enquiry.mode == Enquiry.Mode.HUB and data['from_store'].id != enquiry.target_store_id:
             raise ValidationError(gettext('This enquiry is for the main store to fulfil.'))
-        transfer = Transfer.send(
+        transfer = transfers.send(
             from_store=data['from_store'], to_store=enquiry.requesting_store, items=data['lines'],
             user=request.user, enquiry=enquiry, note=data['note'],
         )
@@ -129,7 +130,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
         serializer = TransferCreateSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        transfer = Transfer.send(
+        transfer = transfers.send(
             from_store=data['from_store'], to_store=data['to_store'], items=data['lines'],
             user=request.user, note=data['note'],
         )
@@ -147,7 +148,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied(gettext('Only {name} can confirm what it received.').format(name=transfer.to_store.name))
         serializer = ConfirmReceiptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        transfer.confirm_receipt(user=request.user, **serializer.validated_data)
+        transfers.confirm_receipt(transfer, user=request.user, **serializer.validated_data)
         short = transfer.status == Transfer.Status.DISCREPANCY
         record(Action.TRANSFER_RECEIVED,
                Summary('Transfer #{number} from {name} received short: {note}', number=transfer.number,
@@ -164,7 +165,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied(gettext('A manager of either store must resolve a short delivery.'))
         serializer = ResolveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        transfer.resolve(user=request.user, **serializer.validated_data)
+        transfers.resolve(transfer, user=request.user, **serializer.validated_data)
         record(Action.TRANSFER_RESOLVED,
                Summary('Short delivery on transfer #{number} resolved: {get_resolution_display}', number=transfer.number, get_resolution_display=transfer.get_resolution_display()),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
@@ -177,7 +178,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied(gettext('Only {name} can cancel a transfer it sent.').format(name=transfer.from_store.name))
         serializer = CancelTransferSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        transfer.cancel(user=request.user, reason=serializer.validated_data['reason'])
+        transfers.cancel(transfer, user=request.user, reason=serializer.validated_data['reason'])
         record(Action.TRANSFER_CANCELLED, Summary('Transfer #{number} to {name} cancelled', number=transfer.number, name=transfer.to_store.name),
                request=request, store=transfer.from_store, data={'transfer': str(transfer.id)})
         return Response(self._fresh(transfer))
@@ -189,7 +190,7 @@ class TransferViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied(gettext('A manager of the main store records branch payments.'))
         serializer = TransferPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        transfer.record_payment(**serializer.validated_data)
+        transfers.record_payment(transfer, **serializer.validated_data)
         record(Action.TRANSFER_PAID,
                Summary('{name} paid {amount:,.0f} for transfer #{number} ({name2})', name=transfer.to_store.name, amount=transfer.amount, number=transfer.number, name2=transfer.payment_method.name),
                request=request, store=transfer.from_store,

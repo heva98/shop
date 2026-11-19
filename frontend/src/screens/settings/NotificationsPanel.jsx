@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Button, Card, NoticeBox, Switch } from '../components/ds/index.js'
-import { useApi } from '../hooks/useApi.js'
-import { client } from '../api/client.js'
-import { apiErrorText } from '../lib/apiError.js'
-import { useT } from '../i18n/index.js'
-import SmsPanel from './SettingsSms.jsx'
+import { Button, Card, NoticeBox, Switch } from '../../components/ds/index.js'
+import { useApi } from '../../hooks/useApi.js'
+import { client } from '../../api/client.js'
+import { apiErrorText } from '../../lib/apiError.js'
+import { useT } from '../../i18n/index.js'
+import SmsPanel from './SmsPanel.jsx'
 
 /** The end-of-day summary after closing: sales by payment method, voids,
  * missing EFD numbers, cash differences, purchases, low stock and expiring

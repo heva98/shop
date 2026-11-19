@@ -21,7 +21,7 @@ class EntryFilter(filters.FilterSet):
 class ControlledSubstanceEntryViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     """GET /api/controlled-substances/entries/?store=&product=&start=&end=
 
-    Read-only: rows are written by pos.Sale. Unlike most screens, reading
+    Read-only: rows are written as sales happen (receivers.py). Unlike most screens, reading
     is limited too: it is a regulated record with patients' names, so only
     pharmacists (the storekeeper role), managers and owners see it."""
     queryset = ControlledSubstanceEntry.objects.select_related('store', 'product__uom', 'sale', 'dispensed_by')

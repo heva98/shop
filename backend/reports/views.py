@@ -24,7 +24,9 @@ from core.money import ZERO, money
 from core.permissions import roles
 from enquiry.models import Enquiry
 from inventory.models import StockAdjustment, StockBatch, StockLedger, StoreProduct
-from pos.models import Sale, SaleLine, Shift, split_payment
+from pos.domain import split_payment
+from pos.models import Sale, SaleLine, Shift
+from pos.services import shifts as shift_service
 from pricing.models import Price
 from receiving.models import ReceivingInvoice
 
@@ -216,14 +218,14 @@ def shifts(request):
         qs = qs.filter(cashier=request.user)
     # Each Z-report needs the shift's sales, their lines and its credit
     # repayments: prefetched for every shift at once, not three queries each.
-    qs = Shift.with_summary_data(qs)
+    qs = shift_service.with_summary_data(qs)
     return Response({
         'start': start, 'end': end,
         'shifts': [
             {
                 'id': s.id, 'store': s.store.name, 'cashier': display_name(s.cashier),
                 'opened_at': s.opened_at, 'closed_at': s.closed_at, 'closing_note': s.closing_note,
-                **s.summary(),
+                **shift_service.summary(s),
             }
             for s in qs
         ],

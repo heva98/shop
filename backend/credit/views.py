@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import django_filters
-from django.utils import timezone
 from django.utils.translation import gettext
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -13,6 +12,7 @@ from core.models import Role, StoreRole
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
 
+from . import services
 from .models import Customer, CustomerPayment, with_balances
 from .serializers import (
     CustomerPaymentSerializer, CustomerSerializer, ReceivePaymentSerializer, VoidPaymentSerializer,
@@ -98,30 +98,7 @@ class CustomerViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         with the running balance — what to show (or print) when they come
         to settle up."""
         customer = self.get_object()
-        from pos.models import Sale
-
-        rows = []
-        sales = (customer.sales.filter(status__in=[Sale.Status.COMPLETED, Sale.Status.VOIDED], credit_amount__gt=0)
-                 .select_related('store'))
-        for sale in sales:
-            rows.append({
-                'kind': 'sale', 'id': str(sale.id), 'date': sale.completed_at, 'store': sale.store.name,
-                'description': gettext('Receipt #{number}').format(number=sale.number), 'amount': sale.credit_amount,
-                'voided': sale.status == Sale.Status.VOIDED,
-            })
-        for payment in customer.payments.select_related('store', 'payment_method'):
-            rows.append({
-                'kind': 'payment', 'id': str(payment.id), 'date': payment.created_at, 'store': payment.store.name,
-                'description': gettext('Paid by {method}').format(method=gettext(payment.payment_method.name))
-                               + (f' ({payment.reference})' if payment.reference else ''),
-                'amount': -payment.amount, 'voided': payment.voided_at is not None,
-            })
-        rows.sort(key=lambda r: r['date'] or timezone.now())
-        balance = Decimal('0')
-        for row in rows:
-            if not row['voided']:
-                balance += row['amount']
-            row['balance'] = balance
+        rows, balance = services.statement(customer)
         return Response({'customer': self.get_serializer(customer).data, 'rows': rows, 'owing': balance})
 
 
@@ -150,7 +127,7 @@ class CustomerPaymentViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelVi
     def create(self, request):
         serializer = ReceivePaymentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        payment = CustomerPayment.receive(user=request.user, **serializer.validated_data)
+        payment = services.receive_payment(user=request.user, **serializer.validated_data)
         record(Action.CREDIT_PAYMENT, Summary('{name} paid {amount:,.0f} by {name2}', name=payment.customer.name, amount=payment.amount, name2=payment.payment_method.name),
                request=request, store=payment.store,
                data={'customer': str(payment.customer_id), 'amount': payment.amount, 'reference': payment.reference})
@@ -163,7 +140,7 @@ class CustomerPaymentViewSet(TenantScopedQuerySetMixin, viewsets.ReadOnlyModelVi
             raise PermissionDenied(gettext('Only a manager of {name} can void a payment.').format(name=payment.store.name))
         serializer = VoidPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        payment.void(user=request.user, reason=serializer.validated_data['reason'])
+        services.void_payment(payment, user=request.user, reason=serializer.validated_data['reason'])
         record(Action.CREDIT_PAYMENT_VOIDED,
                Summary('Payment of {amount:,.0f} from {name} voided: {void_reason}', amount=payment.amount, name=payment.customer.name, void_reason=payment.void_reason),
                request=request, store=payment.store, data={'payment': str(payment.id)})

@@ -1,6 +1,6 @@
 """Seeds the standard starter catalog for one real shop (Entity).
 
-Unlike core.management.commands.seed_demo (which also fabricates a demo
+Unlike onboarding.management.commands.seed_demo (which also fabricates a demo
 Entity and demo Users — dev/demo-only, never for a real deployment), this
 command touches only catalog.{Category,UnitOfMeasure,Product} for an
 Entity you already created yourself (via the Django admin or the app's

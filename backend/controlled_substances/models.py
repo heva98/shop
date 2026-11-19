@@ -12,7 +12,8 @@ class ControlledSubstanceEntry(models.Model):
     """Pharmacies: the controlled drugs register. One row per controlled
     medicine leaving (or, when a sale is voided, coming back to) a store,
     tied to the stock ledger entry that moved it, with who it was dispensed
-    to, on whose prescription and by whom. Written only by pos.Sale; never
+    to, on whose prescription and by whom. Written only by
+    controlled_substances.receivers, as sales happen (pos.events); never
     edited. Kept apart from general stock reports for inspection."""
 
     class Kind(models.TextChoices):

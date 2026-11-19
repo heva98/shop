@@ -17,6 +17,7 @@ from django.utils.translation import gettext, gettext_lazy
 from catalog.models import Category, GenericDrug, Product, UnitConversionError, UnitOfMeasure, convert_qty
 from core.models import Entity
 from inventory.models import StockBatch, StockLedger
+from inventory.stock import record_movement
 from pricing.models import Price
 from receiving.models import Supplier
 
@@ -330,7 +331,7 @@ class OpeningStockImporter(Importer):
             raise CellError(gettext('{what} is already in {name}. Use a stock count to correct it.').format(what=what, name=self.store.name))
         batch = StockBatch.objects.create(
             store=self.store, product=product, batch_no=batch_no, expiry_date=expiry, unit_cost=cost)
-        StockLedger.record(
+        record_movement(
             store=self.store, batch=batch, qty_delta=base_qty,
             ledger_type=StockLedger.LedgerType.OPENING_STOCK, ref_type='import',
         )

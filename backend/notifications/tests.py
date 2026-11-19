@@ -19,6 +19,7 @@ from core.phone import is_tz_mobile, normalize_tz_phone
 from inventory.models import StockBatch
 from payments.models import PaymentMethod
 from pos.models import Sale, Shift
+from pos.services import cart, checkout
 from pricing.models import Price
 
 from .models import NotificationLog, SmsBatch, SmsConfiguration, SmsMessage, SmsTemplate
@@ -173,8 +174,8 @@ class ShopFixture(TestCase):
                                   qty_on_hand=Decimal('100'))
         Shift.objects.create(store=self.store, cashier=cashier)
         sale = Sale.objects.create(store=self.store)
-        sale.add_product(product=product, qty=Decimal('4'))
-        sale.complete(user=cashier, payment_method=PaymentMethod.objects.get(implementation='cash'),
+        cart.add_product(sale, product=product, qty=Decimal('4'))
+        checkout.complete(sale, user=cashier, payment_method=PaymentMethod.objects.get(implementation='cash'),
                       amount_tendered=Decimal('2000'))
 
 

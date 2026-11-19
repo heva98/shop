@@ -115,14 +115,3 @@ export async function discard(record) {
   await outboxDelete(record.id)
   emit()
 }
-
-/** Stock units of each product that the outbox's sales have taken from
- * `storeId` but the cloud's figures don't show yet. */
-export function unsyncedStock(records, storeId) {
-  const out = {}
-  for (const r of records) {
-    if (r.storeId !== storeId) continue
-    for (const s of r.stock) out[s.product] = (out[s.product] ?? 0) + s.qty
-  }
-  return out
-}

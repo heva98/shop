@@ -9,6 +9,7 @@ from core.models import Entity, Role, Store, StoreRole, User
 from inventory.models import StockBatch
 from payments.models import PaymentMethod
 from pos.models import Shift
+from pos.services import shifts
 from pricing.models import Price
 
 from .models import Customer
@@ -97,7 +98,7 @@ class PaymentTests(CreditTestBase):
         response = self.pay('2000')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(self.customer.balance(), Decimal('1000'))
-        summary = Shift.objects.get(cashier=self.cashier).summary()
+        summary = shifts.summary(Shift.objects.get(cashier=self.cashier))
         self.assertEqual((summary['cash_repayments'], summary['expected_cash']), (Decimal('2000'), Decimal('2000')))
 
     def test_cash_without_a_shift_is_refused_for_a_cashier(self):
@@ -121,7 +122,7 @@ class PaymentTests(CreditTestBase):
         ok = self.client.post(f'/api/credit/payments/{payment["id"]}/void/', {'reason': 'Typed twice'})
         self.assertEqual(ok.status_code, status.HTTP_200_OK, ok.data)
         self.assertEqual(self.customer.balance(), Decimal('3000'))
-        self.assertEqual(Shift.objects.get(cashier=self.cashier).summary()['cash_repayments'], Decimal('0'))
+        self.assertEqual(shifts.summary(Shift.objects.get(cashier=self.cashier))['cash_repayments'], Decimal('0'))
 
     def test_statement_runs_the_balance_in_date_order(self):
         self.credit_sale('3000')

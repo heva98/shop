@@ -9,7 +9,9 @@ from rest_framework.test import APITestCase
 from catalog.models import Product, UnitOfMeasure
 from core.models import Entity, Role, Store, StoreRole, User
 
-from .models import InsufficientStockError, StockBatch, StockLedger, allocate_fefo
+from .errors import InsufficientStockError
+from .models import StockBatch, StockLedger
+from .stock import allocate_fefo, record_movement
 
 
 class StockBatchTenantIsolationTests(APITestCase):
@@ -100,7 +102,7 @@ class StockBatchTenantIsolationTests(APITestCase):
 
 
 class StockLedgerIntegrityTests(TestCase):
-    """StockLedger.record() is the single chokepoint every stock movement
+    """record_movement() is the single chokepoint every stock movement
     goes through — these pin down that it can never take a batch negative,
     regardless of which module is calling it."""
 
@@ -116,7 +118,7 @@ class StockLedgerIntegrityTests(TestCase):
 
     def test_record_rejects_a_delta_that_would_go_negative(self):
         with self.assertRaises(InsufficientStockError):
-            StockLedger.record(
+            record_movement(
                 store=self.store, batch=self.batch, qty_delta=Decimal('-11'),
                 ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id='x',
             )
@@ -125,7 +127,7 @@ class StockLedgerIntegrityTests(TestCase):
         self.assertEqual(StockLedger.objects.filter(batch=self.batch).count(), 0)
 
     def test_record_allows_a_delta_that_exactly_zeroes_the_batch(self):
-        StockLedger.record(
+        record_movement(
             store=self.store, batch=self.batch, qty_delta=Decimal('-10'),
             ledger_type=StockLedger.LedgerType.SOLD, ref_type='sale', ref_id='x',
         )
@@ -133,7 +135,7 @@ class StockLedgerIntegrityTests(TestCase):
         self.assertEqual(self.batch.qty_on_hand, Decimal('0'))
 
     def test_record_allows_positive_deltas_without_a_ceiling(self):
-        StockLedger.record(
+        record_movement(
             store=self.store, batch=self.batch, qty_delta=Decimal('500'),
             ledger_type=StockLedger.LedgerType.TRANSFER_IN, ref_type='invoice', ref_id='x',
         )

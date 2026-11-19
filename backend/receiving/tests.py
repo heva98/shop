@@ -4,6 +4,7 @@ from rest_framework.test import APITestCase
 from catalog.models import Product, UnitOfMeasure
 from core.models import Entity, Role, Store, StoreRole, User
 
+from . import services
 from .models import ReceivingInvoice, Supplier
 
 
@@ -126,7 +127,7 @@ class ReceivingInvoiceLineAppendTests(APITestCase):
 
     def test_cannot_append_a_line_to_an_already_received_invoice(self):
         self.draft.lines.create(product=self.product, uom=self.product.uom, order_qty=5, pack_price=500, batch_no='B0', expiry_date='2027-01-01')
-        self.draft.mark_received()
+        services.receive(self.draft)
         self.client.force_authenticate(self.manager)
         response = self.client.post('/api/receiving/invoice-lines/', {
             'invoice': str(self.draft.id), 'product': str(self.product.id), 'uom': str(self.product.uom_id),
@@ -154,23 +155,23 @@ class ReceivingUnitConversionTests(APITestCase):
     def test_boxes_are_received_as_tablets_with_cost_per_tablet(self):
         self.invoice.lines.create(product=self.product, uom=self.box, order_qty=2, pack_price=15000,
                                   batch_no='P1', expiry_date='2028-01-01')
-        self.invoice.mark_received()
+        services.receive(self.invoice)
         batch = self.StockBatch.objects.get(batch_no='P1')
         self.assertEqual(batch.qty_on_hand, 200)
         self.assertEqual(batch.unit_cost, 150)
 
     def test_perishable_line_without_expiry_is_refused(self):
-        from inventory.models import StockError
+        from inventory.errors import StockError
         self.product.tracks_expiry = True
         self.product.save()
         self.invoice.lines.create(product=self.product, uom=self.box, order_qty=1, pack_price=1, batch_no='P2')
         with self.assertRaises(StockError):
-            self.invoice.mark_received()
+            services.receive(self.invoice)
         self.assertEqual(self.invoice.status, ReceivingInvoice.Status.DRAFT)
 
     def test_goods_that_never_expire_need_no_batch_or_expiry(self):
         self.invoice.lines.create(product=self.product, uom=self.box, order_qty=1, pack_price=15000)
         self.invoice.lines.create(product=self.product, uom=self.box, order_qty=2, pack_price=15000)
-        self.invoice.mark_received()
+        services.receive(self.invoice)
         batch = self.StockBatch.objects.get(product=self.product)
         self.assertEqual((batch.batch_no, batch.expiry_date, batch.qty_on_hand), ('', None, 300))

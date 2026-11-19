@@ -18,6 +18,48 @@ Transfer), `pos`, `fiscal` (abstract `FiscalDevice` interface + `ManualEFDDriver
 (prices, bundles, time-limited promotions), `credit` (customer credit:
 customers, credit sales, repayments), `analytics`.
 
+Composition (spans several modules; nothing imports it): `onboarding`
+(quick-add, the getting-started checklist, `seed_demo`).
+
+## Code structure
+
+Dependencies point one way: **kernel ← modules ← onboarding**. The kernel
+never imports a module, and nothing imports `onboarding`.
+`core/test_architecture.py` checks these rules on every test run, including
+imports hidden inside functions. If you add an app, classify it there.
+
+Inside an app, each layer only calls the layers below it:
+
+| Layer | Where (e.g. `pos`) | Holds | Never |
+|---|---|---|---|
+| HTTP adapter | `views.py`, `serializers.py` | parse and validate the request, check who may act, call one use case, write the audit entry, shape the response | contain a business rule |
+| Use cases | `services/` (or `services.py`) | one function per thing a user does (`checkout.complete`, `shifts.close`), in a transaction | see a `request` or DRF |
+| Domain rules | `domain.py` | pure functions (payment split, Z-report, tender and discount rules), unit-tested without a database | query or save |
+| Data | `models.py` | fields, constraints, and values that follow from the row (`Sale.total`, `vat_total`) | import services or views |
+
+Cross-module side effects are **events**, not imports. For example, `pos`
+sends `pos.events.sale_line_stock_moved`, and `controlled_substances`
+listens in `receivers.py` to keep the register. A new module plugs in by
+connecting a receiver in its `AppConfig.ready()`.
+
+Business-rule refusals subclass `core.errors.DomainError` (for example
+`SaleError` or `CreditError`). `config/exceptions.py` turns every one into
+HTTP 400 with its message, so a new module needs no change there.
+
+The kernel reaches pluggable infrastructure through settings, never through
+an import. For example, one-time SMS codes go through `core.sms.sms_gateway()`,
+which `SMS_GATEWAY` points at the notifications module's providers.
+
+`pos`, `credit`, `inventory`, `enquiry`, `receiving` and `onboarding` follow
+this structure. In those apps a model that opens a transaction fails the
+architecture tests, so new workflows go in `services/`.
+
+Stock moves only through the kernel's stock API, `inventory/stock.py`:
+`record_movement()` locks the batch and writes the ledger row and the new
+quantity together, and `allocate_fefo()` picks batches earliest-expiry
+first. Nothing else writes ledger rows or batch quantities, and the
+architecture tests check that too.
+
 ## Setup (Windows / PowerShell)
 
 ```powershell

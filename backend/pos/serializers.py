@@ -10,6 +10,7 @@ from credit.models import Customer
 from payments.models import PaymentMethod
 
 from .models import Sale, SaleLine, Shift
+from .services import cart
 
 
 class SaleLineSerializer(serializers.ModelSerializer):
@@ -86,14 +87,12 @@ class SaleSerializer(ClientGeneratedIdMixin, serializers.ModelSerializer):
     def create(self, validated_data):
         items = validated_data.pop('items', [])
         sale = Sale.objects.create(**validated_data)
-        for item in items:
-            sale.add_product(product=item['product'], qty=item['qty'], uom=item.get('uom'),
-                             discount=item.get('discount') or Decimal('0'))
+        cart.add_items(sale, items)
         return sale
 
 
 class AddLineSerializer(SaleItemSerializer):
-    """Input for Sale.add_product — by product, not batch; the batch is
+    """Input for services.cart.add_product — by product, not batch; the batch is
     resolved server-side by FEFO and the price from pricing (a running
     Promotion, else the regular Price)."""
 
@@ -127,7 +126,7 @@ class OfflineSaleItemSerializer(SaleItemSerializer):
 
 class OfflineSaleSerializer(CompleteSaleSerializer):
     """A whole sale the till rang up from its own copy of the catalog (see
-    Sale.record_offline). `id` is the till's own, so sending the same sale
+    services.checkout.record_offline). `id` is the till's own, so sending the same sale
     twice records it once."""
     id = serializers.UUIDField()
     store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all())

@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Button, Card, Field, Input, Modal, NoticeBox, Select, Switch, Tag } from '../components/ds/index.js'
-import { useApi } from '../hooks/useApi.js'
+import { Button, Card, Field, Input, Modal, NoticeBox, Select, Switch, Tag } from '../../components/ds/index.js'
+import { useApi } from '../../hooks/useApi.js'
 import {
   getSmsBatch, getSmsConfig, listSmsBatches, listSmsTemplates, previewSms, resendFailedSms, sendSms,
   updateSmsConfig, updateSmsTemplate,
-} from '../api/sms.js'
-import { apiErrorText } from '../lib/apiError.js'
-import { useT } from '../i18n/index.js'
+} from '../../api/sms.js'
+import { apiErrorText } from '../../lib/apiError.js'
+import { useT } from '../../i18n/index.js'
 
 const KIND = 'DAILY_SALES_SUMMARY'
 const STATUS_TAG = { COMPLETED: 'positive', SENT: 'positive', DELIVERED: 'positive', FAILED: 'negative', SKIPPED: 'warning' }

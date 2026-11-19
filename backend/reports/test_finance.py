@@ -6,6 +6,7 @@ from rest_framework import status
 
 from inventory.models import StockBatch
 from pos.tests import PosTestBase
+from receiving import services as receiving_services
 from receiving.models import ReceivingInvoice, Supplier
 
 
@@ -18,7 +19,7 @@ class SupplierPaymentAndPayablesTests(PosTestBase):
             store=self.store, supplier=self.supplier, invoice_number='INV-1', received_date=today - timedelta(days=45))
         self.invoice.lines.create(product=self.product, uom=self.product.uom, order_qty=10, pack_price=1000,
                                   batch_no='R1', expiry_date=today + timedelta(days=400))
-        self.invoice.mark_received()
+        receiving_services.receive(self.invoice)
         self.client.force_authenticate(self.manager)
 
     def pay(self, amount):

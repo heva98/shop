@@ -6,23 +6,25 @@ account (pos.Sale.customer + credit_amount). The customer pays it off
 later with a CustomerPayment, at the till (counted in that shift's cash)
 or in the back office. What a customer owes is never stored: it is always
 worked out from their completed credit sales less their payments, so a
-voided sale or a voided payment corrects the balance by itself."""
+voided sale or a voided payment corrects the balance by itself.
+
+Taking and voiding repayments: credit.services."""
 
 import uuid
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models
 from django.db.models import DecimalField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
-from django.utils import timezone
-from django.utils.translation import gettext
 
+from core.errors import DomainError
 from core.models import Entity, Store
 from payments.models import PaymentMethod
+from pos.models import Sale
 
 
-class CreditError(Exception):
+class CreditError(DomainError):
     """A credit rule refused the request. Mapped to HTTP 400 by
     config.exceptions.custom_exception_handler."""
 
@@ -33,8 +35,6 @@ _ZERO = Value(Decimal('0'), output_field=DecimalField(max_digits=14, decimal_pla
 def with_balances(queryset):
     """Customers annotated with `credit_total` (completed credit sales),
     `paid_total` (payments not voided) and `owing` (the difference)."""
-    from pos.models import Sale
-
     credit = (Sale.objects.filter(customer=OuterRef('pk'), status=Sale.Status.COMPLETED)
               .values('customer').annotate(t=Sum('credit_amount')).values('t'))
     paid = (CustomerPayment.objects.filter(customer=OuterRef('pk'), voided_at__isnull=True)
@@ -104,47 +104,3 @@ class CustomerPayment(models.Model):
 
     def __str__(self):
         return f'{self.customer} paid {self.amount}'
-
-    @classmethod
-    @transaction.atomic
-    def receive(cls, *, customer, store, amount, payment_method, user, reference='', note=''):
-        """Records a payment. Taken by a cashier with an open shift at
-        `store`, it belongs to that shift (and its cash to that drawer)."""
-        from pos.models import Shift
-
-        if customer.entity_id != store.entity_id:
-            raise CreditError(gettext("That customer is not one of this shop's customers."))
-        if amount <= 0:
-            raise CreditError(gettext('The amount paid must be more than 0.'))
-        if not payment_method.is_active_for(store.entity_id):
-            raise CreditError(gettext('{name} is not enabled.').format(name=payment_method.name))
-        reference = (reference or '').strip()
-        if payment_method.requires_reference and not reference:
-            raise CreditError(gettext('Enter the {name} transaction reference.').format(name=payment_method.name))
-        # Locked so a repayment and the shift's close cannot interleave: the
-        # cash is in the drawer count, or it waits for the next shift.
-        shift = Shift.open_for(store=store, cashier=user).select_for_update().first()
-        if payment_method.implementation == PaymentMethod.Implementation.CASH and shift is None \
-                and not _is_manager(user, store):
-            raise CreditError(gettext('Open a shift to take a cash payment, so it is counted in your drawer.'))
-        return cls.objects.create(
-            customer=customer, store=store, shift=shift, amount=amount, payment_method=payment_method,
-            reference=reference[:64], note=(note or '').strip()[:255], received_by=user,
-        )
-
-    @transaction.atomic
-    def void(self, *, user, reason):
-        locked = CustomerPayment.objects.select_for_update().get(pk=self.pk)
-        if locked.voided_at is not None:
-            raise CreditError(gettext('This payment is already voided.'))
-        reason = (reason or '').strip()
-        if not reason:
-            raise CreditError(gettext('Give a reason for voiding this payment.'))
-        locked.voided_at, locked.voided_by, locked.void_reason = timezone.now(), user, reason[:255]
-        locked.save(update_fields=['voided_at', 'voided_by', 'void_reason'])
-        self.refresh_from_db()
-
-
-def _is_manager(user, store):
-    from core.permissions import is_store_manager
-    return is_store_manager(user, store)

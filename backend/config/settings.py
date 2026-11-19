@@ -96,6 +96,9 @@ INSTALLED_APPS = [
     'reports',
     'imports',
     'audit',
+
+    # Composition — features spanning several modules. Nothing imports these.
+    'onboarding',
 ]
 
 AUTH_USER_MODEL = 'core.User'
@@ -321,6 +324,9 @@ BACKUP_MAX_AGE_HOURS = env.int('BACKUP_MAX_AGE_HOURS', default=26)
 #   beem           sends through Beem Africa (API key + secret + sender name)
 # `manage.py check` fails if the chosen provider's credentials are missing.
 # The older SMS_PROVIDER=beem still selects Beem when SMS_BACKEND is unset.
+# The kernel sends one-time codes through this (core/sms.py), so it needn't
+# import the notifications module.
+SMS_GATEWAY = 'notifications.sms_backends.get_sms_backend'
 SMS_BACKEND = env('SMS_BACKEND', default='beem' if env('SMS_PROVIDER', default='') == 'beem' else 'noop')
 NOTIFY_AFRICA_BASE_URL = env('NOTIFY_AFRICA_BASE_URL', default='https://api.notify.africa')
 NOTIFY_AFRICA_API_TOKEN = env('NOTIFY_AFRICA_API_TOKEN', default='')

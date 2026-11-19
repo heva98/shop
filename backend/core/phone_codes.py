@@ -18,10 +18,10 @@ from django.utils.translation import gettext
 from rest_framework import serializers
 
 from audit.services import client_ip
-from notifications.sms_backends import get_sms_backend
 
 from .models import PhoneCode
 from .phone import is_tz_mobile, normalize_tz_phone
+from .sms import sms_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def send_code(phone, purpose, *, request=None, user=None):
             or (ip and PhoneCode.objects.filter(ip_address=ip, created_at__gt=hour_ago).count() >= settings.PHONE_CODE_PER_IP_HOURLY)):
         raise serializers.ValidationError({'detail': gettext('Too many codes were requested. Wait an hour and try again.')})
 
-    backend = get_sms_backend()
+    backend = sms_gateway()
     if not backend.sends and not settings.DEBUG:
         logger.error('A phone code was requested but SMS_BACKEND=%s sends nothing.', settings.SMS_BACKEND)
         raise serializers.ValidationError({'detail': gettext(

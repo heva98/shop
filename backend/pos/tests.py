@@ -12,7 +12,9 @@ from core.models import Entity, Role, Store, StoreRole, User
 from credit.models import Customer
 from inventory.models import StockBatch, StockLedger
 from payments.models import PaymentMethod
+from pos import till
 from pos.models import Sale, SaleError, Shift
+from pos.services import shifts
 from pricing.models import Price, Promotion
 
 
@@ -245,7 +247,7 @@ class CreditSaleTests(PosTestBase):
         self.assertEqual((response.data['credit_amount'], response.data['paid_amount']), ('3000.00', '540.00'))
         self.assertEqual(response.data['customer_name'], 'Mama Neema')
         self.assertEqual(self.customer.balance(), Decimal('3000'))
-        summary = Shift.objects.get().summary()
+        summary = shifts.summary(Shift.objects.get())
         methods = {row['payment_method']: row['total'] for row in summary['by_payment_method']}
         self.assertEqual(methods, {'Cash': Decimal('540.00'), 'On credit': Decimal('3000.00')})
         self.assertEqual(summary['expected_cash'], Decimal('10540.00'))
@@ -450,7 +452,7 @@ class ShiftTests(PosTestBase):
         self.assertEqual(z['expected_cash'], Decimal('15900.00'))
         self.assertEqual(z['variance'], Decimal('-100.00'))
         # The report returned on closing is the one the closed shift gives later.
-        self.assertEqual(z, Shift.objects.get(pk=shift_id).summary())
+        self.assertEqual(z, shifts.summary(Shift.objects.get(pk=shift_id)))
         self.assertFalse(Shift.objects.get(id=shift_id).is_open)
 
         after = self.new_sale(qty='1')
@@ -638,7 +640,7 @@ class OfflineSaleTests(PosTestBase):
         _, response = self.offline_sale(shift=shift_id)                       # 3 x 1,180 cash, synced late
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
 
-        z = Shift.objects.get(pk=shift_id).summary()
+        z = shifts.summary(Shift.objects.get(pk=shift_id))
         self.assertEqual(z['cash_sales'], Decimal('3540.00'))
         self.assertEqual(z['expected_cash'], Decimal('10000.00'), 'what the drawer was counted against')
         self.assertEqual(z['changed_after_close'], Decimal('3540.00'))
@@ -656,7 +658,7 @@ class OfflineSaleTests(PosTestBase):
         self.client.post(f'/api/pos/shifts/{shift_id}/close/', {'counted_cash': '11180'})
         self.client.force_authenticate(self.manager)
         self.client.post(f'/api/pos/sales/{sale["id"]}/void/', {'reason': 'Wrong item'})
-        z = Shift.objects.get(pk=shift_id).summary()
+        z = shifts.summary(Shift.objects.get(pk=shift_id))
         self.assertEqual((z['expected_cash'], z['variance']), (Decimal('11180.00'), Decimal('0.00')))
         self.assertEqual(z['changed_after_close'], Decimal('-1180.00'))
         self.assert_z_adds_up(z)
@@ -675,9 +677,9 @@ class OfflineSaleTests(PosTestBase):
     def test_a_shift_closes_once(self):
         shift_id = self.open_shift(opening_float='10000')
         first, second = Shift.objects.get(pk=shift_id), Shift.objects.get(pk=shift_id)  # two requests at once
-        first.close(counted_cash=Decimal('10000'))
+        shifts.close(first, counted_cash=Decimal('10000'))
         with self.assertRaises(SaleError):
-            second.close(counted_cash=Decimal('9000'))
+            shifts.close(second, counted_cash=Decimal('9000'))
         self.assertEqual(Shift.objects.get(pk=shift_id).counted_cash, Decimal('10000.00'))
 
     def test_cannot_reuse_the_id_of_another_sale(self):
@@ -742,8 +744,7 @@ class OfflineSaleTests(PosTestBase):
 
     def test_till_sends_only_the_stock_and_prices_that_changed(self):
         """?sync=<the sync_state the till holds>: only the groups of products
-        whose stock or prices changed come back (pos.views.TillSnapshotView)."""
-        from pos.views import TillSnapshotView
+        whose stock or prices changed come back (pos.till)."""
 
         url, store = '/api/pos/till/', str(self.store.id)
         other = Product.objects.create(entity=self.entity, name='Ibuprofen', uom=self.product.uom)
@@ -752,7 +753,7 @@ class OfflineSaleTests(PosTestBase):
         full = self.client.get(url, {'store': store}).data
         self.assertIsNone(full['sync_buckets'])
         self.assertEqual(len(full['stock']), 3)
-        self.assertEqual(len(full['sync_state']), TillSnapshotView.SYNC_BUCKETS * 8)
+        self.assertEqual(len(full['sync_state']), till.SYNC_BUCKETS * 8)
 
         same = self.client.get(url, {'store': store, 'sync': full['sync_state']}).data
         self.assertEqual(same['sync_buckets'], [])
@@ -762,11 +763,11 @@ class OfflineSaleTests(PosTestBase):
         self.expires_later.qty_on_hand = Decimal('49')
         self.expires_later.save()
         changed = self.client.get(url, {'store': store, 'sync': full['sync_state']}).data
-        bucket = TillSnapshotView.sync_bucket(self.product.id)
+        bucket = till.sync_bucket(self.product.id)
         self.assertIn(bucket, changed['sync_buckets'])
         self.assertEqual(sum(b['qty_on_hand'] for b in changed['stock'] if b['product'] == str(self.product.id)), Decimal('51'))
         self.assertTrue(any(p['product'] == str(self.product.id) for p in changed['prices']))
-        if TillSnapshotView.sync_bucket(other.id) != bucket:
+        if till.sync_bucket(other.id) != bucket:
             self.assertFalse(any(b['product'] == str(other.id) for b in changed['stock']))
 
         # Not a state this server made: everything again.

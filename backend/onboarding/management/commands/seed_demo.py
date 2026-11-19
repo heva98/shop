@@ -21,6 +21,7 @@ from catalog.seed_data import seed_catalog
 from core.models import Entity, ModuleEnablement, ModuleRegistry, Role, Store, StoreRole, User
 from credit.models import Customer
 from inventory.models import StockBatch, StockLedger, StoreProduct
+from inventory.stock import record_movement
 from payments.models import PaymentMethod
 from pricing.models import Price, Promotion
 from receiving.models import Supplier
@@ -188,7 +189,7 @@ class Command(BaseCommand):
             batch = StockBatch.objects.create(
                 store=store, product=product, batch_no=batch_no, expiry_date=expiry_date, unit_cost=0)
             if qty:
-                StockLedger.record(
+                record_movement(
                     store=store, batch=batch, qty_delta=qty,
                     ledger_type=StockLedger.LedgerType.OPENING_STOCK, ref_type='seed', ref_id='',
                 )

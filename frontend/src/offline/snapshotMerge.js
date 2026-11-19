@@ -6,7 +6,7 @@
 // till sent its sync_state: every product falls in one of SYNC_BUCKETS
 // groups, and only the rows of the groups listed in sync_buckets are sent;
 // they replace the till's rows of those groups. Must match
-// pos.views.TillSnapshotView.sync_bucket on the server.
+// pos.till.sync_bucket on the server.
 
 export const SYNC_BUCKETS = 128
 

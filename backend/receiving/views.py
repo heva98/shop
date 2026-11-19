@@ -10,6 +10,7 @@ from core.models import Role
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin
 
+from . import services
 from .filters import ReceivingInvoiceFilter
 from .models import ReceivingInvoice, ReceivingInvoiceLine, Supplier
 from .serializers import (
@@ -28,7 +29,7 @@ class SupplierViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
 
 
 class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
-    """Draft -> Received state machine (see ReceivingInvoice.mark_received).
+    """Draft -> Received state machine (see services.receive).
     Save as draft = a normal create/update with status left at 'draft'.
     Save and receive = create/update, then POST .../receive/."""
 
@@ -48,7 +49,7 @@ class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def receive(self, request, pk=None):
         invoice = self.get_object()
         features.require('receiving_invoice', store=invoice.store)
-        invoice.mark_received()
+        services.receive(invoice)
         record(Action.INVOICE_RECEIVED, Summary('Invoice {invoice_number} from {name} received', invoice_number=invoice.invoice_number, name=invoice.supplier.name),
                request=request, store=invoice.store, data={'invoice': str(invoice.id)})
         return Response(self.get_serializer(invoice).data)
@@ -64,7 +65,7 @@ class ReceivingInvoiceViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         serializer = SupplierPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        payment = invoice.record_payment(
+        payment = services.record_payment(invoice, 
             amount=data['amount'], paid_on=data['paid_on'], method=data['method'],
             reference=data.get('reference', ''), user=request.user,
         )

@@ -4,7 +4,7 @@ This is how most small shops already work: the cashier rings the sale
 up on the EFD machine, which prints the fiscal receipt, and then types that
 receipt's number back into the system. So this driver never issues a
 receipt number itself — it reports the sale as awaiting manual entry, and
-pos.Sale.record_fiscal_receipt() stores the number the cashier enters.
+pos.services.fiscal.record_receipt() stores the number the cashier enters.
 
 A real VFD integration (TRA's Virtual Fiscal Device API) becomes a sibling
 driver implementing the same FiscalDevice interface, returning the TRA
