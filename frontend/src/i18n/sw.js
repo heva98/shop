@@ -126,10 +126,6 @@ export default {
   "{n} expired batch is still on the shelf": "Fungu {n} lililoisha muda bado liko kwenye rafu",
   "{n} expired batches are still on the shelf": "Mafungu {n} yaliyoisha muda bado yako kwenye rafu",
   "Review batches": "Kagua mafungu",
-  "{n} sale today has no EFD receipt number": "Mauzo {n} ya leo hayana namba ya risiti ya EFD",
-  "{n} sales today have no EFD receipt number": "Mauzo {n} ya leo hayana namba ya risiti ya EFD",
-  "Open point of sale": "Fungua mauzo (POS)",
-  "Every sale must have a fiscal receipt. Enter the missing numbers under Point of sale → Shift sales.": "Kila mauzo lazima yawe na risiti ya kodi. Weka namba zinazokosekana chini ya Mauzo (POS) → Mauzo ya zamu.",
 
   // Change password & profile
   "One more step": "Hatua moja zaidi",

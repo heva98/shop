@@ -38,27 +38,15 @@ export default function Dashboard({ storeId, storeName, goTo, canGo = () => true
       {roles.includes('entity_admin') && entity && <GettingStarted entity={entity} storeId={storeId} goTo={goTo} canGo={canGo} onChanged={refetch} />}
       {error && <NoticeBox variant="error" style={{ marginBottom: 24 }}>{t('Could not load the dashboard.')}</NoticeBox>}
       {loading && !d && <NoticeBox variant="info" style={{ marginBottom: 24 }}>{t('Loading…')}</NoticeBox>}
-      {d && (d.expired_on_shelf_count > 0 || d.sales_missing_efd > 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          {d.expired_on_shelf_count > 0 && (
-            <NoticeBox
-              variant="warning"
-              title={t(d.expired_on_shelf_count === 1 ? '{n} expired batch is still on the shelf' : '{n} expired batches are still on the shelf', { n: d.expired_on_shelf_count })}
-              action={link('stock') && <Button variant="primary" onClick={link('stock')}>{t('Review batches')}</Button>}
-            >
-              {t('They can no longer be sold. Take them off the shelf and record them under Stock → Losses & damage.')}
-            </NoticeBox>
-          )}
-          {d.sales_missing_efd > 0 && (
-            <NoticeBox
-              variant="warning"
-              title={t(d.sales_missing_efd === 1 ? '{n} sale today has no EFD receipt number' : '{n} sales today have no EFD receipt number', { n: d.sales_missing_efd })}
-              action={link('pos') && <Button variant="primary" onClick={link('pos')}>{t('Open point of sale')}</Button>}
-            >
-              {t('Every sale must have a fiscal receipt. Enter the missing numbers under Point of sale → Shift sales.')}
-            </NoticeBox>
-          )}
-        </div>
+      {d && d.expired_on_shelf_count > 0 && (
+        <NoticeBox
+          variant="warning"
+          style={{ marginBottom: 24 }}
+          title={t(d.expired_on_shelf_count === 1 ? '{n} expired batch is still on the shelf' : '{n} expired batches are still on the shelf', { n: d.expired_on_shelf_count })}
+          action={link('stock') && <Button variant="primary" onClick={link('stock')}>{t('Review batches')}</Button>}
+        >
+          {t('They can no longer be sold. Take them off the shelf and record them under Stock → Losses & damage.')}
+        </NoticeBox>
       )}
       <div className="ds-stat-grid">
         {cards.map((card) => (
