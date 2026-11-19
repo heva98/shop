@@ -13,6 +13,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 from django.utils.translation import gettext
 from rest_framework import serializers
@@ -56,7 +57,8 @@ def send_code(phone, purpose, *, request=None, user=None):
         raise serializers.ValidationError({'detail': gettext('Too many codes were requested. Wait an hour and try again.')})
 
     backend = sms_gateway()
-    if not backend.sends and not settings.DEBUG:
+    show_code = not backend.sends and settings.DEBUG and settings.SHOW_SMS_CODES
+    if not backend.sends and not show_code:
         logger.error('A phone code was requested but SMS_BACKEND=%s sends nothing.', settings.SMS_BACKEND)
         raise serializers.ValidationError({'detail': gettext(
             'SMS codes are not set up on this server yet. Contact the system administrator.')})
@@ -72,24 +74,32 @@ def send_code(phone, purpose, *, request=None, user=None):
         logger.error('Phone code SMS to %s failed: %s', sms_to, result.error)
         raise serializers.ValidationError({'detail': gettext('The SMS could not be sent. Try again in a few minutes.')})
     reply = {'sent_to': masked(phone), 'minutes': minutes}
-    if not backend.sends:  # a development server (DEBUG) whose SMS goes nowhere
+    if show_code:  # a development server (DEBUG + SHOW_SMS_CODES) whose SMS goes nowhere
         reply['debug_code'] = code
     return reply
 
 
 def check_code(phone, purpose, code, *, user=None):
     """Uses up the live code for `phone` if `code` matches it; otherwise
-    counts the guess and raises ValidationError({'code': …})."""
+    counts the guess and raises ValidationError({'code': …}).
+
+    Each guess takes one of the code's PHONE_CODE_ATTEMPTS in a single
+    conditional UPDATE before the code is compared, so guesses sent in
+    parallel cannot all see the same count and get past the limit; and
+    the code is used up the same way, so it signs in only once."""
     code = ''.join(ch for ch in str(code or '') if ch.isdigit())
     live = (PhoneCode.objects.filter(phone=phone, purpose=purpose, used_at__isnull=True, expires_at__gt=timezone.now())
             .order_by('-created_at').first())
     if live is None or (user is not None and live.user_id != user.pk):
         raise serializers.ValidationError({'code': [gettext('This code has expired. Ask for a new one.')]})
-    if live.attempts >= settings.PHONE_CODE_ATTEMPTS:
+    took_a_guess = (PhoneCode.objects.filter(pk=live.pk, attempts__lt=settings.PHONE_CODE_ATTEMPTS)
+                    .update(attempts=F('attempts') + 1))
+    if not took_a_guess:
         raise serializers.ValidationError({'code': [gettext('Too many wrong codes. Ask for a new one.')]})
     if not hmac.compare_digest(live.code_hash, _hash(phone, purpose, code)):
-        PhoneCode.objects.filter(pk=live.pk).update(attempts=live.attempts + 1)
         raise serializers.ValidationError({'code': [gettext('That code is not right. Check the SMS and try again.')]})
-    live.used_at = timezone.now()
-    live.save(update_fields=['used_at'])
+    now = timezone.now()
+    if not PhoneCode.objects.filter(pk=live.pk, used_at__isnull=True).update(used_at=now):
+        raise serializers.ValidationError({'code': [gettext('This code has expired. Ask for a new one.')]})
+    live.used_at = now
     return live

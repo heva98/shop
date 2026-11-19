@@ -11,8 +11,10 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.services import Summary
 from catalog.models import Product
 from core import features
+from core.login_guard import normalize_username, record_failure, refuse_if_locked
 from core.models import Role, Store
 from core.permissions import is_store_manager, write_roles
 from core.queryset_scoping import TenantScopedQuerySetMixin, can_access_store
@@ -31,10 +33,20 @@ _POS_ROLES = (Role.CASHIER, Role.STOREKEEPER, Role.STORE_MANAGER, Role.ENTITY_AD
 def _manager_override(request, username, password, store):
     """The manager who typed their own username and password at the till
     to approve something (a void, a large discount), or None when nobody
-    did. Wrong details are refused rather than ignored."""
+    did. Wrong details are refused rather than ignored.
+
+    A wrong password here counts toward the same limits as one at
+    sign-in (core.login_guard): otherwise a cashier could guess a
+    manager's or owner's password through this box without ever being
+    locked out or showing in the activity log."""
     if not username or not password:
         return None
+    username = normalize_username(username)
+    refuse_if_locked(request, username)
     approver = authenticate(request, username=username, password=password)
+    if approver is None:
+        record_failure(request, username, Summary(
+            'Wrong password for "{username}" in a manager approval at {store}', username=username, store=store.name))
     if approver is None or not is_store_manager(approver, store):
         raise PermissionDenied(gettext('Approval failed: wrong username/password, or that user is not a manager at this store.'))
     return approver
@@ -143,6 +155,7 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         if existing is not None:
             return Response(self._respond(existing))
         features.require('pos_sale', store=data['store'])
+        dated = data.get('completed_at')
         data = _payment(data, request, data['store'])
         try:
             sale, result, price_changes = checkout.record_offline(user=request.user, **data)
@@ -156,6 +169,8 @@ class SaleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         audit.offline_prices(request, sale, price_changes)
         audit.unrecorded_stock(request, sale)
         audit.discount(request, sale)
+        if not data.get('strict'):
+            audit.offline_limits(request, sale, dated)
         return Response(self._respond(sale, result), status=status.HTTP_201_CREATED)
 
     def _recorded(self, sale_id):

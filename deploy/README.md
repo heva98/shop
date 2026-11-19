@@ -122,6 +122,8 @@ sudo systemctl status shop-gunicorn   # should be "active (running)"
 
 ```bash
 sudo mkdir -p /var/www/certbot
+# The browser security headers (CSP and others) the site config includes:
+sudo cp /opt/shop/deploy/nginx/security-headers.conf /etc/nginx/snippets/shop-security-headers.conf
 sudo cp /opt/shop/deploy/nginx/shop.example.com.conf /etc/nginx/sites-available/
 sudo ln -s /etc/nginx/sites-available/shop.example.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
@@ -133,13 +135,14 @@ sudo systemctl reload nginx
 certbot installs a renewal timer automatically (`systemctl list-timers |
 grep certbot`) — nothing further to do for renewals.
 
-Once HTTPS works, switch on Django's HTTPS settings (they default to off)
-by adding to `/opt/shop/backend/.env`, then restart gunicorn:
+Once HTTPS works, switch on the HTTPS redirect by adding to
+`/opt/shop/backend/.env`, then restart gunicorn. (Cookies are already
+HTTPS-only with `DEBUG=False`, so `/admin/` only signs in over HTTPS; to
+use it before the certificate is in place, add `SESSION_COOKIE_SECURE=False`
+and `CSRF_COOKIE_SECURE=False` for the time being.)
 
 ```bash
 SECURE_SSL_REDIRECT=True
-SESSION_COOKIE_SECURE=True
-CSRF_COOKIE_SECURE=True
 ```
 
 ```bash
@@ -149,6 +152,10 @@ sudo systemctl restart shop-gunicorn
 ## 6. Verify
 
 - `https://shop.example.com/admin/` — Django admin loads, login works.
+- `curl -sI https://shop.example.com/ | grep -i content-security-policy` —
+  the CSP header is there. Open the app in a browser with its developer
+  console open and click through the main screens: there must be no
+  "Refused to load / execute" (CSP) errors.
 - `https://shop.example.com/api/core/stores/` — returns `401` (expected,
   unauthenticated) rather than a connection error or 502.
 - `https://shop.example.com/` — the built frontend loads.
@@ -273,6 +280,15 @@ one row per recipient, including skipped ones and the reason they were skipped.
    ```bash
    sudo cp /opt/shop/deploy/systemd/shop-daily-summary.{service,timer} /etc/systemd/system/
    sudo systemctl daemon-reload && sudo systemctl enable --now shop-daily-summary.timer
+   ```
+5. Switch on the security alerts too. Every 5 minutes they text each
+   shop's owners (and email those with an address) about offline sales
+   at changed prices or over a limit, accounts locked by wrong
+   passwords, and a new owner added to their shop. Addresses blocked
+   for guessing passwords across many accounts are emailed to `ADMINS`.
+   ```bash
+   sudo cp /opt/shop/deploy/systemd/shop-security-alerts.{service,timer} /etc/systemd/system/
+   sudo systemctl daemon-reload && sudo systemctl enable --now shop-security-alerts.timer
    ```
 
    Analytics needs no timer: the Analytics screen reads the sales, stock

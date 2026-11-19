@@ -1,0 +1,108 @@
+# Tests and the security gate. A pull request or push to main fails when:
+#   - a backend or frontend test fails (core/test_security.py holds the
+#     regression tests for the 2026-11 security audit)
+#   - Django's deploy checks warn, with production settings
+#   - a locked Python dependency, or a production npm package, has a known
+#     vulnerability
+#   - bandit finds a medium- or high-severity issue in our own code
+#   - the nginx site config, with its security headers, does not load
+# It also runs every Monday, so a new advisory against a locked version is
+# noticed even when nobody is pushing.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install the locked dependencies (hashes checked)
+        run: pip install --require-hashes -r requirements.txt
+      - name: Tests
+        run: python manage.py test --parallel 1
+      - name: Migrations match the models
+        run: python manage.py makemigrations --check --dry-run
+      - name: Django deploy checks (production settings)
+        env:
+          DEBUG: 'False'
+          SECRET_KEY: ci-only-not-a-real-secret-${{ github.run_id }}-0123456789abcdefghijklmnopqrstuvwxyz
+          ALLOWED_HOSTS: shop.example.com
+          DATABASE_URL: postgres://shop:unused@localhost:5432/shop
+          SECURE_SSL_REDIRECT: 'True'
+          SESSION_COOKIE_SECURE: 'True'
+          CSRF_COOKIE_SECURE: 'True'
+          SECURE_HSTS_SECONDS: '31536000'
+        run: python manage.py check --deploy --fail-level WARNING
+
+  backend-security:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pip-audit==2.10.1 bandit==1.9.4
+      - name: Known vulnerabilities in the locked dependencies
+        run: pip-audit -r requirements.txt --require-hashes --disable-pip
+      - name: Static analysis of our own code (medium and high)
+        run: >
+          bandit -r . -ll
+          -x ./.venv,./*/migrations,./*/tests.py,./*/test_*.py
+
+  nginx-config:
+    # The site config and its security headers must load in a real nginx
+    # (a typo there would take the site down at the next reload).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y nginx
+      - name: Install the config as deploy/README.md does, with a throwaway certificate
+        run: |
+          sudo mkdir -p /etc/letsencrypt/live/shop.example.com /etc/nginx/snippets
+          sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=shop.example.com \
+            -keyout /etc/letsencrypt/live/shop.example.com/privkey.pem \
+            -out /etc/letsencrypt/live/shop.example.com/fullchain.pem
+          sudo cp deploy/nginx/security-headers.conf /etc/nginx/snippets/shop-security-headers.conf
+          sudo cp deploy/nginx/shop.example.com.conf /etc/nginx/sites-enabled/
+      - run: sudo nginx -t
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Known vulnerabilities in what ships to browsers
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Known vulnerabilities in build tools (high and critical)
+        run: npm audit --audit-level=high

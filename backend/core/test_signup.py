@@ -14,7 +14,7 @@ SHOP = {'name': 'Neema General Store', 'business_type': 'general', 'country': 'T
 FORM = {'phone': '0712 345 678', 'first_name': 'Neema', 'last_name': 'Mushi', 'password': 'Duka-Yangu-2026', 'shop': SHOP}
 
 
-@override_settings(SMS_BACKEND='console', DEBUG=True)
+@override_settings(SMS_BACKEND='console', DEBUG=True, SHOW_SMS_CODES=True)
 @mock.patch('core.phone_codes._new_code', return_value='123456')
 class SignupTests(APITestCase):
     def signup(self, **overrides):
@@ -103,7 +103,7 @@ class SignupTests(APITestCase):
         self.assertEqual(self.client.get('/api/core/locations/').status_code, status.HTTP_200_OK)
 
 
-@override_settings(SMS_BACKEND='console', DEBUG=True)
+@override_settings(SMS_BACKEND='console', DEBUG=True, SHOW_SMS_CODES=True)
 @mock.patch('core.phone_codes._new_code', return_value='654321')
 class PasswordResetTests(APITestCase):
     def setUp(self):

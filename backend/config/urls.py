@@ -5,16 +5,17 @@ for its endpoints.
 """
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib import admin
 from django.urls import include, path
 
 from core import signup
-from core.auth_views import obtain_token
+from core.auth_views import obtain_token, revoke_token
+from core.admin_login import secure_admin_site
 from core.health import health, live, ready
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', secure_admin_site().urls),
     path('api/auth-token/', obtain_token),
+    path('api/auth-token/logout/', revoke_token),
     path('api/signup/code/', signup.signup_code),
     path('api/signup/', signup.signup),
     path('api/password-reset/code/', signup.password_reset_code),

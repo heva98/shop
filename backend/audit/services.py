@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.utils import translation
 from django.utils.functional import Promise
+from django.utils.translation import gettext
 
 from .models import AuditEvent
 
@@ -38,6 +39,21 @@ def client_ip(request):
     if request is None:
         return ''
     return (request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR', ''))[:64]
+
+
+def translated_summary(event):
+    """The event's summary in the active language when it kept its
+    template (see Summary); older events give the stored English."""
+    i18n = (event.data or {}).get('_summary')
+    if not i18n:
+        return event.summary
+    try:
+        # Values that are themselves catalogue texts (role names, "given by
+        # a manager"...) are translated too; names and numbers stay as they are.
+        params = {k: gettext(v) if isinstance(v, str) and v else v for k, v in i18n['params'].items()}
+        return gettext(i18n['template']).format(**params)[:255]
+    except (KeyError, IndexError, ValueError):
+        return event.summary
 
 
 def _jsonable(value):

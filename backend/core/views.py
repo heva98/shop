@@ -5,6 +5,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 
 from audit.services import Action, Summary, record
@@ -119,10 +120,14 @@ def refuse_other_owner(request, target):
 
 
 class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
+    """Staff accounts: the owner's (Admin > Users). Reading them is the
+    owner's too: the list holds every colleague's mobile number, email
+    and date of birth, which a cashier has no need to see. Everyone reads
+    and edits their own account through `me`."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     entity_field = 'entity_id'
-    permission_classes = [write_roles(*_ADMIN_WRITE_ROLES)]
+    permission_classes = [roles(*_ADMIN_WRITE_ROLES)]
 
     def perform_create(self, serializer):
         user = serializer.save()
@@ -162,10 +167,15 @@ class UserViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
         profile through OwnProfileSerializer; returns the same payload."""
         user = request.user
         if request.method == 'PATCH':
-            serializer = OwnProfileSerializer(user, data=request.data, partial=True)
+            serializer = OwnProfileSerializer(user, data=request.data, partial=True, context={'request': request})
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
             if serializer.validated_data.get('new_password'):
+                # Every other session ends: whoever else had one no longer knows the password.
+                others = Token.objects.filter(user=user)
+                if isinstance(request.auth, Token):
+                    others = others.exclude(pk=request.auth.pk)
+                others.delete()
                 record(Action.PASSWORD_CHANGED, Summary('{username} changed their password', username=user.username), request=request)
         store_roles = StoreRole.objects.filter(user=user).select_related('store').order_by('id')
         entity = user.entity if user.entity_id else None
@@ -262,7 +272,9 @@ class StoreRoleViewSet(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         refuse_other_owner(self.request, serializer.validated_data['user'])
         role = serializer.save()
-        record(Action.ROLE_GRANTED, self._describe(role), request=self.request, store=role.store)
+        # data.role lets audit.alerts tell the other owners about a new owner.
+        record(Action.ROLE_GRANTED, self._describe(role), request=self.request, store=role.store,
+               entity=role.user.entity, data={'role': role.role, 'user': role.user.username})
 
     def perform_destroy(self, instance):
         if instance.role == Role.ENTITY_ADMIN and not self.request.user.is_superuser:

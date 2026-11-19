@@ -42,11 +42,14 @@ class TenantIsolationTests(APITestCase):
         self.assertNotIn(str(self.store_b.id), ids)
 
     def test_user_list_excludes_other_entities(self):
-        self.client.force_authenticate(self.cashier_a)
+        # Only the owner reads the staff list (core.test_security, M4).
+        User.objects.create_user(username='cashier_b', password='x', entity=self.entity_b)
+        self.client.force_authenticate(self.admin_a)
         response = self.client.get('/api/core/users/')
         usernames = {row['username'] for row in response.data['results']}
         self.assertIn('cashier_a', usernames)
         self.assertIn('admin_a', usernames)
+        self.assertNotIn('cashier_b', usernames)
 
     def test_entity_admin_sees_only_their_own_entity(self):
         self.client.force_authenticate(self.admin_a)

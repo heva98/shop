@@ -3,6 +3,11 @@ use cases themselves: the log needs the request (who, from where), which
 the services deliberately never see. Summaries are English and translated
 when the log is read."""
 
+from datetime import timedelta
+
+from django.conf import settings
+from django.utils import timezone
+
 from audit.services import Action, Summary, record
 from core.permissions import is_store_manager
 from inventory.models import StockLedger
@@ -15,17 +20,20 @@ def discount(request, sale):
     if not over_limit:
         return
     by = sale.discount_approved_by
+    unapproved = False
     if by:
         summary = Summary('Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} (approved by {name})',
                           number=sale.number, discount=amount, gross=gross, name=by.username)
     else:
-        who = 'given by a manager' if is_store_manager(sale.cashier, sale.store) else 'made offline, not approved'
+        unapproved = not is_store_manager(sale.cashier, sale.store)
+        who = 'made offline, not approved' if unapproved else 'given by a manager'
         summary = Summary('Sale #{number}: discount TZS {discount:,.0f} of {gross:,.0f} ({who})',
                           number=sale.number, discount=amount, gross=gross, who=who)
+    # `unapproved` is what audit.alerts reports to the owner.
     record(Action.DISCOUNT_GIVEN, summary,
            request=request, store=sale.store,
            data={'sale': str(sale.id), 'discount': amount, 'gross': gross,
-                 'approved_by': by.username if by else ''})
+                 'approved_by': by.username if by else '', 'unapproved': unapproved})
 
 
 def unrecorded_stock(request, sale):
@@ -54,6 +62,47 @@ def offline_prices(request, sale, price_changes):
     record(Action.OFFLINE_SALE_PRICE,
            Summary('Sale #{number} was made offline at old prices: {changes}', number=sale.number, changes=changes),
            request=request, store=sale.store, data={'sale': str(sale.id), 'changes': price_changes})
+
+
+def _local(moment):
+    return f'{timezone.localtime(moment):%d/%m/%Y %H:%M}'
+
+
+def offline_limits(request, sale, dated):
+    """An offline sale is kept whatever it broke (the goods are gone),
+    but the server checks what it can and logs each problem as
+    OFFLINE_SALE_LIMIT, which audit.alerts texts to the owner: credit
+    over the customer's limit, and a date (`dated`, as the till sent it)
+    outside the shift the sale was recorded in or long before it arrived.
+    A discount over the cashier's limit is logged by discount() above;
+    a price that differs from the store's, by offline_prices()."""
+    base = {'sale': str(sale.id), 'number': sale.number}
+    customer = sale.customer
+    if customer is not None and sale.credit_amount and customer.credit_limit is not None:
+        owing = customer.balance()
+        if owing > customer.credit_limit:
+            record(Action.OFFLINE_SALE_LIMIT,
+                   Summary('Sale #{number} was made offline on credit to {customer}, who now owes TZS {owing:,.0f} '
+                           '(limit {limit:,.0f})', number=sale.number, customer=customer.name, owing=owing,
+                           limit=customer.credit_limit),
+                   request=request, store=sale.store,
+                   data={**base, 'reason': 'credit_limit', 'owing': owing, 'limit': customer.credit_limit})
+    if dated is None:
+        return
+    grace = timedelta(minutes=settings.OFFLINE_SALE_CLOCK_GRACE_MINUTES)
+    shift = sale.shift
+    if shift is not None and (dated < shift.opened_at - grace or (shift.closed_at and dated > shift.closed_at + grace)):
+        record(Action.OFFLINE_SALE_LIMIT,
+               Summary('Sale #{number} is dated {when}, outside the shift it was recorded in ({opened} to {closed})',
+                       number=sale.number, when=_local(dated), opened=_local(shift.opened_at),
+                       closed=_local(shift.closed_at) if shift.closed_at else 'now'),
+               request=request, store=sale.store, data={**base, 'reason': 'outside_shift', 'dated': dated.isoformat()})
+    age = timezone.now() - dated
+    if age > timedelta(hours=settings.OFFLINE_SALE_MAX_AGE_HOURS):
+        record(Action.OFFLINE_SALE_LIMIT,
+               Summary('Sale #{number} is dated {when}, {hours} hours before it reached the server',
+                       number=sale.number, when=_local(dated), hours=int(age.total_seconds() // 3600)),
+               request=request, store=sale.store, data={**base, 'reason': 'too_old', 'dated': dated.isoformat()})
 
 
 def voided(request, sale, approver, reason):

@@ -1376,6 +1376,7 @@ export default {
   "Sold without recorded stock": "Imeuzwa bila stock iliyorekodiwa",
   "Offline sale at an old price": "Mauzo nje ya mtandao kwa bei ya zamani",
   "Offline sale without recorded stock": "Mauzo nje ya mtandao bila stock iliyorekodiwa",
+  "Offline sale over a limit": "Mauzo nje ya mtandao yaliyozidi kikomo",
   "Lost, damaged, expired or spoiled": "Imepotea, kuharibika, kuisha muda au kuoza",
   "Spoiled (fridge / freezer failure)": "Imeoza (hitilafu ya friji / jokofu)",
   "All my stores": "Maduka yangu yote",
@@ -1685,4 +1686,5 @@ export default {
   "Sales in this shift": "Mauzo ya zamu hii",
   "Qty change": "Mabadiliko ya idadi",
   "Stock at {store}": "Stock ya {store}",
+  "Enter your current password to change your mobile number or email.": "Weka nenosiri lako la sasa ili kubadilisha namba ya simu au barua pepe.",
 }

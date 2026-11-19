@@ -1,0 +1,11 @@
+[Unit]
+Description=Shop ERP — security alerts to shop owners by SMS/email
+After=network.target
+
+[Service]
+Type=oneshot
+User=shop
+Group=shop
+WorkingDirectory=/opt/shop/backend
+# Each alert is sent once (audit.SecurityAlert), so a re-run is safe.
+ExecStart=/opt/shop/backend/.venv/bin/python manage.py send_security_alerts

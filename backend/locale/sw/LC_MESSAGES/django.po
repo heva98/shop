@@ -2965,3 +2965,76 @@ msgstr "Kuuza dawa za kudhibitiwa, kila moja ikirekodiwa kwenye rejista pamoja n
 
 msgid "Selling controlled drugs, each recorded in the register with the patient, prescriber and who sold it. Switch off for a branch that does not stock them."
 msgstr "Kuuza dawa za kudhibitiwa, kila moja ikirekodiwa kwenye rejista pamoja na mgonjwa, aliyeandika agizo na aliyeiuza. Zima kwa tawi lisilozihifadhi."
+
+#: core/login_guard.py
+msgid "Too many wrong passwords from this connection. Try again in {minutes} minutes."
+msgstr "Manenosiri mengi yasiyo sahihi kutoka kwenye muunganisho huu. Jaribu tena baada ya dakika {minutes}."
+
+#: core/login_guard.py
+msgid "\"{username}\" locked out after {count} wrong passwords"
+msgstr "\"{username}\" amefungiwa baada ya manenosiri {count} yasiyo sahihi"
+
+#: core/login_guard.py
+msgid "Address {ip} blocked: {count} wrong passwords for different users"
+msgstr "Anwani {ip} imezuiwa: manenosiri {count} yasiyo sahihi kwa watumiaji tofauti"
+
+#: pos/views.py
+msgid "Wrong password for \"{username}\" in a manager approval at {store}"
+msgstr "Nenosiri si sahihi kwa \"{username}\" katika idhini ya meneja, {store}"
+
+#: audit/models.py
+msgid "Offline sale over a limit"
+msgstr "Mauzo nje ya mtandao yaliyozidi kikomo"
+
+#: pos/audit.py
+msgid "Sale #{number} was made offline on credit to {customer}, who now owes TZS {owing:,.0f} (limit {limit:,.0f})"
+msgstr "Mauzo #{number} yalifanywa nje ya mtandao kwa mkopo kwa {customer}, ambaye sasa anadaiwa TZS {owing:,.0f} (kikomo {limit:,.0f})"
+
+#: pos/audit.py
+msgid "Sale #{number} is dated {when}, outside the shift it was recorded in ({opened} to {closed})"
+msgstr "Mauzo #{number} yana tarehe {when}, nje ya zamu yalimorekodiwa ({opened} hadi {closed})"
+
+#: pos/audit.py
+msgid "Sale #{number} is dated {when}, {hours} hours before it reached the server"
+msgstr "Mauzo #{number} yana tarehe {when}, saa {hours} kabla ya kufika kwenye seva"
+
+#: pos/audit.py
+msgid "now"
+msgstr "sasa"
+
+#: audit/alerts.py
+msgid "Shoppy security alert for {shop}:"
+msgstr "Tahadhari ya usalama ya Shoppy kwa {shop}:"
+
+#: audit/alerts.py
+msgid "Shoppy security alert for {shop}"
+msgstr "Tahadhari ya usalama ya Shoppy kwa {shop}"
+
+#: audit/alerts.py
+msgid "Details: Activity log."
+msgstr "Maelezo: Kumbukumbu za shughuli."
+
+#: audit/alerts.py
+msgid "...and {count} more."
+msgid_plural "...and {count} more."
+msgstr[0] "...na nyingine {count}."
+msgstr[1] "...na nyingine {count}."
+
+#: audit/alerts.py
+msgid "{count} new alert."
+msgid_plural "{count} new alerts."
+msgstr[0] "Tahadhari {count} mpya."
+msgstr[1] "Tahadhari {count} mpya."
+
+#: core/serializers.py
+msgid "Enter your current password to change your password, mobile number or email."
+msgstr "Weka nenosiri lako la sasa ili kubadilisha nenosiri, namba ya simu au barua pepe."
+
+#: core/serializers.py
+msgid "Wrong current password for \"{username}\" in My profile"
+msgstr "Nenosiri la sasa si sahihi kwa \"{username}\" kwenye Wasifu wangu"
+
+#: core/mfa.py
+msgid "Wrong password for \"{username}\" at the admin site"
+msgstr "Nenosiri si sahihi kwa \"{username}\" kwenye tovuti ya usimamizi"
+

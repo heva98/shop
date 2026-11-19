@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getToken, isTransient, setRememberSession, setToken as persistToken } from '../api/client.js'
-import { login as apiLogin, me as apiMe, updateMe as apiUpdateMe } from '../api/core.js'
+import { login as apiLogin, logout as apiLogout, me as apiMe, updateMe as apiUpdateMe } from '../api/core.js'
 import { getLanguage, hasChosenLanguage, setLanguage, subscribe as onLanguageChange, t } from '../i18n/index.js'
 
 const AuthContext = createContext(null)
@@ -138,6 +138,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    apiLogout()  // ends the session on the server; nothing here waits for it
     persistToken(null)
     saveProfile(null)
     setToken(null)

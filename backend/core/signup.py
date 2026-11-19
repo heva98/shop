@@ -29,6 +29,7 @@ from audit.services import Action, Summary, record
 from catalog.seed_data import seed_catalog
 
 from .authentication import revoke_sessions, shop_suspended
+from .login_guard import AuthRateThrottle
 from .models import PhoneCode, User
 from .phone_codes import check_code, masked, send_code
 from .platform import ShopSerializer
@@ -38,7 +39,7 @@ SHOP_FIELDS = ['name', 'business_type', 'country', 'region', 'council', 'address
 
 
 def public(view):
-    return api_view(['POST'])(authentication_classes([])(permission_classes([AllowAny])(throttle_classes([])(view))))
+    return api_view(['POST'])(authentication_classes([])(permission_classes([AllowAny])(throttle_classes([AuthRateThrottle])(view))))
 
 
 def _require_open():

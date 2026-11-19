@@ -1,0 +1,9 @@
+[Unit]
+Description=Shop ERP — send new security alerts every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

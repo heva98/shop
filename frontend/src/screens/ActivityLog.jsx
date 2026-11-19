@@ -8,6 +8,7 @@ const ACTIONS = [
   ['login', 'Signed in'], ['login_failed', 'Failed sign-in'], ['login_locked', 'Sign-in locked out'],
   ['sale_voided', 'Sale voided'], ['shift_closed', 'Shift closed'],
   ['offline_sale_price', 'Offline sale at an old price'], ['offline_sale_no_stock', 'Offline sale without recorded stock'],
+  ['offline_sale_limit', 'Offline sale over a limit'],
   ['price_set', 'Price set'], ['price_removed', 'Price removed'],
   ['product_created', 'Product added'], ['product_updated', 'Product changed'],
   ['stock_written_off', 'Stock written off'], ['stock_count_approved', 'Stock count approved'],
@@ -25,7 +26,7 @@ const ACTIONS = [
   ['promotion_changed', 'Promotion added or changed'],
 ]
 const ACTION_LABEL = Object.fromEntries(ACTIONS)
-const ALERT_ACTIONS = new Set(['login_failed', 'login_locked', 'sale_voided', 'offline_sale_no_stock','stock_written_off', 'user_disabled', 'password_reset', 'transfer_resolved', 'transfer_cancelled'])
+const ALERT_ACTIONS = new Set(['login_failed', 'login_locked', 'sale_voided', 'offline_sale_no_stock', 'offline_sale_limit', 'stock_written_off', 'user_disabled', 'password_reset', 'transfer_resolved', 'transfer_cancelled'])
 
 /** Who did what, and when. Nothing here can be edited or deleted. */
 export default function ActivityLog() {

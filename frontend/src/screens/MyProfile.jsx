@@ -39,6 +39,10 @@ export default function MyProfile({ onDone }) {
   const [saved, setSaved] = useState(false)
 
   const set = (field) => (e) => setDraft((d) => ({ ...d, [field]: e.target.value }))
+  // The number gets password-reset codes and the email security alerts, so
+  // changing either needs the current password (as a new password does).
+  const contactChanged = draft.phone.replace(/\D/g, '') !== localPhone(auth.profile?.phone).replace(/\D/g, '')
+    || draft.email.trim() !== (auth.profile?.email ?? '')
 
   async function save() {
     const problems = ['first_name', 'last_name']
@@ -46,6 +50,8 @@ export default function MyProfile({ onDone }) {
     if (draft.new_password) {
       if (!draft.current_password) problems.push(t('Enter your current password to set a new one.'))
       if (draft.new_password !== draft.confirm_password) problems.push(t('New passwords do not match.'))
+    } else if (contactChanged && !draft.current_password) {
+      problems.push(t('Enter your current password to change your mobile number or email.'))
     }
     setErrors(problems)
     setSaved(false)
@@ -54,7 +60,8 @@ export default function MyProfile({ onDone }) {
     setSaving(true)
     try {
       const payload = Object.fromEntries(PROFILE_FIELDS.map((f) => [f, draft[f] === '' && f === 'date_of_birth' ? null : draft[f]]))
-      if (draft.new_password) Object.assign(payload, { current_password: draft.current_password, new_password: draft.new_password })
+      if (draft.new_password || contactChanged) payload.current_password = draft.current_password
+      if (draft.new_password) payload.new_password = draft.new_password
       const updated = await auth.updateProfile(payload)
       setDraft(draftFrom(updated))
       setSaved(true)
@@ -92,6 +99,9 @@ export default function MyProfile({ onDone }) {
         </div>
 
         <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 12px' }}>{t('Change password')}</p>
+        {contactChanged && !draft.new_password && (
+          <NoticeBox variant="info" style={{ marginBottom: 12 }}>{t('Enter your current password to change your mobile number or email.')}</NoticeBox>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 16 }}>
           <Field label={t('Current password')}><Input type="password" value={draft.current_password} onChange={set('current_password')} /></Field>
           <Field label={t('New password')}>

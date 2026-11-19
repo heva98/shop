@@ -1,4 +1,3 @@
-from django.utils.translation import gettext
 from django_filters import rest_framework as filters
 from rest_framework import serializers, viewsets
 
@@ -7,6 +6,7 @@ from core.permissions import roles
 from core.queryset_scoping import accessible_store_ids
 
 from .models import AuditEvent
+from .services import translated_summary
 
 
 class AuditEventSerializer(serializers.ModelSerializer):
@@ -21,18 +21,7 @@ class AuditEventSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_summary(self, event):
-        """In the reader's language when the event kept its template (see
-        audit.services.Summary); older events show the stored English."""
-        i18n = (event.data or {}).get('_summary')
-        if not i18n:
-            return event.summary
-        try:
-            # Values that are themselves catalogue texts (role names, "given by
-            # a manager"...) are translated too; names and numbers stay as they are.
-            params = {k: gettext(v) if isinstance(v, str) and v else v for k, v in i18n['params'].items()}
-            return gettext(i18n['template']).format(**params)[:255]
-        except (KeyError, IndexError, ValueError):
-            return event.summary
+        return translated_summary(event)
 
 
 class AuditEventFilter(filters.FilterSet):

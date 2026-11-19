@@ -15,6 +15,7 @@ import base64
 import json
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
@@ -67,9 +68,13 @@ class ConsoleBackend(SmsBackend):
 
 
 def _post_json(request, timeout):
-    """(status, parsed body or {'text': …}) — or raises URLError/TimeoutError."""
+    """(status, parsed body or {'text': …}) — or raises URLError/TimeoutError.
+    Only https: the URL comes from settings, but a typo must never send the
+    provider's API key in the clear, nor reach file:// or another scheme."""
+    if urllib.parse.urlsplit(request.full_url).scheme != 'https':
+        raise urllib.error.URLError(f'Refusing a non-https SMS provider URL: {request.full_url}')
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 — https only, checked above
             status, text = getattr(response, 'status', 200), response.read().decode(errors='replace')
     except urllib.error.HTTPError as exc:
         status, text = exc.code, exc.read().decode(errors='replace')

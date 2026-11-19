@@ -256,7 +256,14 @@ class UserSerializer(serializers.ModelSerializer):
 class OwnProfileSerializer(serializers.ModelSerializer):
     """What any signed-in user may change about themselves via
     /users/me/. Username, entity and is_active stay admin-controlled
-    (UserSerializer); a password change must prove the current one."""
+    (UserSerializer).
+
+    A new password, mobile number or email must prove the current
+    password: the number receives password-reset codes and the email
+    security alerts, so someone holding only a stolen session could
+    otherwise point them at themselves and keep the account. Wrong
+    current passwords count toward core.login_guard's limits."""
+    _NEEDS_PASSWORD = ('phone', 'email')
     current_password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
     new_password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
 
@@ -275,11 +282,33 @@ class OwnProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(gettext('Date of birth must be in the past.'))
         return dob
 
+    def _changes_contact(self, attrs):
+        return any(field in attrs and (attrs[field] or '') != (getattr(self.instance, field) or '')
+                   for field in self._NEEDS_PASSWORD)
+
+    def _check_current_password(self, attrs):
+        from audit.services import Summary
+
+        from .login_guard import record_failure, refuse_if_locked
+
+        request, username = self.context.get('request'), self.instance.username
+        current = attrs.get('current_password') or ''
+        if not current:
+            raise serializers.ValidationError({'current_password': gettext(
+                'Enter your current password to change your password, mobile number or email.')})
+        if request is not None:
+            refuse_if_locked(request, username)
+        if not self.instance.check_password(current):
+            if request is not None:
+                record_failure(request, username, Summary('Wrong current password for "{username}" in My profile',
+                                                          username=username))
+            raise serializers.ValidationError({'current_password': gettext('Current password is incorrect.')})
+
     def validate(self, attrs):
         new_password = attrs.get('new_password')
+        if new_password or self._changes_contact(attrs):
+            self._check_current_password(attrs)
         if new_password:
-            if not self.instance.check_password(attrs.get('current_password') or ''):
-                raise serializers.ValidationError({'current_password': gettext('Current password is incorrect.')})
             try:
                 validate_password(new_password, user=self.instance)
             except DjangoValidationError as exc:

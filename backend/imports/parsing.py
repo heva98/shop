@@ -13,11 +13,14 @@ import re
 import zipfile
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from xml.etree import ElementTree
 
+from defusedxml import DefusedXmlException, ElementTree
 from django.utils.translation import gettext
 
 MAX_ROWS = 5000
+# An .xlsx is a zip: a few MB uploaded can unpack to gigabytes and take
+# the server's memory with it. Real sheets of MAX_ROWS rows are far smaller.
+MAX_XLSX_PART_BYTES = 50 * 1024 * 1024
 _NS = {'m': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 _REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
 
@@ -83,6 +86,8 @@ def _read_xlsx(data):
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
         raise ImportFileError(gettext('This is not a valid .xlsx file.'))
+    if any(info.file_size > MAX_XLSX_PART_BYTES for info in archive.infolist()):
+        raise ImportFileError(gettext('This .xlsx file is too large once unpacked. Split it into smaller files.'))
     try:
         shared = []
         if 'xl/sharedStrings.xml' in archive.namelist():
@@ -91,7 +96,7 @@ def _read_xlsx(data):
                 shared.append(''.join(t.text or '' for t in si.iter(f'{{{_NS["m"]}}}t')))
         sheet_path = _first_sheet_path(archive)
         root = ElementTree.fromstring(archive.read(sheet_path))
-    except (KeyError, ElementTree.ParseError):
+    except (KeyError, ElementTree.ParseError, DefusedXmlException):
         raise ImportFileError(gettext('Could not read the first worksheet of this .xlsx file.'))
 
     table = []

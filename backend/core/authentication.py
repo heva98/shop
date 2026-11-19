@@ -28,7 +28,9 @@ def shop_suspended(user):
 class ExpiringTokenAuthentication(TokenAuthentication):
     def authenticate_credentials(self, key):
         user, token = super().authenticate_credentials(key)
-        if token.created < timezone.now() - timedelta(hours=settings.TOKEN_TTL_HOURS):
+        # The platform administrator sees every shop: a shorter session.
+        hours = settings.SUPERUSER_TOKEN_TTL_HOURS if user.is_superuser else settings.TOKEN_TTL_HOURS
+        if token.created < timezone.now() - timedelta(hours=hours):
             token.delete()
             raise exceptions.AuthenticationFailed(gettext('Your session has expired. Sign in again.'))
         if shop_suspended(user):

@@ -1,0 +1,4 @@
+# Shell scripts and systemd/nginx files run on Linux: keep LF whatever the
+# checkout machine (core.autocrlf=true on Windows would give them CRLF).
+*.sh text eol=lf
+deploy/** text eol=lf

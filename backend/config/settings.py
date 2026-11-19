@@ -16,9 +16,12 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# DEBUG is off unless .env switches it on: a production server whose
+# .env forgot the line must not come up showing tracebacks.
 env = environ.Env(
-    DEBUG=(bool, True),
+    DEBUG=(bool, False),
 )
+TESTING = 'test' in sys.argv
 env_file = BASE_DIR / '.env'
 if env_file.exists():
     environ.Env.read_env(str(env_file))
@@ -38,7 +41,7 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 # DEBUG=False with that same placeholder key is the dangerous combination —
 # a deploy that forgot to set SECRET_KEY would otherwise come up quietly in
 # production with a public, known secret. Fail loudly instead.
-if not DEBUG and SECRET_KEY == _INSECURE_DEV_KEY:
+if not DEBUG and SECRET_KEY == _INSECURE_DEV_KEY and not TESTING:
     raise ImproperlyConfigured(
         'SECRET_KEY must be set via the environment (or .env) when DEBUG=False. '
         'Refusing to start with the placeholder dev key in a non-debug deployment.',
@@ -52,13 +55,23 @@ if not DEBUG and SECRET_KEY == _INSECURE_DEV_KEY:
 # would misfire.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=False)
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=False)
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=False)
+# Cookies (Django admin sign-in, CSRF) only over HTTPS unless DEBUG. The app
+# itself uses a token, not cookies. To use /admin/ on a new server before
+# TLS is set up, set both to False in .env for the time being.
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_HTTPONLY = True
+# An admin session ends when the browser closes, and after 2 hours anyway.
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=2 * 60 * 60)
 # Only set once HTTPS is confirmed working end to end, since a wrong HSTS
 # value is awkward for visitors to undo.
 SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=0)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False  # keep False: would affect all *.example.com
 SECURE_HSTS_PRELOAD = False
+# `check --deploy` (run in CI with --fail-level WARNING) warns about the two
+# lines above; they are deliberate, so only those two warnings are silenced.
+SILENCED_SYSTEM_CHECKS = ['security.W005', 'security.W021']
 
 
 # Application definition
@@ -264,18 +277,48 @@ REST_FRAMEWORK = {
         'user': env('THROTTLE_USER_RATE', default='1200/min'),
         'anon': env('THROTTLE_ANON_RATE', default='120/min'),
     },
+    # The anonymous ceiling is per address. nginx appends the real client
+    # address to X-Forwarded-For, so the last entry is the one to trust;
+    # with no proxy in front (dev server) DRF uses the socket address.
+    # One more for each further proxy (e.g. 2 behind Cloudflare + nginx).
+    'NUM_PROXIES': env.int('NUM_PROXIES', default=1),
 }
-if 'test' in sys.argv:
+if TESTING:
     # Tests make many requests as the same user from the same address.
     REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
 
 
-# Sign-in rules (core.authentication): a session lasts TOKEN_TTL_HOURS
-# from sign-in — long enough for a shift — and LOGIN_LOCKOUT_ATTEMPTS
-# wrong passwords lock that username for LOGIN_LOCKOUT_MINUTES.
+# Sign-in rules (core.authentication, core.login_guard): a session lasts
+# TOKEN_TTL_HOURS from sign-in — long enough for a shift. Over
+# LOGIN_LOCKOUT_MINUTES, LOGIN_LOCKOUT_ATTEMPTS wrong passwords for one
+# username from one address lock it there, LOGIN_LOCKOUT_GLOBAL_ATTEMPTS
+# from anywhere lock it everywhere, and LOGIN_IP_LOCKOUT_ATTEMPTS from
+# one address (any usernames) block that address. Wrong manager
+# passwords typed in at the till count too. AUTH_THROTTLE_RATE caps
+# requests per address to sign-in, sign-up and password reset.
 TOKEN_TTL_HOURS = env.int('TOKEN_TTL_HOURS', default=14)
 LOGIN_LOCKOUT_ATTEMPTS = env.int('LOGIN_LOCKOUT_ATTEMPTS', default=5)
+LOGIN_LOCKOUT_GLOBAL_ATTEMPTS = env.int('LOGIN_LOCKOUT_GLOBAL_ATTEMPTS', default=20)
+LOGIN_IP_LOCKOUT_ATTEMPTS = env.int('LOGIN_IP_LOCKOUT_ATTEMPTS', default=30)
 LOGIN_LOCKOUT_MINUTES = env.int('LOGIN_LOCKOUT_MINUTES', default=15)
+
+# The platform administrator (a superuser) sees every shop: their
+# sessions are shorter.
+SUPERUSER_TOKEN_TTL_HOURS = env.int('SUPERUSER_TOKEN_TTL_HOURS', default=4)
+AUTH_THROTTLE_RATE = None if TESTING else env('AUTH_THROTTLE_RATE', default='30/min')
+
+# Offline sales (pos.audit): one dated more than OFFLINE_SALE_CLOCK_GRACE_MINUTES
+# outside the shift it names, or more than OFFLINE_SALE_MAX_AGE_HOURS old,
+# is kept but reported to the owner (audit.alerts).
+OFFLINE_SALE_CLOCK_GRACE_MINUTES = env.int('OFFLINE_SALE_CLOCK_GRACE_MINUTES', default=15)
+OFFLINE_SALE_MAX_AGE_HOURS = env.int('OFFLINE_SALE_MAX_AGE_HOURS', default=48)
+
+# Security alerts (audit.alerts, `manage.py send_security_alerts`, every
+# 5 minutes from deploy/systemd/shop-security-alerts.timer): owners get
+# an SMS (and an email, if they have one) about offline sales at changed
+# prices or over a limit, accounts locked by wrong passwords, and a new
+# owner added to their shop. Blocked addresses go to ADMINS.
+SECURITY_ALERTS_LOOKBACK_HOURS = env.int('SECURITY_ALERTS_LOOKBACK_HOURS', default=24)
 
 # Shops sign themselves up (core.signup) and users reset a forgotten
 # password with a code sent by SMS (core.phone_codes). A code lasts
@@ -288,6 +331,13 @@ PHONE_CODE_MINUTES = env.int('PHONE_CODE_MINUTES', default=10)
 PHONE_CODE_ATTEMPTS = env.int('PHONE_CODE_ATTEMPTS', default=5)
 PHONE_CODE_PER_PHONE_HOURLY = env.int('PHONE_CODE_PER_PHONE_HOURLY', default=4)
 PHONE_CODE_PER_IP_HOURLY = env.int('PHONE_CODE_PER_IP_HOURLY', default=20)
+# A development server whose SMS_BACKEND sends nothing (noop/console) shows
+# the code on screen instead, but only when this is switched on as well:
+# that answer hands anyone the code for any account's password reset.
+# Refused outright with DEBUG off.
+SHOW_SMS_CODES = env.bool('SHOW_SMS_CODES', default=False)
+if SHOW_SMS_CODES and not DEBUG:
+    raise ImproperlyConfigured('SHOW_SMS_CODES=True is only allowed with DEBUG=True: it puts every SMS code in the API response.')
 
 
 # CORS — allow the local Vite dev server during development.

@@ -178,4 +178,8 @@ class ShopViewSet(viewsets.ModelViewSet):
         owner = serializer.save()
         record(Action.USER_CREATED, Summary('Owner {username} added to {name}', username=owner.username, name=entity.name), request=request,
                entity=entity, data={'user': owner.username})
+        # The shop's other owners are told (audit.alerts).
+        record(Action.ROLE_GRANTED, Summary('{role} at {where} for {user}', role=Role.ENTITY_ADMIN.label,
+                                            where='all stores', user=owner.username),
+               request=request, entity=entity, data={'role': Role.ENTITY_ADMIN, 'user': owner.username})
         return Response(OwnerSerializer(owner).data, status=201)

@@ -22,6 +22,7 @@ class AuditEvent(models.Model):
         SALE_VOIDED = 'sale_voided', gettext_lazy('Sale voided')
         OFFLINE_SALE_PRICE = 'offline_sale_price', gettext_lazy('Offline sale at an old price')
         OFFLINE_SALE_NO_STOCK = 'offline_sale_no_stock', gettext_lazy('Offline sale without recorded stock')
+        OFFLINE_SALE_LIMIT = 'offline_sale_limit', gettext_lazy('Offline sale over a limit')
         SHIFT_CLOSED = 'shift_closed', gettext_lazy('Shift closed')
         STOCK_WRITTEN_OFF = 'stock_written_off', gettext_lazy('Stock written off')
         STOCK_COUNT_APPROVED = 'stock_count_approved', gettext_lazy('Stock count approved')
@@ -76,3 +77,17 @@ class AuditEvent(models.Model):
 
     def __str__(self):
         return f'{self.created_at:%Y-%m-%d %H:%M} {self.username} {self.action}'
+
+
+class SecurityAlert(models.Model):
+    """One alert audit.alerts has sent (or found nobody to send to), so
+    the 5-minute job never sends it twice. `key` names what it is about:
+    an audit event ('event:<id>') or a lockout ('locked:<username>:<window>')."""
+    key = models.CharField(max_length=200, unique=True)
+    entity = models.ForeignKey(Entity, null=True, blank=True, on_delete=models.CASCADE, related_name='+')
+    text = models.CharField(max_length=500, blank=True)
+    recipients = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return self.key

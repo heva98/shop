@@ -47,7 +47,11 @@ export default function Login() {
     try {
       await login(username.trim(), password, remember)
     } catch (err) {
-      setError(err?.status === 429 ? err.body?.detail : t('Incorrect username or password.'))
+      if (err?.status === 429 || err?.status === 403) {
+        setError(err.body?.detail)
+      } else {
+        setError(t('Incorrect username or password.'))
+      }
     } finally {
       setSubmitting(false)
     }

@@ -95,6 +95,25 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+### Dependencies
+
+`requirements.in` lists what the app needs, as version ranges.
+`requirements.txt` is generated from it: every package, including
+dependencies of dependencies, is pinned to an exact version with its
+hashes, so pip refuses a file that has changed since it was locked. Install
+from `requirements.txt` only. To add or upgrade a package, edit
+`requirements.in`, then regenerate the lockfile and commit both:
+
+```bash
+pip install pip-tools
+pip-compile --generate-hashes --allow-unsafe --strip-extras --no-emit-index-url -o requirements.txt requirements.in
+pip install --require-hashes -r requirements.txt
+```
+
+CI (`.github/workflows/security.yml`) runs `pip-audit` against the lockfile
+on every push and every Monday. When it reports a vulnerable version, raise
+the range in `requirements.in` and lock again.
+
 Admin: http://localhost:8000/admin/
 API root: http://localhost:8000/api/<app>/ (see each app's `urls.py`) — e.g.
 `/api/core/stores/`, `/api/catalog/products/`, `/api/pos/sales/`.

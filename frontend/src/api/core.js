@@ -1,4 +1,4 @@
-import { client, listAll, setToken } from './client.js'
+import { client, getToken, listAll, setToken } from './client.js'
 
 export async function login(username, password) {
   const { token } = await client.post('/api/auth-token/', { username, password })
@@ -6,8 +6,16 @@ export async function login(username, password) {
   return token
 }
 
-export function logout() {
-  setToken(null)
+/** Ends the session on the server too, so a copied token stops working.
+ * With no connection the token is still forgotten here and expires on its own. */
+export async function logout() {
+  const token = getToken()
+  if (!token) return
+  try {
+    await client.post('/api/auth-token/logout/', {})
+  } catch { /* offline or already expired */ }
+  // Someone may have signed in again while this was on its way.
+  if (getToken() === token) setToken(null)
 }
 
 export const me = () => client.get('/api/core/users/me/')
