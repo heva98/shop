@@ -8,15 +8,23 @@
 // called while rendering can use the module-level t() directly.
 
 import { useSyncExternalStore } from 'react'
-import sw from './sw.js'
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', short: 'EN' },
   { code: 'sw', label: 'Kiswahili', short: 'SW' },
 ]
 
-const DICTIONARIES = { sw }
+// Dictionaries are downloaded only when their language is used (sw.js is
+// ~110 KB, which English users should not pay for on first load). The
+// service worker still saves the chunk, so switching works offline.
+const LOADERS = { sw: () => import('./sw.js') }
+const DICTIONARIES = {}
 const STORAGE_KEY = 'shop.language'
+
+function loadDictionary(code) {
+  if (DICTIONARIES[code] || !LOADERS[code]) return Promise.resolve()
+  return LOADERS[code]().then((m) => { DICTIONARIES[code] = m.default }, () => { /* offline and not saved: stays English */ })
+}
 
 function initialLanguage() {
   try {
@@ -28,8 +36,14 @@ function initialLanguage() {
 }
 
 let current = initialLanguage()
+let requested = current
 const listeners = new Set()
 document.documentElement.lang = current
+
+/** Resolves once the starting language's dictionary is loaded; main.jsx
+ * waits on it before the first render so a Swahili user never sees English
+ * flash first. */
+export const i18nReady = loadDictionary(current)
 
 export function getLanguage() {
   return current
@@ -41,11 +55,15 @@ export function hasChosenLanguage() {
 }
 
 export function setLanguage(code) {
-  if (code === current || !LANGUAGES.some((l) => l.code === code)) return
-  current = code
-  document.documentElement.lang = code
+  if (code === requested || !LANGUAGES.some((l) => l.code === code)) return
+  requested = code
   try { localStorage.setItem(STORAGE_KEY, code) } catch { /* not remembered */ }
-  listeners.forEach((fn) => fn())
+  loadDictionary(code).then(() => {
+    if (requested !== code || current === code) return // switched again meanwhile
+    current = code
+    document.documentElement.lang = code
+    listeners.forEach((fn) => fn())
+  })
 }
 
 export function t(text, vars) {

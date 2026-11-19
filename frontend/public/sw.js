@@ -6,7 +6,7 @@
 const CACHE = 'duka-erp-app-v1'
 const SHELL = '/index.html'
 
-// Every script and stylesheet of this deploy, from asset-list.json (written
+// Every script, stylesheet and font of this deploy, from asset-list.json (written
 // by the build, see vite.config.js). Screens load on demand, so it is more
 // than what index.html references; without the list (the dev server) fall
 // back to those.
@@ -32,7 +32,7 @@ async function saveShell() {
   // Drop the previous deploy's files; their names never come back.
   for (const req of await cache.keys()) {
     const { pathname } = new URL(req.url)
-    if (pathname.startsWith('/assets/') && /\.(js|css)$/.test(pathname) && !assets.has(pathname)) await cache.delete(req)
+    if (pathname.startsWith('/assets/') && /\.(js|css|woff2)$/.test(pathname) && !assets.has(pathname)) await cache.delete(req)
   }
 }
 

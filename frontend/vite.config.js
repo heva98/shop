@@ -1,14 +1,14 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-/** Writes asset-list.json: every script and stylesheet the build produced.
+/** Writes asset-list.json: every script, stylesheet and font the build produced.
  * The service worker (public/sw.js) saves them all, so screens that load
  * on demand still open with no connection. */
 function assetList() {
   return {
     name: 'asset-list',
     generateBundle(_options, bundle) {
-      const files = Object.keys(bundle).filter((name) => /\.(js|css)$/.test(name)).map((name) => `/${name}`).sort()
+      const files = Object.keys(bundle).filter((name) => /\.(js|css|woff2)$/.test(name)).map((name) => `/${name}`).sort()
       this.emitFile({ type: 'asset', fileName: 'asset-list.json', source: JSON.stringify(files) })
     },
   }

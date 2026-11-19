@@ -1,15 +1,18 @@
 import {
   AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowLeftRight, ArrowUp, BarChart3, Building2, Calendar, CalendarClock, Check, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Download, ExternalLink, FileText, Filter, Folder, Globe,
-  GripVertical, Info, LayoutDashboard, LayoutGrid, Lock, LogOut, Mail, MapPin, Maximize2, Menu as MenuIcon, MessageSquare, MoreHorizontal,
+  GripVertical, Home, Info, LayoutDashboard, LayoutGrid, Lock, LogOut, Mail, MapPin, Maximize2, Menu as MenuIcon, MessageSquare, MoreHorizontal,
   BadgePercent, Beer, BookUser, CarFront, Carrot, Pill, Package, PackageCheck, PackageX, PanelLeftClose, PanelLeftOpen, Pencil, Phone, Plus, Printer, RefreshCw,
   Database, Layers, Pin, PinOff, SlidersHorizontal, Table2, Wand2,
   Save, ScanBarcode, ShieldCheck, Search, Settings, Share2, ShoppingBag, ShoppingCart, Star, Store, Trash2, TrendingUp, TriangleAlert, Upload, UserRound, Users, Wallet, Wrench, X,
 } from 'lucide-react'
-import icons from './icons.generated.js'
+
+const StarFilled = (props) => <Star fill="currentColor" {...props} />
 
 // Lucide-style 2px stroke icons (DESIGN.md › Iconography). Names are the
-// app's own; the old "-16"/"-24" svg set is only a fallback for unmapped names.
+// app's own; an unknown name renders nothing. (The old inline-SVG fallback
+// set was dropped: it added ~45 KB to the first download and every one of
+// its names is covered here.)
 const LUCIDE = {
   dashboard: LayoutDashboard, 'dashboard-window': LayoutDashboard, pos: ShoppingCart, table: ShoppingCart,
   stock: Package, receiving: PackageCheck, transfer: ArrowLeftRight, share: Share2, customers: BookUser,
@@ -22,26 +25,14 @@ const LUCIDE = {
   'user-group': Users, 'panel-close': PanelLeftClose, 'panel-open': PanelLeftOpen, more: MoreHorizontal,
   clock: Clock, wallet: Wallet, 'package-x': PackageX, expiry: CalendarClock, calendar: Calendar, edit: Pencil,
   delete: Trash2, print: Printer, 'arrow-up': ArrowUp, 'arrow-down': ArrowDown, mail: Mail, sync: RefreshCw,
-  filter: Filter, lock: Lock, star: Star, save: Save, world: Globe, fullscreen: Maximize2, messages: MessageSquare,
-  apps: LayoutGrid, 'drag-handle': GripVertical, launch: ExternalLink, menu: MenuIcon, promotion: BadgePercent,
+  filter: Filter, lock: Lock, star: Star, 'star-filled': StarFilled, save: Save, world: Globe, fullscreen: Maximize2, messages: MessageSquare,
+  apps: LayoutGrid, 'drag-handle': GripVertical, launch: ExternalLink, menu: MenuIcon, promotion: BadgePercent, home: Home,
   barcode: ScanBarcode, database: Database, layers: Layers, pin: Pin, 'pin-off': PinOff, sliders: SlidersHorizontal,
   'pivot-table': Table2, wand: Wand2, 'arrow-right': ArrowRight, 'arrow-left': ArrowLeft, phone: Phone, grocery: Carrot, pharmacy: Pill, bar: Beer, shield: ShieldCheck, tools: Wrench, car: CarFront,
 }
 
 export default function Icon({ name, size = 18, style, className, strokeWidth = 2 }) {
-  if (!name) return null
-  const Lucide = LUCIDE[name]
-  if (Lucide) {
-    return <Lucide size={size} strokeWidth={strokeWidth} className={className} style={{ flex: `0 0 ${size}px`, ...style }} aria-hidden="true" />
-  }
-  const svg = icons[`${name}-${size}`] || icons[`${name}-24`]
-  if (!svg) return null
-  return (
-    <span
-      className={className}
-      aria-hidden="true"
-      style={{ display: 'inline-flex', width: size, height: size, flex: `0 0 ${size}px`, ...style }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  )
+  const Lucide = name && LUCIDE[name]
+  if (!Lucide) return null
+  return <Lucide size={size} strokeWidth={strokeWidth} className={className} style={{ flex: `0 0 ${size}px`, ...style }} aria-hidden="true" />
 }

@@ -3,15 +3,19 @@ import { BRAND_NAME, NAV_DEFS, ROLE_LABEL, roleLabels } from './appData.js'
 import { HeaderBar, MobileHeader, MobileMenu, MobileTabBar, NoticeBox, Sidebar } from './components/ds/index.js'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useOutbox, useOutboxSync } from './hooks/useOutbox.js'
-// Signing in, the dashboard and the till are in the first download; every
-// other screen loads when first opened (the service worker keeps them all
-// for offline use, see public/sw.js), so the till starts faster.
+// Only signing in is in the first download, so the first page opens fast
+// on a slow connection. The dashboard and till start downloading as soon as
+// someone is signed in (see the effect in App); every other screen loads
+// when first opened. The service worker keeps them all for offline use
+// (public/sw.js).
 import Login from './screens/Login.jsx'
-import Dashboard from './screens/Dashboard.jsx'
-import Pos from './screens/Pos.jsx'
 import ChangePassword from './screens/ChangePassword.jsx'
 import { t, useT } from './i18n/index.js'
 
+const loadDashboard = () => import('./screens/Dashboard.jsx')
+const loadPos = () => import('./screens/Pos.jsx')
+const Dashboard = lazy(loadDashboard)
+const Pos = lazy(loadPos)
 const Stock = lazy(() => import('./screens/Stock.jsx'))
 const Receiving = lazy(() => import('./screens/Receiving.jsx'))
 const Enquiries = lazy(() => import('./screens/Enquiries.jsx'))
@@ -68,6 +72,11 @@ export default function App() {
       window.removeEventListener('offline', goOffline)
     }
   }, [])
+
+  const signedIn = auth.status === 'signed-in'
+  useEffect(() => {
+    if (signedIn) { loadDashboard().catch(() => {}); loadPos().catch(() => {}) }
+  }, [signedIn])
 
   if (auth.status === 'loading') return null
   if (auth.status === 'signed-out') return <Login />

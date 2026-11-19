@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Button, Checkbox, Field, Icon, LanguageSwitch, NoticeBox } from '../components/ds/index.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { BRAND_NAME } from '../appData.js'
 import storesImg from '../assets/login/stores.webp'
-import Signup from './Signup.jsx'
-import ForgotPassword from './ForgotPassword.jsx'
 import { useT } from '../i18n/index.js'
+
+// Loaded when opened, so the sign-in page itself downloads faster.
+const Signup = lazy(() => import('./Signup.jsx'))
+const ForgotPassword = lazy(() => import('./ForgotPassword.jsx'))
 
 const FEATURES = [
   { icon: 'pos', label: 'Sales & POS' },
@@ -105,8 +107,10 @@ export default function Login() {
 
       <main className="signin-card">
         <div className="signin-lang"><LanguageSwitch /></div>
+        <Suspense fallback={null}>
         {view === 'signup' && <Signup onBack={() => setView('signin')} />}
         {view === 'forgot' && <ForgotPassword initialUsername={username.trim()} onBack={() => setView('signin')} />}
+        </Suspense>
         {view === 'signin' && (
         <form onSubmit={onSubmit} className="signin-form">
           <h1 className="signin-title">{t('Welcome Back')}</h1>
